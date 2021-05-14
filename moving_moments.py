@@ -142,6 +142,7 @@ def full_split_moments(cube: Cube,
     """
     # Index of the minimum velocity
     vel = cube.spectral_axis - vlsr
+    vel = vel.to(u.km / u.s)
     ind = np.nanargmin(np.abs(vel))
     if log is not None:
         log.info(f'Spectral axis length: {vel.size}')
@@ -171,7 +172,11 @@ def full_split_moments(cube: Cube,
             print('-' * 50)
             log.info('Calculating moments for ranges:')
             log.info(f'Lower band: {min_lb} -- {max_lb - 1}')
+            log.info((f'            {vel[min_lb].value} -- '
+                      f'{vel[max_lb - 1].value} {vel.unit}'))
             log.info(f'Upper band: {min_ub} -- {max_ub - 1}')
+            log.info((f'            {vel[min_ub].value} -- '
+                      f'{vel[max_ub - 1].value} {vel.unit}'))
         aux_lb = cube[min_lb:max_lb, :, :]
         aux_ub = cube[min_ub:max_ub, :, :]
 
@@ -381,6 +386,7 @@ def _proc(args):
             # Shrink cube
             if args.shrink:
                 args.log.info('Shrinking subcube')
+                subcube.allow_huge_operations = True
                 subcube = subcube.minimal_subcube()
 
             # Calculate moments
