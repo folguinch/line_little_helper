@@ -1,3 +1,4 @@
+"""Plotting tools for results."""
 from typing import Optional, Tuple
 
 import astropy.units as u
@@ -8,10 +9,10 @@ from common_types import Plot, Table
 from processing_tools import combine_columns
 from spectrum import Spectrum
 
-def get_freq_lim(freq_range: Tuple[u.Quantity, u.Quantity], 
+def get_freq_lim(freq_range: Tuple[u.Quantity, u.Quantity],
                  ratio: float = 1/2) -> Tuple[float, float]:
     """Calculate the frequency limits from range.
-    
+
     Args:
       freq_range: frequency range
       ratio: optional; fraction of the range width to use as limit border.
@@ -20,12 +21,12 @@ def get_freq_lim(freq_range: Tuple[u.Quantity, u.Quantity],
     border = width.value * ratio
     return freq_range[0].value - border, freq_range[1].value + border
 
-def plot_markers(ax: plt.Axes, table: Table, key: str, 
+def plot_markers(ax: plt.Axes, table: Table, key: str,
                  color_key: Optional[str] = None,
                  top: Optional[int] = None,
                  plot_null: bool = False) -> None:
     """Plot frequency marker with values from table.
-    
+
     Args:
       ax: plot axis.
       table: table with values.
@@ -36,8 +37,8 @@ def plot_markers(ax: plt.Axes, table: Table, key: str,
     """
     # Defaults
     labels = {'log10Aij': r'$\log A_{ij}$'}
-    colors = ['#330000', '#550000', '#770000', '#990000', '#bb0000', '#dd0000',
-              '#ff0000', '#ff2222', '#ff4444', '#ff6666', '#ff8888']
+    #colors = ['#330000', '#550000', '#770000', '#990000', '#bb0000', '#dd0000',
+    #          '#ff0000', '#ff2222', '#ff4444', '#ff6666', '#ff8888']
 
     # Checks
     if color_key is None:
@@ -68,14 +69,14 @@ def plot_markers(ax: plt.Axes, table: Table, key: str,
             size=15)
     ax.legend(handles, leg_labels, loc=(1.2, 0.0))
 
-def plot_spectrum(spec: Spectrum, 
+def plot_spectrum(spec: Spectrum,
                   freq_range: Tuple[u.Quantity],
-                  table: Optional[Table] = None, 
+                  table: Optional[Table] = None,
                   key: Optional[str] = None,
                   color_key: Optional[str] = None,
                   top: Optional[int] = None) -> Plot:
     """Plot spectrum.
-    
+
     Args:
       spec: spectrum.
       freq_range: frequency range.
@@ -85,10 +86,7 @@ def plot_spectrum(spec: Spectrum,
       top: optional; only plot the top n values from table.
     """
     # Figure
-    try:
-        plt.close()
-    except:
-        pass
+    plt.close()
     fig = plt.figure(figsize=(5, 6))
     ax1 = fig.add_subplot(111)
     ax2 = ax1.twinx()
@@ -100,7 +98,7 @@ def plot_spectrum(spec: Spectrum,
     cent = spec.centroid(*freq_range)
     ax1.axvline(cent.value, ls='--', c='#6f6f6f')
     ax1.set_ylim(bottom=-0.001)
-    ax1.set_ylabel(f'Intensity ({spec.intensity.unit:latex_inline})', 
+    ax1.set_ylabel(f'Intensity ({spec.intensity.unit:latex_inline})',
                    color='b')
     ax1.set_xlabel(f'Frequency ({spec.spectral_axis.unit:latex_inline})')
 

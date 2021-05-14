@@ -1,3 +1,4 @@
+"""Analysis tools for line searching."""
 from typing import Optional
 
 import numpy as np
@@ -16,23 +17,23 @@ def _single_analysis(result: ResultHandler):
 
     # Calculate distances
     result.distance_to(peak, 'distance_peak')
-    result.distance_to(centroid, 'distance_cen', sort=True, 
+    result.distance_to(centroid, 'distance_cen', sort=True,
                        extra_sort_keys=['log10Aij'])
 
 def simple_analysis(results: ResultsHandler, spectra: Spectra):
     """Perform simple analysis of individual results."""
     # Iterate over results
-    for key, val in results.items():
+    for val in results.values():
         # Set spectrum
         val.spec_from_spectra(spectra)
 
         # Perform analysis
         _single_analysis(val)
 
-def _get_values(result: ResultHandler, stats: StatsHandler, 
+def _get_values(result: ResultHandler, stats: StatsHandler,
                 key: str, top: Optional[int] = None) -> StatsHandler:
     """Store values in distance key per species in results.
-    
+
     Args:
       result: result handler with the tables.
       stats: stats handler to store the handlers.
@@ -55,7 +56,7 @@ def _get_values(result: ResultHandler, stats: StatsHandler,
         mask = ind == i
         value = np.nanmin(results[mask]) * results.unit
         stats.update(sp, value)
-    
+
     return stats
 
 def results_per_line(results: ResultsHandler, top: Optional[int] = None,
@@ -66,11 +67,11 @@ def results_per_line(results: ResultsHandler, top: Optional[int] = None,
 
     # Separate by species
     for result in results.values():
-        stats = _get_values(result, stats, distance_key)
+        stats = _get_values(result, stats, distance_key, top=top)
 
     return stats
 
-def advanced_analysis(results: ResultsHandler, filename: Path, 
+def advanced_analysis(results: ResultsHandler, filename: Path,
                       top: Optional[int] = None,
                       distance_key: str = 'distance_cen') -> None:
     """Analyse the results and save them."""
@@ -80,7 +81,7 @@ def advanced_analysis(results: ResultsHandler, filename: Path,
 
     # Save stats
     fmt = '{name}\t{mean.value}\t{stdev.value}\t{median.value}'
-    units = [f'{val.unit}' 
+    units = [f'{val.unit}'
              for key, val in stats_per_line[0].items() if key != 'name']
     header = ['#Species\tmean\tstddev\tmedian', '#\t' + '\t'.join(units)]
     lines = [fmt.format(**res) for res in stats_per_line]

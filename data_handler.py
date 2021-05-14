@@ -1,3 +1,4 @@
+"""Data handler classes for result and statistics tables."""
 from typing import List, Optional
 
 import astropy.units as u
@@ -17,11 +18,11 @@ class ResultHandler:
       info: additional information (e.g. spw).
       spectrum: observed spectrum.
     """
-    
-    def __init__(self, 
-                 index: Optional[int] = None, 
-                 table: Optional[Table] = None, 
-                 info: Optional[dict] = None, 
+
+    def __init__(self,
+                 index: Optional[int] = None,
+                 table: Optional[Table] = None,
+                 info: Optional[dict] = None,
                  spectrum: Optional[Spectrum] = None) -> None:
         """Initialize a ResultHandler object."""
         self.index = index
@@ -47,7 +48,7 @@ class ResultHandler:
 
         The info dictionary is updated with the value of the input frequency
         range for future reference.
-        
+
         Args:
           index: result index.
           freq_range: frequency range.
@@ -55,7 +56,7 @@ class ResultHandler:
         """
         # Query
         table = query_lines(freq_range)
-        
+
         # Update info
         info['freq_low'] = freq_range[0]
         info['freq_up'] = freq_range[1]
@@ -72,14 +73,14 @@ class ResultHandler:
 
         To determine the output name (in order of priority):
           - Use the values from fields. Example: fields=['spw','n'] will
-            be converted to a key 'spw<spw value>_n<n value>'. 
+            be converted to a key 'spw<spw value>_n<n value>'.
           - A name field in the input array.
           - If spw is values dtype fields:
               - If index key field is in values:
                 name='spw<spw value>_<index_key value>'.
               - else: name='spw<spw value>_<index>'.
           - The index as string.
-        
+
         Args:
           index: index of the result.
           fields: optional; fields used to determine the name.
@@ -97,7 +98,7 @@ class ResultHandler:
                 key.append(f'{field}{values[field]}')
             key = '_'.join(key)
         elif values is not None and name_field in values.dtype.names:
-            key = f"{array['name']}"
+            key = f'{values[name_field]}'
         elif values is not None and 'spw' in values.dtype.names:
             if index_key in values.dtype.fields:
                 key = f"spw{values['spw']}_{values[index_key]}"
@@ -144,8 +145,8 @@ class ResultHandler:
     def central_freq(self) -> u.Quantity:
         """Return the central frequency in the spectral range."""
         return (self.freq_low + self.freq_up) / 2
-    
-    def distance_to(self, freq: u.Quantity, name: str, sort: bool = False, 
+
+    def distance_to(self, freq: u.Quantity, name: str, sort: bool = False,
                     extra_sort_keys: list = []) -> None:
         """Calculate a new column with the distance to the input frequency.
 
@@ -167,10 +168,10 @@ class ResultHandler:
         if sort:
             self.table.sort([name] + extra_sort_keys)
 
-    def plot(self, filename: Path, spectra: Optional[Spectra] = None, 
+    def plot(self, filename: Path, spectra: Optional[Spectra] = None,
              top: Optional[int] = None) -> Plot:
         """Plot results.
-        
+
         Args:
           filename: plot file name.
           spectra: optional; store spectrum if not yet stored.
@@ -188,7 +189,7 @@ class ResultHandler:
         else:
             color_key = None
         plt = plot_spectrum(self.spectrum, self.freq_range, table=self.table,
-                            key='log10Aij', color_key=color_key)
+                            key='log10Aij', color_key=color_key, top=top)
         plt[0].savefig(filename, bbox_inches='tight')
 
         return plt
@@ -197,15 +198,15 @@ class ResultsHandler(dict):
     """Class for handling ResultHandler objects."""
 
     @classmethod
-    def from_struct_array(cls, 
-                          array: np.array, 
-                          units: dict, 
+    def from_struct_array(cls,
+                          array: np.array,
+                          units: dict,
                           freq_cols: List[str] = ['freq_low', 'freq_up'],
                           name_cols: Optional[List[str]] = None,
                           info_keys: List[str] = ['spw'],
                           index_key: str = 'n') -> dict:
         """Create a results handler from structured array data.
-        
+
         Args:
           array: numpy structured array with frequency range data.
           units: units of the columns in array.
@@ -229,7 +230,7 @@ class ResultsHandler(dict):
             # Info
             names = row.dtype.names
             info = {key: row[key] for key in info_keys if key in names}
-            
+
             # Query
             results.append(ResultHandler.from_query(i, freq_range, info))
 
@@ -244,7 +245,7 @@ class ResultsHandler(dict):
                 newfile = filename.with_suffix(f'.{key}.ecsv')
             result.table.write(newfile, format='ascii.ecsv')
 
-    def plot(self, filename: Path, spectra: Optional[Spectra] = None, 
+    def plot(self, filename: Path, spectra: Optional[Spectra] = None,
              top: Optional[int] = None) -> None:
         """Plot all results.
 
@@ -259,11 +260,11 @@ class ResultsHandler(dict):
             else:
                 suff = filename.suffix
                 newfile = filename.with_suffix(f'.{key}{suff}')
-            plt = val.plot(newfile, spectra=spectra, top=top)
+            val.plot(newfile, spectra=spectra, top=top)
 
 class StatsHandler(dict):
     """Class for handling results and statistics."""
-    
+
     def update(self, key: str, val: u.Quantity) -> None:
         """Update the dictionary and the values stored."""
         aux = self.get(key)
@@ -285,4 +286,4 @@ class StatsHandler(dict):
             aux.append(stats)
 
         return aux
-            
+
