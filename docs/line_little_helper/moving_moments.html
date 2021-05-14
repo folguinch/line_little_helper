@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>line_little_helper.moving_moments API documentation</title>
+<meta name="description" content="Find line velocity at peak and calculate 1st moment maps incresing the
+number of channels." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>line_little_helper.moving_moments</code></h1>
+</header>
+<section id="section-intro">
+<p>Find line velocity at peak and calculate 1st moment maps incresing the
+number of channels.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">#!/bin/bash
+&#34;&#34;&#34;Find line velocity at peak and calculate 1st moment maps incresing the
+number of channels.
+&#34;&#34;&#34;
+import argparse
+import os
+import sys
+
+from astropy.io import fits
+from astropy.stats import gaussian_fwhm_to_sigma
+from toolkit.math import quick_rms
+import astropy.units as u
+import toolkit.argparse_tools.actions as actions
+import toolkit.argparse_tools.parents as parents
+import toolkit.argparse_tools.loaders as aploaders
+import numpy as np
+import scipy.ndimage as ndimg
+
+def get_header(cube, bunit=None):
+    # Header
+    header = cube.wcs.sub([&#39;longitude&#39;, &#39;latitude&#39;]).to_header()
+
+    # Unit
+    if bunit is not None:
+        header[&#39;BUNIT&#39;] = &#39;{0:FITS}&#39;.format(bunit)
+
+    # Copy other cards
+    cards = [&#39;BMIN&#39;, &#39;BMAJ&#39;, &#39;BPA&#39;]
+    for card in cards:
+        if card in cube.header:
+            header[card] = cube.header[card]
+
+    return header
+
+def save_mask(mask, header, filename, dtype=int):
+    hdu = fits.PrimaryHDU(mask.astype(dtype))
+    hdu.header = header
+    hdu.writeto(filename, overwrite=True)
+
+def get_results(vel, data, cube, outdir, logger, savemasks=False):
+    # Max index along spectral axis
+    mask = np.all(data.mask, axis=0)
+    maxind = np.nanargmax(data, axis=0)
+    maxvel = vel[maxind]
+    maxvel[mask] = np.nan
+
+    # Save
+    output = os.path.join(outdir[0], &#39;line_%s.fits&#39;)
+    hdu = fits.PrimaryHDU(maxind)
+    hdu.header = get_header(cube)
+    hdu.writeto(output % &#39;spec_peak_index&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+    hdu = fits.PrimaryHDU(maxvel.value)
+    hdu.header = get_header(cube, bunit=vel.unit)
+    hdu.writeto(output % &#39;spec_peak_vel&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+
+    # FHWM and stddev in channels
+    data_filled = np.ma.filled(data, fill_value=np.nan)
+    mask = data_filled &gt; 0.5*np.nanmax(data_filled, axis=0)
+    mask[data.mask] = False
+    if savemasks:
+        filename = output % (&#39;fwhm_mask&#39;)
+        save_mask(mask, cube.header, filename, dtype=float)
+    fwhm_chan = np.sum(mask, axis=0)
+    fwhm_chan = np.ma.array(fwhm_chan, mask=np.all(data.mask, axis=0))
+    sigma = gaussian_fwhm_to_sigma * fwhm_chan
+    medchan = int(np.ma.median(sigma))
+    meanchan = int(np.ma.mean(sigma))
+    logger.info(&#39;Median line stddev: %i channels&#39;, medchan)
+    logger.info(&#39;Mean line stddev: %i channels&#39;, meanchan)
+    if medchan==0:
+        logger.warn(&#39;Median linewidth=0, using 1 instead&#39;)
+        medchan = 1
+
+    # Iterate over sigma values
+    binstruc = np.zeros((3,)*3, dtype=bool)
+    binstruc[:, 1, 1] = True
+    m, n = maxind.shape
+    I, J = np.ogrid[:m,:n]
+    imgs = []
+    for i in [1, 2, 3, 5, 8, 10]:
+        # Auxiliary mask
+        aux = np.zeros(data.shape, dtype=bool)
+
+        # Set max values to True
+        aux[maxind, I, J] = True
+        aux[0][np.all(data.mask, axis=0)] = False
+        if i==1 and savemasks:
+            filename = output % (&#39;moment1_0sigma_mask&#39;)
+            save_mask(aux, cube.header, filename)
+
+        # Dilate mask
+        logger.info(&#39;Dilating %i times&#39;, i*medchan)
+        aux = ndimg.binary_dilation(aux, structure=binstruc, 
+                iterations=i*medchan)
+        aux = aux &amp; ~data.mask
+        if savemasks:
+            filename = output % (&#39;moment1_%isigma_mask&#39; % i)
+            save_mask(aux, cube.header, filename)
+
+        # Subcube
+        aux = cube.with_mask(aux)
+        aux = aux.moment(order=1)
+        aux.write(output % (&#39;moment1_%isigma&#39; % i), overwrite=True)
+
+def loader(args):
+    # Load cube
+    args.log.info(&#39;Loading cube&#39;)
+    args.cube(args, args.cubename)
+
+    # Load config
+    args.log.info(&#39;Loading configuration&#39;)
+    args.config(args, args.lineconfig)
+
+def proc(args):
+    # Create subcube
+    chan1, chan2 = args.config.getintlist(args.section[0],&#39;chanran&#39;)
+    args.log.info(&#39;Channel range: %i, %i&#39;, chan1, chan2)
+    restfreq = args.config.getquantity(args.section[0],&#39;freq&#39;)
+    subcube = args.cube[chan1:chan2+1,:,:]
+    subcube = subcube.with_spectral_unit(u.km/u.s, 
+            velocity_convention=&#39;radio&#39;,
+            rest_value=restfreq)
+
+    # Create cube mask
+    if &#39;RMS&#39; in subcube.header:
+        args.log.info(&#39;RMS key in cube header&#39;)
+        rms = float(subcube.header[&#39;RMS&#39;])*subcube.unit
+    else:
+        args.log.info(&#39;Calculating rms value&#39;)
+        rms = quick_rms(subcube)*subcube.unit
+    args.log.info(&#39;rms value: {0.value} {0.unit}&#39;.format(rms))
+    args.log.info(&#39;Filtering out data &lt; %i rms&#39;, args.nsigma)
+    mask = subcube &gt; rms*args.nsigma
+    subcube = subcube.with_mask(mask)
+    if args.shrink:
+        subcube = subcube.minimal_subcube()
+    data = subcube.filled_data[:].to(rms.unit).value
+    data = np.ma.array(data, mask=np.isnan(data))
+
+    # Velocity axis
+    vel = subcube.spectral_axis
+
+    # Calculate results
+    get_results(vel, data, subcube, args.outdir, args.log,
+            savemasks=args.savemasks)
+
+def main(args):
+    &#34;&#34;&#34;Moment 1 maps from different windows.
+    
+    Args:
+      args: arguments for argparse.
+    &#34;&#34;&#34;
+    # Parser
+    pipe = [loader, proc]
+    args_parents = [parents.logger(&#39;debug_moving_moments.log&#39;)]
+    parser = argparse.ArgumentParser(
+        add_help=True,
+        description=&#39;Moment 1 maps from incresing local window size&#39;,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        parents=args_parents)
+    parser.add_argument(&#39;--shrink&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Shrink to minimal cube&#39;)
+    parser.add_argument(&#39;--savemasks&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Save masks at each step&#39;)
+    group1 = parser.add_mutually_exclusive_group(required=True)
+    #parser.add_argument(&#39;lineconfig&#39;, nargs=1, action=actions.CheckFile,
+    #                    help=&#39;Line configuration file&#39;)
+    #parser.add_argument(&#39;section&#39;, nargs=1,
+    #                    help=&#39;Configuration section&#39;)
+
+    parser.add_argument(&#39;cubename&#39;, nargs=1, action=actions.CheckFile,
+                        help=&#39;Cube file name&#39;)
+    parser.add_argument(&#39;outdir&#39;, nargs=1, action=actions.MakePath,
+                        help=&#39;Output directory&#39;)
+    parser.set_defaults(pipe=pipe, results=None,
+            cube=aploaders.load_spectral_cube,
+            config=aploaders.load_config, nsigma=5.)
+    args = parser.parse_args(args)
+    for fn in args.pipe:
+        fn(args)
+
+if __name__==&#39;__main__&#39;:
+    main(sys.argv[1:])</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="line_little_helper.moving_moments.get_header"><code class="name flex">
+<span>def <span class="ident">get_header</span></span>(<span>cube, bunit=None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_header(cube, bunit=None):
+    # Header
+    header = cube.wcs.sub([&#39;longitude&#39;, &#39;latitude&#39;]).to_header()
+
+    # Unit
+    if bunit is not None:
+        header[&#39;BUNIT&#39;] = &#39;{0:FITS}&#39;.format(bunit)
+
+    # Copy other cards
+    cards = [&#39;BMIN&#39;, &#39;BMAJ&#39;, &#39;BPA&#39;]
+    for card in cards:
+        if card in cube.header:
+            header[card] = cube.header[card]
+
+    return header</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.get_results"><code class="name flex">
+<span>def <span class="ident">get_results</span></span>(<span>vel, data, cube, outdir, logger, savemasks=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_results(vel, data, cube, outdir, logger, savemasks=False):
+    # Max index along spectral axis
+    mask = np.all(data.mask, axis=0)
+    maxind = np.nanargmax(data, axis=0)
+    maxvel = vel[maxind]
+    maxvel[mask] = np.nan
+
+    # Save
+    output = os.path.join(outdir[0], &#39;line_%s.fits&#39;)
+    hdu = fits.PrimaryHDU(maxind)
+    hdu.header = get_header(cube)
+    hdu.writeto(output % &#39;spec_peak_index&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+    hdu = fits.PrimaryHDU(maxvel.value)
+    hdu.header = get_header(cube, bunit=vel.unit)
+    hdu.writeto(output % &#39;spec_peak_vel&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+
+    # FHWM and stddev in channels
+    data_filled = np.ma.filled(data, fill_value=np.nan)
+    mask = data_filled &gt; 0.5*np.nanmax(data_filled, axis=0)
+    mask[data.mask] = False
+    if savemasks:
+        filename = output % (&#39;fwhm_mask&#39;)
+        save_mask(mask, cube.header, filename, dtype=float)
+    fwhm_chan = np.sum(mask, axis=0)
+    fwhm_chan = np.ma.array(fwhm_chan, mask=np.all(data.mask, axis=0))
+    sigma = gaussian_fwhm_to_sigma * fwhm_chan
+    medchan = int(np.ma.median(sigma))
+    meanchan = int(np.ma.mean(sigma))
+    logger.info(&#39;Median line stddev: %i channels&#39;, medchan)
+    logger.info(&#39;Mean line stddev: %i channels&#39;, meanchan)
+    if medchan==0:
+        logger.warn(&#39;Median linewidth=0, using 1 instead&#39;)
+        medchan = 1
+
+    # Iterate over sigma values
+    binstruc = np.zeros((3,)*3, dtype=bool)
+    binstruc[:, 1, 1] = True
+    m, n = maxind.shape
+    I, J = np.ogrid[:m,:n]
+    imgs = []
+    for i in [1, 2, 3, 5, 8, 10]:
+        # Auxiliary mask
+        aux = np.zeros(data.shape, dtype=bool)
+
+        # Set max values to True
+        aux[maxind, I, J] = True
+        aux[0][np.all(data.mask, axis=0)] = False
+        if i==1 and savemasks:
+            filename = output % (&#39;moment1_0sigma_mask&#39;)
+            save_mask(aux, cube.header, filename)
+
+        # Dilate mask
+        logger.info(&#39;Dilating %i times&#39;, i*medchan)
+        aux = ndimg.binary_dilation(aux, structure=binstruc, 
+                iterations=i*medchan)
+        aux = aux &amp; ~data.mask
+        if savemasks:
+            filename = output % (&#39;moment1_%isigma_mask&#39; % i)
+            save_mask(aux, cube.header, filename)
+
+        # Subcube
+        aux = cube.with_mask(aux)
+        aux = aux.moment(order=1)
+        aux.write(output % (&#39;moment1_%isigma&#39; % i), overwrite=True)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.loader"><code class="name flex">
+<span>def <span class="ident">loader</span></span>(<span>args)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def loader(args):
+    # Load cube
+    args.log.info(&#39;Loading cube&#39;)
+    args.cube(args, args.cubename)
+
+    # Load config
+    args.log.info(&#39;Loading configuration&#39;)
+    args.config(args, args.lineconfig)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.main"><code class="name flex">
+<span>def <span class="ident">main</span></span>(<span>args)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Moment 1 maps from different windows.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>args</code></strong></dt>
+<dd>arguments for argparse.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def main(args):
+    &#34;&#34;&#34;Moment 1 maps from different windows.
+    
+    Args:
+      args: arguments for argparse.
+    &#34;&#34;&#34;
+    # Parser
+    pipe = [loader, proc]
+    args_parents = [parents.logger(&#39;debug_moving_moments.log&#39;)]
+    parser = argparse.ArgumentParser(
+        add_help=True,
+        description=&#39;Moment 1 maps from incresing local window size&#39;,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        parents=args_parents)
+    parser.add_argument(&#39;--shrink&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Shrink to minimal cube&#39;)
+    parser.add_argument(&#39;--savemasks&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Save masks at each step&#39;)
+    group1 = parser.add_mutually_exclusive_group(required=True)
+    #parser.add_argument(&#39;lineconfig&#39;, nargs=1, action=actions.CheckFile,
+    #                    help=&#39;Line configuration file&#39;)
+    #parser.add_argument(&#39;section&#39;, nargs=1,
+    #                    help=&#39;Configuration section&#39;)
+
+    parser.add_argument(&#39;cubename&#39;, nargs=1, action=actions.CheckFile,
+                        help=&#39;Cube file name&#39;)
+    parser.add_argument(&#39;outdir&#39;, nargs=1, action=actions.MakePath,
+                        help=&#39;Output directory&#39;)
+    parser.set_defaults(pipe=pipe, results=None,
+            cube=aploaders.load_spectral_cube,
+            config=aploaders.load_config, nsigma=5.)
+    args = parser.parse_args(args)
+    for fn in args.pipe:
+        fn(args)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.proc"><code class="name flex">
+<span>def <span class="ident">proc</span></span>(<span>args)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def proc(args):
+    # Create subcube
+    chan1, chan2 = args.config.getintlist(args.section[0],&#39;chanran&#39;)
+    args.log.info(&#39;Channel range: %i, %i&#39;, chan1, chan2)
+    restfreq = args.config.getquantity(args.section[0],&#39;freq&#39;)
+    subcube = args.cube[chan1:chan2+1,:,:]
+    subcube = subcube.with_spectral_unit(u.km/u.s, 
+            velocity_convention=&#39;radio&#39;,
+            rest_value=restfreq)
+
+    # Create cube mask
+    if &#39;RMS&#39; in subcube.header:
+        args.log.info(&#39;RMS key in cube header&#39;)
+        rms = float(subcube.header[&#39;RMS&#39;])*subcube.unit
+    else:
+        args.log.info(&#39;Calculating rms value&#39;)
+        rms = quick_rms(subcube)*subcube.unit
+    args.log.info(&#39;rms value: {0.value} {0.unit}&#39;.format(rms))
+    args.log.info(&#39;Filtering out data &lt; %i rms&#39;, args.nsigma)
+    mask = subcube &gt; rms*args.nsigma
+    subcube = subcube.with_mask(mask)
+    if args.shrink:
+        subcube = subcube.minimal_subcube()
+    data = subcube.filled_data[:].to(rms.unit).value
+    data = np.ma.array(data, mask=np.isnan(data))
+
+    # Velocity axis
+    vel = subcube.spectral_axis
+
+    # Calculate results
+    get_results(vel, data, subcube, args.outdir, args.log,
+            savemasks=args.savemasks)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.save_mask"><code class="name flex">
+<span>def <span class="ident">save_mask</span></span>(<span>mask, header, filename, dtype=builtins.int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def save_mask(mask, header, filename, dtype=int):
+    hdu = fits.PrimaryHDU(mask.astype(dtype))
+    hdu.header = header
+    hdu.writeto(filename, overwrite=True)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="line_little_helper" href="index.html">line_little_helper</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="line_little_helper.moving_moments.get_header" href="#line_little_helper.moving_moments.get_header">get_header</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.get_results" href="#line_little_helper.moving_moments.get_results">get_results</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.loader" href="#line_little_helper.moving_moments.loader">loader</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.main" href="#line_little_helper.moving_moments.main">main</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.proc" href="#line_little_helper.moving_moments.proc">proc</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.save_mask" href="#line_little_helper.moving_moments.save_mask">save_mask</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>

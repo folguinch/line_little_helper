@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>line_little_helper.data_handler API documentation</title>
+<meta name="description" content="Data handler classes for result and statistics tables." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>line_little_helper.data_handler</code></h1>
+</header>
+<section id="section-intro">
+<p>Data handler classes for result and statistics tables.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;Data handler classes for result and statistics tables.&#34;&#34;&#34;
+from typing import List, Optional
+
+import astropy.units as u
+import numpy as np
+
+from common_types import QPair, Table, Path
+from plot_tools import Plot, plot_spectrum
+from processing_tools import query_lines, combine_columns
+from spectrum import Spectra, Spectrum
+
+class ResultHandler:
+    &#34;&#34;&#34;Class for handling the results from queries and postprocessing.
+
+    Attributes:
+      index: index number.
+      table: results table.
+      info: additional information (e.g. spw).
+      spectrum: observed spectrum.
+    &#34;&#34;&#34;
+
+    def __init__(self,
+                 index: Optional[int] = None,
+                 table: Optional[Table] = None,
+                 info: Optional[dict] = None,
+                 spectrum: Optional[Spectrum] = None) -&gt; None:
+        &#34;&#34;&#34;Initialize a ResultHandler object.&#34;&#34;&#34;
+        self.index = index
+        self.table = table
+        self.info = info
+        self.spectrum = spectrum
+
+    @property
+    def freq_low(self):
+        return self.info.get(&#39;freq_low&#39;)
+
+    @property
+    def freq_up(self):
+        return self.info.get(&#39;freq_up&#39;)
+
+    @property
+    def freq_range(self):
+        return self.freq_low, self.freq_up
+
+    @classmethod
+    def from_query(cls, index: int, freq_range: QPair, info: dict):
+        &#34;&#34;&#34;Create a result handler from a query.
+
+        The info dictionary is updated with the value of the input frequency
+        range for future reference.
+
+        Args:
+          index: result index.
+          freq_range: frequency range.
+          infor: additional information dictionary.
+        &#34;&#34;&#34;
+        # Query
+        table = query_lines(freq_range)
+
+        # Update info
+        info[&#39;freq_low&#39;] = freq_range[0]
+        info[&#39;freq_up&#39;] = freq_range[1]
+
+        return cls(index=index, table=table, info=info)
+
+    @staticmethod
+    def generate_name(index: int,
+                      fields: Optional[List[str]] = None,
+                      values: Optional[np.array] = None,
+                      index_key: str = &#39;n&#39;,
+                      name_field: str = &#39;name&#39;) -&gt; str:
+        &#34;&#34;&#34;Generate name for the handler from input.
+
+        To determine the output name (in order of priority):
+          - Use the values from fields. Example: fields=[&#39;spw&#39;,&#39;n&#39;] will
+            be converted to a key &#39;spw&lt;spw value&gt;_n&lt;n value&gt;&#39;.
+          - A name field in the input array.
+          - If spw is values dtype fields:
+              - If index key field is in values:
+                name=&#39;spw&lt;spw value&gt;_&lt;index_key value&gt;&#39;.
+              - else: name=&#39;spw&lt;spw value&gt;_&lt;index&gt;&#39;.
+          - The index as string.
+
+        Args:
+          index: index of the result.
+          fields: optional; fields used to determine the name.
+          values: optional; a structured with values for the fields.
+          index_key: optional; replace index with the value of index_key in the
+            values array.
+          name_field: optional; the name field to use as name.
+        Returns:
+          A name string.
+        &#34;&#34;&#34;
+        # Key value
+        if fields is not None and values is not None:
+            key = []
+            for field in fields:
+                key.append(f&#39;{field}{values[field]}&#39;)
+            key = &#39;_&#39;.join(key)
+        elif values is not None and name_field in values.dtype.names:
+            key = f&#39;{values[name_field]}&#39;
+        elif values is not None and &#39;spw&#39; in values.dtype.names:
+            if index_key in values.dtype.fields:
+                key = f&#34;spw{values[&#39;spw&#39;]}_{values[index_key]}&#34;
+            else:
+                key = f&#34;spw{values[&#39;spw&#39;]}_{index}&#34;
+        else:
+            key = f&#39;{index}&#39;
+
+        return key
+
+    def get_peak_frequency(self) -&gt; u.Quantity:
+        &#34;&#34;&#34;Calculate the peak line frequency from stored spectrum.&#34;&#34;&#34;
+        if self.spectrum is None:
+            return None
+
+        return self.spectrum.peak_frequency(self.freq_low, self.freq_up)
+
+    def get_centroid(self) -&gt; u.Quantity:
+        &#34;&#34;&#34;Calculate the line centroid from stored spectrum.&#34;&#34;&#34;
+        if self.spectrum is None:
+            return None
+
+        return self.spectrum.centroid(self.freq_low, self.freq_up)
+
+    def set_spectrum(self, spectrum: Spectrum) -&gt; bool:
+        &#34;&#34;&#34;Validate and set the spectrum of the result set.&#34;&#34;&#34;
+        # Spectrum exists
+        if spectrum is not None:
+            return False
+
+        # Input spectrum
+        if spectrum.is_in(self.central_freq()):
+            self.spectrum = spectrum
+            return True
+        else:
+            return False
+
+    def spec_from_spectra(self, spectra: Spectra) -&gt; None:
+        &#34;&#34;&#34;Set a validated spectrum from spectra.&#34;&#34;&#34;
+        # Set spectrum
+        if self.spectrum is None:
+            self.spectrum = spectra.get_spectrum(self.central_freq())
+
+    def central_freq(self) -&gt; u.Quantity:
+        &#34;&#34;&#34;Return the central frequency in the spectral range.&#34;&#34;&#34;
+        return (self.freq_low + self.freq_up) / 2
+
+    def distance_to(self, freq: u.Quantity, name: str, sort: bool = False,
+                    extra_sort_keys: list = []) -&gt; None:
+        &#34;&#34;&#34;Calculate a new column with the distance to the input frequency.
+
+        Args:
+          freq: reference frequency.
+          name: name of the new column.
+          sort: optional; sort results based on the new column.
+          extra_sort_keys: optional; additional keys to sort the data by
+            (after name).
+        &#34;&#34;&#34;
+        # Use Freq column
+        linefreqs = combine_columns(self.table, [&#39;Freq&#39;, &#39;MeasFreq&#39;])
+        dist = np.abs(freq - linefreqs)
+
+        # Append new column
+        self.table[name] = dist.to(u.MHz)
+
+        # Sort
+        if sort:
+            self.table.sort([name] + extra_sort_keys)
+
+    def plot(self, filename: Path, spectra: Optional[Spectra] = None,
+             top: Optional[int] = None) -&gt; Plot:
+        &#34;&#34;&#34;Plot results.
+
+        Args:
+          filename: plot file name.
+          spectra: optional; store spectrum if not yet stored.
+          top: optional; only plot the top n values from table.
+        Returns:
+          A tuple with the figure and axes objects.
+        &#34;&#34;&#34;
+        # Check spectrum is set
+        if spectra is not None:
+            self.spec_from_spectra(spectra)
+
+        # Plot
+        if &#39;distance_cen&#39; in self.table.colnames:
+            color_key = &#39;distance_cen&#39;
+        else:
+            color_key = None
+        plt = plot_spectrum(self.spectrum, self.freq_range, table=self.table,
+                            key=&#39;log10Aij&#39;, color_key=color_key, top=top)
+        plt[0].savefig(filename, bbox_inches=&#39;tight&#39;)
+
+        return plt
+
+class ResultsHandler(dict):
+    &#34;&#34;&#34;Class for handling ResultHandler objects.&#34;&#34;&#34;
+
+    @classmethod
+    def from_struct_array(cls,
+                          array: np.array,
+                          units: dict,
+                          freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                          name_cols: Optional[List[str]] = None,
+                          info_keys: List[str] = [&#39;spw&#39;],
+                          index_key: str = &#39;n&#39;) -&gt; dict:
+        &#34;&#34;&#34;Create a results handler from structured array data.
+
+        Args:
+          array: numpy structured array with frequency range data.
+          units: units of the columns in array.
+          freq_cols: optional; name of the frequency columns in array.
+          name_cols: optional; fields to use for naming the results.
+          info_keys: optional; fields to store in the result info dict.
+          index_key: optional; field to use as index.
+        &#34;&#34;&#34;
+        keys = []
+        results = []
+        for i, row in enumerate(array):
+            # Frequency range
+            freq_range = (row[freq_cols[0]] * units[freq_cols[0]],
+                          row[freq_cols[1]] * units[freq_cols[1]])
+
+            # Result name
+            name = ResultHandler.generate_name(i, fields=name_cols, values=row,
+                                               index_key=index_key)
+            keys.append(name)
+
+            # Info
+            names = row.dtype.names
+            info = {key: row[key] for key in info_keys if key in names}
+
+            # Query
+            results.append(ResultHandler.from_query(i, freq_range, info))
+
+        return cls(zip(keys, results))
+
+    def write(self, filename: Path) -&gt; None:
+        &#34;&#34;&#34;Write results to disk.&#34;&#34;&#34;
+        for key, result in self.items():
+            if len(self) == 1:
+                newfile = filename
+            else:
+                newfile = filename.with_suffix(f&#39;.{key}.ecsv&#39;)
+            result.table.write(newfile, format=&#39;ascii.ecsv&#39;)
+
+    def plot(self, filename: Path, spectra: Optional[Spectra] = None,
+             top: Optional[int] = None) -&gt; None:
+        &#34;&#34;&#34;Plot all results.
+
+        Args:
+          filename: plot file name.
+          spectra: optional; store spectrum if not yet stored.
+          top: optional; only plot the top n values from table.
+        &#34;&#34;&#34;
+        for key, val in self.items():
+            if len(self) == 1:
+                newfile = filename
+            else:
+                suff = filename.suffix
+                newfile = filename.with_suffix(f&#39;.{key}{suff}&#39;)
+            val.plot(newfile, spectra=spectra, top=top)
+
+class StatsHandler(dict):
+    &#34;&#34;&#34;Class for handling results and statistics.&#34;&#34;&#34;
+
+    def update(self, key: str, val: u.Quantity) -&gt; None:
+        &#34;&#34;&#34;Update the dictionary and the values stored.&#34;&#34;&#34;
+        aux = self.get(key)
+        if aux is None:
+            try:
+                val = np.array([val.value]) * val.unit
+            except AttributeError:
+                val = np.array([val]) * u.Unit(&#39;&#39;)
+            super().__setitem__(key, val)
+        else:
+            self[key] = self[key].insert(-1, val)
+
+    def stats_per_key(self) -&gt; List[dict]:
+        &#34;&#34;&#34;Compute statistics per key.&#34;&#34;&#34;
+        aux = []
+        for key, val in self.items():
+            stats = {&#39;name&#39;: key, &#39;mean&#39;: np.mean(val), &#39;stdev&#39;: np.std(val),
+                     &#39;median&#39;: np.median(val)}
+            aux.append(stats)
+
+        return aux</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="line_little_helper.data_handler.ResultHandler"><code class="flex name class">
+<span>class <span class="ident">ResultHandler</span></span>
+<span>(</span><span>index: Union[int, NoneType] = None, table: Union[Table, NoneType] = None, info: Union[dict, NoneType] = None, spectrum: Union[spectrum.Spectrum, NoneType] = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Class for handling the results from queries and postprocessing.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>index</code></strong></dt>
+<dd>index number.</dd>
+<dt><strong><code>table</code></strong></dt>
+<dd>results table.</dd>
+<dt><strong><code>info</code></strong></dt>
+<dd>additional information (e.g. spw).</dd>
+<dt><strong><code>spectrum</code></strong></dt>
+<dd>observed spectrum.</dd>
+</dl>
+<p>Initialize a ResultHandler object.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ResultHandler:
+    &#34;&#34;&#34;Class for handling the results from queries and postprocessing.
+
+    Attributes:
+      index: index number.
+      table: results table.
+      info: additional information (e.g. spw).
+      spectrum: observed spectrum.
+    &#34;&#34;&#34;
+
+    def __init__(self,
+                 index: Optional[int] = None,
+                 table: Optional[Table] = None,
+                 info: Optional[dict] = None,
+                 spectrum: Optional[Spectrum] = None) -&gt; None:
+        &#34;&#34;&#34;Initialize a ResultHandler object.&#34;&#34;&#34;
+        self.index = index
+        self.table = table
+        self.info = info
+        self.spectrum = spectrum
+
+    @property
+    def freq_low(self):
+        return self.info.get(&#39;freq_low&#39;)
+
+    @property
+    def freq_up(self):
+        return self.info.get(&#39;freq_up&#39;)
+
+    @property
+    def freq_range(self):
+        return self.freq_low, self.freq_up
+
+    @classmethod
+    def from_query(cls, index: int, freq_range: QPair, info: dict):
+        &#34;&#34;&#34;Create a result handler from a query.
+
+        The info dictionary is updated with the value of the input frequency
+        range for future reference.
+
+        Args:
+          index: result index.
+          freq_range: frequency range.
+          infor: additional information dictionary.
+        &#34;&#34;&#34;
+        # Query
+        table = query_lines(freq_range)
+
+        # Update info
+        info[&#39;freq_low&#39;] = freq_range[0]
+        info[&#39;freq_up&#39;] = freq_range[1]
+
+        return cls(index=index, table=table, info=info)
+
+    @staticmethod
+    def generate_name(index: int,
+                      fields: Optional[List[str]] = None,
+                      values: Optional[np.array] = None,
+                      index_key: str = &#39;n&#39;,
+                      name_field: str = &#39;name&#39;) -&gt; str:
+        &#34;&#34;&#34;Generate name for the handler from input.
+
+        To determine the output name (in order of priority):
+          - Use the values from fields. Example: fields=[&#39;spw&#39;,&#39;n&#39;] will
+            be converted to a key &#39;spw&lt;spw value&gt;_n&lt;n value&gt;&#39;.
+          - A name field in the input array.
+          - If spw is values dtype fields:
+              - If index key field is in values:
+                name=&#39;spw&lt;spw value&gt;_&lt;index_key value&gt;&#39;.
+              - else: name=&#39;spw&lt;spw value&gt;_&lt;index&gt;&#39;.
+          - The index as string.
+
+        Args:
+          index: index of the result.
+          fields: optional; fields used to determine the name.
+          values: optional; a structured with values for the fields.
+          index_key: optional; replace index with the value of index_key in the
+            values array.
+          name_field: optional; the name field to use as name.
+        Returns:
+          A name string.
+        &#34;&#34;&#34;
+        # Key value
+        if fields is not None and values is not None:
+            key = []
+            for field in fields:
+                key.append(f&#39;{field}{values[field]}&#39;)
+            key = &#39;_&#39;.join(key)
+        elif values is not None and name_field in values.dtype.names:
+            key = f&#39;{values[name_field]}&#39;
+        elif values is not None and &#39;spw&#39; in values.dtype.names:
+            if index_key in values.dtype.fields:
+                key = f&#34;spw{values[&#39;spw&#39;]}_{values[index_key]}&#34;
+            else:
+                key = f&#34;spw{values[&#39;spw&#39;]}_{index}&#34;
+        else:
+            key = f&#39;{index}&#39;
+
+        return key
+
+    def get_peak_frequency(self) -&gt; u.Quantity:
+        &#34;&#34;&#34;Calculate the peak line frequency from stored spectrum.&#34;&#34;&#34;
+        if self.spectrum is None:
+            return None
+
+        return self.spectrum.peak_frequency(self.freq_low, self.freq_up)
+
+    def get_centroid(self) -&gt; u.Quantity:
+        &#34;&#34;&#34;Calculate the line centroid from stored spectrum.&#34;&#34;&#34;
+        if self.spectrum is None:
+            return None
+
+        return self.spectrum.centroid(self.freq_low, self.freq_up)
+
+    def set_spectrum(self, spectrum: Spectrum) -&gt; bool:
+        &#34;&#34;&#34;Validate and set the spectrum of the result set.&#34;&#34;&#34;
+        # Spectrum exists
+        if spectrum is not None:
+            return False
+
+        # Input spectrum
+        if spectrum.is_in(self.central_freq()):
+            self.spectrum = spectrum
+            return True
+        else:
+            return False
+
+    def spec_from_spectra(self, spectra: Spectra) -&gt; None:
+        &#34;&#34;&#34;Set a validated spectrum from spectra.&#34;&#34;&#34;
+        # Set spectrum
+        if self.spectrum is None:
+            self.spectrum = spectra.get_spectrum(self.central_freq())
+
+    def central_freq(self) -&gt; u.Quantity:
+        &#34;&#34;&#34;Return the central frequency in the spectral range.&#34;&#34;&#34;
+        return (self.freq_low + self.freq_up) / 2
+
+    def distance_to(self, freq: u.Quantity, name: str, sort: bool = False,
+                    extra_sort_keys: list = []) -&gt; None:
+        &#34;&#34;&#34;Calculate a new column with the distance to the input frequency.
+
+        Args:
+          freq: reference frequency.
+          name: name of the new column.
+          sort: optional; sort results based on the new column.
+          extra_sort_keys: optional; additional keys to sort the data by
+            (after name).
+        &#34;&#34;&#34;
+        # Use Freq column
+        linefreqs = combine_columns(self.table, [&#39;Freq&#39;, &#39;MeasFreq&#39;])
+        dist = np.abs(freq - linefreqs)
+
+        # Append new column
+        self.table[name] = dist.to(u.MHz)
+
+        # Sort
+        if sort:
+            self.table.sort([name] + extra_sort_keys)
+
+    def plot(self, filename: Path, spectra: Optional[Spectra] = None,
+             top: Optional[int] = None) -&gt; Plot:
+        &#34;&#34;&#34;Plot results.
+
+        Args:
+          filename: plot file name.
+          spectra: optional; store spectrum if not yet stored.
+          top: optional; only plot the top n values from table.
+        Returns:
+          A tuple with the figure and axes objects.
+        &#34;&#34;&#34;
+        # Check spectrum is set
+        if spectra is not None:
+            self.spec_from_spectra(spectra)
+
+        # Plot
+        if &#39;distance_cen&#39; in self.table.colnames:
+            color_key = &#39;distance_cen&#39;
+        else:
+            color_key = None
+        plt = plot_spectrum(self.spectrum, self.freq_range, table=self.table,
+                            key=&#39;log10Aij&#39;, color_key=color_key, top=top)
+        plt[0].savefig(filename, bbox_inches=&#39;tight&#39;)
+
+        return plt</code></pre>
+</details>
+<h3>Static methods</h3>
+<dl>
+<dt id="line_little_helper.data_handler.ResultHandler.from_query"><code class="name flex">
+<span>def <span class="ident">from_query</span></span>(<span>index: int, freq_range: Tuple[astropy.units.quantity.Quantity, astropy.units.quantity.Quantity], info: dict)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a result handler from a query.</p>
+<p>The info dictionary is updated with the value of the input frequency
+range for future reference.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>index</code></strong></dt>
+<dd>result index.</dd>
+<dt><strong><code>freq_range</code></strong></dt>
+<dd>frequency range.</dd>
+<dt><strong><code>infor</code></strong></dt>
+<dd>additional information dictionary.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_query(cls, index: int, freq_range: QPair, info: dict):
+    &#34;&#34;&#34;Create a result handler from a query.
+
+    The info dictionary is updated with the value of the input frequency
+    range for future reference.
+
+    Args:
+      index: result index.
+      freq_range: frequency range.
+      infor: additional information dictionary.
+    &#34;&#34;&#34;
+    # Query
+    table = query_lines(freq_range)
+
+    # Update info
+    info[&#39;freq_low&#39;] = freq_range[0]
+    info[&#39;freq_up&#39;] = freq_range[1]
+
+    return cls(index=index, table=table, info=info)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.generate_name"><code class="name flex">
+<span>def <span class="ident">generate_name</span></span>(<span>index: int, fields: Union[List[str], NoneType] = None, values: Union[<built-in function array>, NoneType] = None, index_key: str = 'n', name_field: str = 'name') ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate name for the handler from input.</p>
+<p>To determine the output name (in order of priority):
+- Use the values from fields. Example: fields=['spw','n'] will
+be converted to a key 'spw<spw value><em>n<n value>'.
+- A name field in the input array.
+- If spw is values dtype fields:
+- If index key field is in values:
+name='spw<spw value></em><index_key value>'.
+- else: name='spw<spw value>_<index>'.
+- The index as string.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>index</code></strong></dt>
+<dd>index of the result.</dd>
+<dt><strong><code>fields</code></strong></dt>
+<dd>optional; fields used to determine the name.</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>optional; a structured with values for the fields.</dd>
+<dt><strong><code>index_key</code></strong></dt>
+<dd>optional; replace index with the value of index_key in the
+values array.</dd>
+<dt><strong><code>name_field</code></strong></dt>
+<dd>optional; the name field to use as name.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A name string.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def generate_name(index: int,
+                  fields: Optional[List[str]] = None,
+                  values: Optional[np.array] = None,
+                  index_key: str = &#39;n&#39;,
+                  name_field: str = &#39;name&#39;) -&gt; str:
+    &#34;&#34;&#34;Generate name for the handler from input.
+
+    To determine the output name (in order of priority):
+      - Use the values from fields. Example: fields=[&#39;spw&#39;,&#39;n&#39;] will
+        be converted to a key &#39;spw&lt;spw value&gt;_n&lt;n value&gt;&#39;.
+      - A name field in the input array.
+      - If spw is values dtype fields:
+          - If index key field is in values:
+            name=&#39;spw&lt;spw value&gt;_&lt;index_key value&gt;&#39;.
+          - else: name=&#39;spw&lt;spw value&gt;_&lt;index&gt;&#39;.
+      - The index as string.
+
+    Args:
+      index: index of the result.
+      fields: optional; fields used to determine the name.
+      values: optional; a structured with values for the fields.
+      index_key: optional; replace index with the value of index_key in the
+        values array.
+      name_field: optional; the name field to use as name.
+    Returns:
+      A name string.
+    &#34;&#34;&#34;
+    # Key value
+    if fields is not None and values is not None:
+        key = []
+        for field in fields:
+            key.append(f&#39;{field}{values[field]}&#39;)
+        key = &#39;_&#39;.join(key)
+    elif values is not None and name_field in values.dtype.names:
+        key = f&#39;{values[name_field]}&#39;
+    elif values is not None and &#39;spw&#39; in values.dtype.names:
+        if index_key in values.dtype.fields:
+            key = f&#34;spw{values[&#39;spw&#39;]}_{values[index_key]}&#34;
+        else:
+            key = f&#34;spw{values[&#39;spw&#39;]}_{index}&#34;
+    else:
+        key = f&#39;{index}&#39;
+
+    return key</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="line_little_helper.data_handler.ResultHandler.freq_low"><code class="name">var <span class="ident">freq_low</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def freq_low(self):
+    return self.info.get(&#39;freq_low&#39;)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.freq_range"><code class="name">var <span class="ident">freq_range</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def freq_range(self):
+    return self.freq_low, self.freq_up</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.freq_up"><code class="name">var <span class="ident">freq_up</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def freq_up(self):
+    return self.info.get(&#39;freq_up&#39;)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="line_little_helper.data_handler.ResultHandler.central_freq"><code class="name flex">
+<span>def <span class="ident">central_freq</span></span>(<span>self) ‑> astropy.units.quantity.Quantity</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return the central frequency in the spectral range.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def central_freq(self) -&gt; u.Quantity:
+    &#34;&#34;&#34;Return the central frequency in the spectral range.&#34;&#34;&#34;
+    return (self.freq_low + self.freq_up) / 2</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.distance_to"><code class="name flex">
+<span>def <span class="ident">distance_to</span></span>(<span>self, freq: astropy.units.quantity.Quantity, name: str, sort: bool = False, extra_sort_keys: list = []) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate a new column with the distance to the input frequency.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>freq</code></strong></dt>
+<dd>reference frequency.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>name of the new column.</dd>
+<dt><strong><code>sort</code></strong></dt>
+<dd>optional; sort results based on the new column.</dd>
+<dt><strong><code>extra_sort_keys</code></strong></dt>
+<dd>optional; additional keys to sort the data by
+(after name).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def distance_to(self, freq: u.Quantity, name: str, sort: bool = False,
+                extra_sort_keys: list = []) -&gt; None:
+    &#34;&#34;&#34;Calculate a new column with the distance to the input frequency.
+
+    Args:
+      freq: reference frequency.
+      name: name of the new column.
+      sort: optional; sort results based on the new column.
+      extra_sort_keys: optional; additional keys to sort the data by
+        (after name).
+    &#34;&#34;&#34;
+    # Use Freq column
+    linefreqs = combine_columns(self.table, [&#39;Freq&#39;, &#39;MeasFreq&#39;])
+    dist = np.abs(freq - linefreqs)
+
+    # Append new column
+    self.table[name] = dist.to(u.MHz)
+
+    # Sort
+    if sort:
+        self.table.sort([name] + extra_sort_keys)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.get_centroid"><code class="name flex">
+<span>def <span class="ident">get_centroid</span></span>(<span>self) ‑> astropy.units.quantity.Quantity</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the line centroid from stored spectrum.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_centroid(self) -&gt; u.Quantity:
+    &#34;&#34;&#34;Calculate the line centroid from stored spectrum.&#34;&#34;&#34;
+    if self.spectrum is None:
+        return None
+
+    return self.spectrum.centroid(self.freq_low, self.freq_up)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.get_peak_frequency"><code class="name flex">
+<span>def <span class="ident">get_peak_frequency</span></span>(<span>self) ‑> astropy.units.quantity.Quantity</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the peak line frequency from stored spectrum.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_peak_frequency(self) -&gt; u.Quantity:
+    &#34;&#34;&#34;Calculate the peak line frequency from stored spectrum.&#34;&#34;&#34;
+    if self.spectrum is None:
+        return None
+
+    return self.spectrum.peak_frequency(self.freq_low, self.freq_up)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, filename: ~Path, spectra: Union[spectrum.Spectra, NoneType] = None, top: Union[int, NoneType] = None) ‑> Plot</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot results.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong></dt>
+<dd>plot file name.</dd>
+<dt><strong><code>spectra</code></strong></dt>
+<dd>optional; store spectrum if not yet stored.</dd>
+<dt><strong><code>top</code></strong></dt>
+<dd>optional; only plot the top n values from table.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A tuple with the figure and axes objects.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(self, filename: Path, spectra: Optional[Spectra] = None,
+         top: Optional[int] = None) -&gt; Plot:
+    &#34;&#34;&#34;Plot results.
+
+    Args:
+      filename: plot file name.
+      spectra: optional; store spectrum if not yet stored.
+      top: optional; only plot the top n values from table.
+    Returns:
+      A tuple with the figure and axes objects.
+    &#34;&#34;&#34;
+    # Check spectrum is set
+    if spectra is not None:
+        self.spec_from_spectra(spectra)
+
+    # Plot
+    if &#39;distance_cen&#39; in self.table.colnames:
+        color_key = &#39;distance_cen&#39;
+    else:
+        color_key = None
+    plt = plot_spectrum(self.spectrum, self.freq_range, table=self.table,
+                        key=&#39;log10Aij&#39;, color_key=color_key, top=top)
+    plt[0].savefig(filename, bbox_inches=&#39;tight&#39;)
+
+    return plt</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.set_spectrum"><code class="name flex">
+<span>def <span class="ident">set_spectrum</span></span>(<span>self, spectrum: spectrum.Spectrum) ‑> bool</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Validate and set the spectrum of the result set.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_spectrum(self, spectrum: Spectrum) -&gt; bool:
+    &#34;&#34;&#34;Validate and set the spectrum of the result set.&#34;&#34;&#34;
+    # Spectrum exists
+    if spectrum is not None:
+        return False
+
+    # Input spectrum
+    if spectrum.is_in(self.central_freq()):
+        self.spectrum = spectrum
+        return True
+    else:
+        return False</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultHandler.spec_from_spectra"><code class="name flex">
+<span>def <span class="ident">spec_from_spectra</span></span>(<span>self, spectra: spectrum.Spectra) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set a validated spectrum from spectra.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def spec_from_spectra(self, spectra: Spectra) -&gt; None:
+    &#34;&#34;&#34;Set a validated spectrum from spectra.&#34;&#34;&#34;
+    # Set spectrum
+    if self.spectrum is None:
+        self.spectrum = spectra.get_spectrum(self.central_freq())</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="line_little_helper.data_handler.ResultsHandler"><code class="flex name class">
+<span>class <span class="ident">ResultsHandler</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Class for handling ResultHandler objects.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ResultsHandler(dict):
+    &#34;&#34;&#34;Class for handling ResultHandler objects.&#34;&#34;&#34;
+
+    @classmethod
+    def from_struct_array(cls,
+                          array: np.array,
+                          units: dict,
+                          freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                          name_cols: Optional[List[str]] = None,
+                          info_keys: List[str] = [&#39;spw&#39;],
+                          index_key: str = &#39;n&#39;) -&gt; dict:
+        &#34;&#34;&#34;Create a results handler from structured array data.
+
+        Args:
+          array: numpy structured array with frequency range data.
+          units: units of the columns in array.
+          freq_cols: optional; name of the frequency columns in array.
+          name_cols: optional; fields to use for naming the results.
+          info_keys: optional; fields to store in the result info dict.
+          index_key: optional; field to use as index.
+        &#34;&#34;&#34;
+        keys = []
+        results = []
+        for i, row in enumerate(array):
+            # Frequency range
+            freq_range = (row[freq_cols[0]] * units[freq_cols[0]],
+                          row[freq_cols[1]] * units[freq_cols[1]])
+
+            # Result name
+            name = ResultHandler.generate_name(i, fields=name_cols, values=row,
+                                               index_key=index_key)
+            keys.append(name)
+
+            # Info
+            names = row.dtype.names
+            info = {key: row[key] for key in info_keys if key in names}
+
+            # Query
+            results.append(ResultHandler.from_query(i, freq_range, info))
+
+        return cls(zip(keys, results))
+
+    def write(self, filename: Path) -&gt; None:
+        &#34;&#34;&#34;Write results to disk.&#34;&#34;&#34;
+        for key, result in self.items():
+            if len(self) == 1:
+                newfile = filename
+            else:
+                newfile = filename.with_suffix(f&#39;.{key}.ecsv&#39;)
+            result.table.write(newfile, format=&#39;ascii.ecsv&#39;)
+
+    def plot(self, filename: Path, spectra: Optional[Spectra] = None,
+             top: Optional[int] = None) -&gt; None:
+        &#34;&#34;&#34;Plot all results.
+
+        Args:
+          filename: plot file name.
+          spectra: optional; store spectrum if not yet stored.
+          top: optional; only plot the top n values from table.
+        &#34;&#34;&#34;
+        for key, val in self.items():
+            if len(self) == 1:
+                newfile = filename
+            else:
+                suff = filename.suffix
+                newfile = filename.with_suffix(f&#39;.{key}{suff}&#39;)
+            val.plot(newfile, spectra=spectra, top=top)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="line_little_helper.data_handler.ResultsHandler.from_struct_array"><code class="name flex">
+<span>def <span class="ident">from_struct_array</span></span>(<span>array: <built-in function array>, units: dict, freq_cols: List[str] = ['freq_low', 'freq_up'], name_cols: Union[List[str], NoneType] = None, info_keys: List[str] = ['spw'], index_key: str = 'n') ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a results handler from structured array data.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>array</code></strong></dt>
+<dd>numpy structured array with frequency range data.</dd>
+<dt><strong><code>units</code></strong></dt>
+<dd>units of the columns in array.</dd>
+<dt><strong><code>freq_cols</code></strong></dt>
+<dd>optional; name of the frequency columns in array.</dd>
+<dt><strong><code>name_cols</code></strong></dt>
+<dd>optional; fields to use for naming the results.</dd>
+<dt><strong><code>info_keys</code></strong></dt>
+<dd>optional; fields to store in the result info dict.</dd>
+<dt><strong><code>index_key</code></strong></dt>
+<dd>optional; field to use as index.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_struct_array(cls,
+                      array: np.array,
+                      units: dict,
+                      freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                      name_cols: Optional[List[str]] = None,
+                      info_keys: List[str] = [&#39;spw&#39;],
+                      index_key: str = &#39;n&#39;) -&gt; dict:
+    &#34;&#34;&#34;Create a results handler from structured array data.
+
+    Args:
+      array: numpy structured array with frequency range data.
+      units: units of the columns in array.
+      freq_cols: optional; name of the frequency columns in array.
+      name_cols: optional; fields to use for naming the results.
+      info_keys: optional; fields to store in the result info dict.
+      index_key: optional; field to use as index.
+    &#34;&#34;&#34;
+    keys = []
+    results = []
+    for i, row in enumerate(array):
+        # Frequency range
+        freq_range = (row[freq_cols[0]] * units[freq_cols[0]],
+                      row[freq_cols[1]] * units[freq_cols[1]])
+
+        # Result name
+        name = ResultHandler.generate_name(i, fields=name_cols, values=row,
+                                           index_key=index_key)
+        keys.append(name)
+
+        # Info
+        names = row.dtype.names
+        info = {key: row[key] for key in info_keys if key in names}
+
+        # Query
+        results.append(ResultHandler.from_query(i, freq_range, info))
+
+    return cls(zip(keys, results))</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="line_little_helper.data_handler.ResultsHandler.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, filename: ~Path, spectra: Union[spectrum.Spectra, NoneType] = None, top: Union[int, NoneType] = None) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot all results.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>filename</code></strong></dt>
+<dd>plot file name.</dd>
+<dt><strong><code>spectra</code></strong></dt>
+<dd>optional; store spectrum if not yet stored.</dd>
+<dt><strong><code>top</code></strong></dt>
+<dd>optional; only plot the top n values from table.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(self, filename: Path, spectra: Optional[Spectra] = None,
+         top: Optional[int] = None) -&gt; None:
+    &#34;&#34;&#34;Plot all results.
+
+    Args:
+      filename: plot file name.
+      spectra: optional; store spectrum if not yet stored.
+      top: optional; only plot the top n values from table.
+    &#34;&#34;&#34;
+    for key, val in self.items():
+        if len(self) == 1:
+            newfile = filename
+        else:
+            suff = filename.suffix
+            newfile = filename.with_suffix(f&#39;.{key}{suff}&#39;)
+        val.plot(newfile, spectra=spectra, top=top)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.ResultsHandler.write"><code class="name flex">
+<span>def <span class="ident">write</span></span>(<span>self, filename: ~Path) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Write results to disk.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write(self, filename: Path) -&gt; None:
+    &#34;&#34;&#34;Write results to disk.&#34;&#34;&#34;
+    for key, result in self.items():
+        if len(self) == 1:
+            newfile = filename
+        else:
+            newfile = filename.with_suffix(f&#39;.{key}.ecsv&#39;)
+        result.table.write(newfile, format=&#39;ascii.ecsv&#39;)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="line_little_helper.data_handler.StatsHandler"><code class="flex name class">
+<span>class <span class="ident">StatsHandler</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Class for handling results and statistics.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StatsHandler(dict):
+    &#34;&#34;&#34;Class for handling results and statistics.&#34;&#34;&#34;
+
+    def update(self, key: str, val: u.Quantity) -&gt; None:
+        &#34;&#34;&#34;Update the dictionary and the values stored.&#34;&#34;&#34;
+        aux = self.get(key)
+        if aux is None:
+            try:
+                val = np.array([val.value]) * val.unit
+            except AttributeError:
+                val = np.array([val]) * u.Unit(&#39;&#39;)
+            super().__setitem__(key, val)
+        else:
+            self[key] = self[key].insert(-1, val)
+
+    def stats_per_key(self) -&gt; List[dict]:
+        &#34;&#34;&#34;Compute statistics per key.&#34;&#34;&#34;
+        aux = []
+        for key, val in self.items():
+            stats = {&#39;name&#39;: key, &#39;mean&#39;: np.mean(val), &#39;stdev&#39;: np.std(val),
+                     &#39;median&#39;: np.median(val)}
+            aux.append(stats)
+
+        return aux</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.dict</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="line_little_helper.data_handler.StatsHandler.stats_per_key"><code class="name flex">
+<span>def <span class="ident">stats_per_key</span></span>(<span>self) ‑> List[dict]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Compute statistics per key.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stats_per_key(self) -&gt; List[dict]:
+    &#34;&#34;&#34;Compute statistics per key.&#34;&#34;&#34;
+    aux = []
+    for key, val in self.items():
+        stats = {&#39;name&#39;: key, &#39;mean&#39;: np.mean(val), &#39;stdev&#39;: np.std(val),
+                 &#39;median&#39;: np.median(val)}
+        aux.append(stats)
+
+    return aux</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.data_handler.StatsHandler.update"><code class="name flex">
+<span>def <span class="ident">update</span></span>(<span>self, key: str, val: astropy.units.quantity.Quantity) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Update the dictionary and the values stored.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def update(self, key: str, val: u.Quantity) -&gt; None:
+    &#34;&#34;&#34;Update the dictionary and the values stored.&#34;&#34;&#34;
+    aux = self.get(key)
+    if aux is None:
+        try:
+            val = np.array([val.value]) * val.unit
+        except AttributeError:
+            val = np.array([val]) * u.Unit(&#39;&#39;)
+        super().__setitem__(key, val)
+    else:
+        self[key] = self[key].insert(-1, val)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="line_little_helper" href="index.html">line_little_helper</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="line_little_helper.data_handler.ResultHandler" href="#line_little_helper.data_handler.ResultHandler">ResultHandler</a></code></h4>
+<ul class="two-column">
+<li><code><a title="line_little_helper.data_handler.ResultHandler.central_freq" href="#line_little_helper.data_handler.ResultHandler.central_freq">central_freq</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.distance_to" href="#line_little_helper.data_handler.ResultHandler.distance_to">distance_to</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.freq_low" href="#line_little_helper.data_handler.ResultHandler.freq_low">freq_low</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.freq_range" href="#line_little_helper.data_handler.ResultHandler.freq_range">freq_range</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.freq_up" href="#line_little_helper.data_handler.ResultHandler.freq_up">freq_up</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.from_query" href="#line_little_helper.data_handler.ResultHandler.from_query">from_query</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.generate_name" href="#line_little_helper.data_handler.ResultHandler.generate_name">generate_name</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.get_centroid" href="#line_little_helper.data_handler.ResultHandler.get_centroid">get_centroid</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.get_peak_frequency" href="#line_little_helper.data_handler.ResultHandler.get_peak_frequency">get_peak_frequency</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.plot" href="#line_little_helper.data_handler.ResultHandler.plot">plot</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.set_spectrum" href="#line_little_helper.data_handler.ResultHandler.set_spectrum">set_spectrum</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultHandler.spec_from_spectra" href="#line_little_helper.data_handler.ResultHandler.spec_from_spectra">spec_from_spectra</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="line_little_helper.data_handler.ResultsHandler" href="#line_little_helper.data_handler.ResultsHandler">ResultsHandler</a></code></h4>
+<ul class="">
+<li><code><a title="line_little_helper.data_handler.ResultsHandler.from_struct_array" href="#line_little_helper.data_handler.ResultsHandler.from_struct_array">from_struct_array</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultsHandler.plot" href="#line_little_helper.data_handler.ResultsHandler.plot">plot</a></code></li>
+<li><code><a title="line_little_helper.data_handler.ResultsHandler.write" href="#line_little_helper.data_handler.ResultsHandler.write">write</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="line_little_helper.data_handler.StatsHandler" href="#line_little_helper.data_handler.StatsHandler">StatsHandler</a></code></h4>
+<ul class="">
+<li><code><a title="line_little_helper.data_handler.StatsHandler.stats_per_key" href="#line_little_helper.data_handler.StatsHandler.stats_per_key">stats_per_key</a></code></li>
+<li><code><a title="line_little_helper.data_handler.StatsHandler.update" href="#line_little_helper.data_handler.StatsHandler.update">update</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>

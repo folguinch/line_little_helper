@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.9.2" />
+<title>line_little_helper.processing_tools API documentation</title>
+<meta name="description" content="Processing data from input." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>line_little_helper.processing_tools</code></h1>
+</header>
+<section id="section-intro">
+<p>Processing data from input.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;Processing data from input.&#34;&#34;&#34;
+from typing import List, Optional, TypeVar, Union
+
+from toolkit.astro_tools import cube_utils
+import astropy.units as u
+import astroquery.splatalogue as splat
+import numpy as np
+
+from common_types import QPair, Table
+from spectrum import Spectra, Spectrum
+
+Equivalency = TypeVar(&#39;Equivalency&#39;)
+
+def get_spectral_equivalencies(restfreqs: list,
+                               keys: Optional[list] = None) -&gt; dict:
+    &#34;&#34;&#34;Get spectral equivalencies from rest frequencies.
+
+    Args:
+      restfreqs: rest frequencies.
+      keys: optional; keys for the output dictionary.
+    Returns:
+      A dictionary with the astropy equivalency functions.
+    &#34;&#34;&#34;
+    # Define keys
+    if keys is None:
+        keys = range(len(restfreqs))
+
+    # Process restfreqs
+    if len(restfreqs) == 1:
+        equiv = {key: u.doppler_radio(restfreqs[0]) for key in keys}
+    else:
+        if len(keys) != len(restfreqs):
+            raise ValueError(&#39;Size of keys and restfreqs do not match&#39;)
+        aux = zip(keys, restfreqs)
+        equiv = {key: u.doppler_radio(restfreq) for key, restfreq in aux}
+
+    return equiv
+
+def to_rest_freq(freqs: u.Quantity, vlsr: u.Quantity,
+                 equivalencies: Equivalency) -&gt; u.Quantity:
+    &#34;&#34;&#34;Convert input observed frequencies to rest frequencies.
+
+    Args:
+      freqs: observed frequencies.
+      vlsr: LSR velocity.
+      equivalencies: frequency to velocity equivalency.
+    &#34;&#34;&#34;
+    # Convert to velocity
+    vels = freqs.to(vlsr.unit, equivalencies=equivalencies)
+
+    # Shift and convert back
+    vels = vels - vlsr
+    freqs = vels.to(freqs.unit, equivalencies=equivalencies)
+
+    return freqs
+
+def observed_to_rest(freqs: u.Quantity, vlsr: u.Quantity, equivalencies: dict,
+                     spws_map: Optional[np.array] = None) -&gt; u.Quantity:
+    &#34;&#34;&#34;Convert observed frequencies to rest frequencies.
+
+    If the same equivalency is used for all frequencies, the equivalencies
+    dictionary has to have an &#39;all&#39; key with the equivalency.
+
+    Args:
+      freqs: observed frequencies.
+      vlsr: LSR velocity.
+      equivalencies: dictionary with the equivalencies to convert frequency to
+        velocity.
+      spws_map: optional; an array indicating the key in equivalencies for each
+        frequency.
+    Returns:
+      An array with the rest frequencies.
+    Raises:
+      ValueError if an equivalency is not found.
+    &#34;&#34;&#34;
+    if spws_map is None:
+        if &#39;all&#39; in equivalencies:
+            return to_rest_freq(freqs, vlsr, equivalencies[&#39;all&#39;])
+        else:
+            raise ValueError(&#39;Could not convert to rest frequency&#39;)
+    else:
+        for spw in np.unique(spws_map):
+            # Equivalency
+            if &#39;all&#39; in equivalencies:
+                equivalency = equivalencies[&#39;all&#39;]
+            else:
+                equivalency = equivalencies[spw]
+
+            # Mask
+            mask = spws_map == spw
+
+            # Convert
+            freqs[mask] = to_rest_freq(freqs[mask], vlsr, equivalency)
+        return freqs
+
+def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
+    &#34;&#34;&#34;Query splatalogue to get lines in range.
+
+    Args:
+      freq_range: frequency range.
+      kwargs: optional; additional filters for `astroquery`.
+    &#34;&#34;&#34;
+    columns = (&#39;Species&#39;, &#39;Chemical Name&#39;, &#39;Resolved QNs&#39;,
+               &#39;Freq-GHz(rest frame,redshifted)&#39;,
+               &#39;Meas Freq-GHz(rest frame,redshifted)&#39;,
+               &#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;,
+               &#39;E_U (K)&#39;)
+    query = splat.Splatalogue.query_lines(*freq_range,
+                                          only_NRAO_recommended=True,
+                                          **kwargs)[columns]
+    query.rename_column(&#39;Chemical Name&#39;, &#39;Name&#39;)
+    query.rename_column(&#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;, &#39;log10Aij&#39;)
+    query.rename_column(&#39;E_U (K)&#39;, &#39;Eu&#39;)
+    query.rename_column(&#39;Resolved QNs&#39;, &#39;QNs&#39;)
+    query.rename_column(&#39;Freq-GHz(rest frame,redshifted)&#39;, &#39;Freq&#39;)
+    query.rename_column(&#39;Meas Freq-GHz(rest frame,redshifted)&#39;, &#39;MeasFreq&#39;)
+    query.sort([&#39;Name&#39;, &#39;Species&#39;, &#39;Eu&#39;])
+    query[&#39;Eu&#39;].info.unit = u.K
+    query[&#39;Freq&#39;].info.unit = u.GHz
+    query[&#39;MeasFreq&#39;].info.unit = u.GHz
+
+    return query
+
+def query_from_array(array: np.array,
+                     units: dict,
+                     freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                     name_cols: Optional[List[str]] = None) -&gt; dict:
+    &#34;&#34;&#34;Iterate over the frequency ranges in input array and obtain lines.
+
+    To determine the output dictionary keys (in order of priority):
+
+      - Use the values from `name_cols`. Example: `name_cols=[&#39;spw&#39;,&#39;n&#39;]` will
+        be converter to a key `&#39;spw&lt;spw value&gt;_n&lt;n value&gt;&#39;`.
+      - A name column in the input array.
+      - If spw and n columns are present, create a
+        `key=&#39;spw&lt;spw value&gt;_&lt;n value&gt;&#39;`.
+      - The number of the row as string.
+
+    Args:
+      array: structured array with the columns needed.
+      units: the units of each array column.
+      freq_cols: optional; name of the frequency columns.
+      name_cols: optional; columns used to determine the output keys.
+    Returns:
+      Dictionary with the results where the keys are given by the rows names.
+    &#34;&#34;&#34;
+    # Iterate
+    results = {}
+    for i, row in enumerate(array):
+        # Frequency range
+        freq_range = (row[freq_cols[0]] * units[freq_cols[0]],
+                      row[freq_cols[1]] * units[freq_cols[1]])
+
+        # Key value
+        if name_cols is not None:
+            key = []
+            for colname in name_cols:
+                key.append(f&#39;{colname}{row[colname]}&#39;)
+            key = &#39;_&#39;.join(key)
+        elif &#39;name&#39; in array.dtype.fields:
+            key = array[&#39;name&#39;]
+        elif &#39;spw&#39; in array.dtype.fields and &#39;n&#39; in array.dtype.fields:
+            key = f&#34;spw{row[&#39;spw&#39;]}_{row[&#39;n&#39;]}&#34;
+        else:
+            key = f&#39;{i}&#39;
+
+        # Query
+        results[key] = query_lines(freq_range)
+
+    return results
+
+def combine_columns(table: Table,
+                    cols: list) -&gt; Union[np.array, u.Quantity]:
+    &#34;&#34;&#34;Combine 2 columns in table replacing elements.
+    
+    Args:
+      table: input `astropy.Table`.
+      cols: columns to merge.
+    &#34;&#34;&#34;
+    # Check
+    if len(cols) != 2:
+        raise IndexError(&#39;cols must have 2 values&#39;)
+
+    # Initial value
+    val = table[cols[0]]
+    try:
+        # Replace masked elements
+        mask = val.mask
+        val[mask].mask = False
+        val[mask] = table[cols[1]][mask]
+    except AttributeError:
+        pass
+
+    return val
+
+def zip_columns(table: Table, cols: List[str]):
+    &#34;&#34;&#34;Generates a zip of columns in a table.
+
+    Args:
+      table: input `astropy.Table`.
+      cols: columns to zip.
+    &#34;&#34;&#34;
+    aux = []
+    for col in cols:
+        try:
+            aux.append(table[col].quantity)
+        except TypeError:
+            aux.append(table[col])
+
+    return zip(*aux)
+
+def get_spectra(spectra: Spectra,
+                cubes: Optional[list] = None,
+                coords: Optional[list] = None,
+                specs: Optional[list] = None,
+                vlsr: Optional[u.Quantity] = None,
+                rms: Optional[u.Quantity] = None,
+                equivalencies: Optional[dict] = None,
+                log = None) -&gt; Spectra:
+    # Observed data
+    if cubes is not None:
+        # Validate input
+        if coords is None:
+            raise ValueError(&#39;Coordinate needed for spectrum&#39;)
+
+        # Extract spectra
+        log.info(&#39;Extracting spectra from cubes&#39;)
+        for cube in cubes:
+            # Observed frequencies shifted during subtraction
+            for coord in coords:
+                spec = cube_utils.spectrum_at_position(cube, coord,
+                                                       spectral_axis_unit=u.GHz,
+                                                       vlsr=vlsr)
+                spec = Spectrum(spec[0], spec[1].quantity,
+                                restfreq=cube_utils.get_restfreq(cube),
+                                rms=cube_utils.get_cube_rms(cube,
+                                                            use_header=True))
+                spectra.append(spec)
+    elif specs is not None:
+        freq_names = [&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;, &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;]
+        int_names = [&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;, &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;]
+        log.info(&#39;Reading input spectra&#39;)
+        for key, (data, units) in enumerate(specs):
+            # Spectral axis
+            freq_name = list(filter(lambda x, unt=units: x in unt,
+                                    freq_names))[0]
+            xaxis = data[freq_name] * units[freq_name]
+
+            # Intensity axis
+            int_name = list(filter(lambda x, unt=units: x in unt,
+                                   int_names))[0]
+            spec = data[int_name] * units[int_name]
+
+            # Noise
+            if rms is not None:
+                rms = rms[key]
+            else:
+                rms = None
+
+            # Equivalencies
+            if &#39;all&#39; in equivalencies:
+                equivalency = equivalencies
+            else:
+                equivalency = {&#39;all&#39;: equivalencies[key]}
+            restfreq = (0. * u.km/u.s).to(u.GHz,
+                                          equivalencies=equivalency[&#39;all&#39;])
+
+            # Shifted spectrum
+            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+            elif xaxis.unit.is_equivalent(u.km/u.s):
+                #if freq_to_vel is None:
+                #    log.warn(&#39;Cannot convert spectral axis to GHz&#39;)
+                #    continue
+                vels = xaxis - vlsr
+                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+            else:
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+
+            # Store
+            spectra.append(spec)
+    else:
+        pass
+
+    return spectra</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="line_little_helper.processing_tools.combine_columns"><code class="name flex">
+<span>def <span class="ident">combine_columns</span></span>(<span>table: Table, cols: list) ‑> Union[<built-in function array>, astropy.units.quantity.Quantity]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Combine 2 columns in table replacing elements.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>table</code></strong></dt>
+<dd>input <code>astropy.Table</code>.</dd>
+<dt><strong><code>cols</code></strong></dt>
+<dd>columns to merge.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def combine_columns(table: Table,
+                    cols: list) -&gt; Union[np.array, u.Quantity]:
+    &#34;&#34;&#34;Combine 2 columns in table replacing elements.
+    
+    Args:
+      table: input `astropy.Table`.
+      cols: columns to merge.
+    &#34;&#34;&#34;
+    # Check
+    if len(cols) != 2:
+        raise IndexError(&#39;cols must have 2 values&#39;)
+
+    # Initial value
+    val = table[cols[0]]
+    try:
+        # Replace masked elements
+        mask = val.mask
+        val[mask].mask = False
+        val[mask] = table[cols[1]][mask]
+    except AttributeError:
+        pass
+
+    return val</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.get_spectra"><code class="name flex">
+<span>def <span class="ident">get_spectra</span></span>(<span>spectra: spectrum.Spectra, cubes: Union[list, NoneType] = None, coords: Union[list, NoneType] = None, specs: Union[list, NoneType] = None, vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None, rms: Union[astropy.units.quantity.Quantity, NoneType] = None, equivalencies: Union[dict, NoneType] = None, log=None) ‑> spectrum.Spectra</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_spectra(spectra: Spectra,
+                cubes: Optional[list] = None,
+                coords: Optional[list] = None,
+                specs: Optional[list] = None,
+                vlsr: Optional[u.Quantity] = None,
+                rms: Optional[u.Quantity] = None,
+                equivalencies: Optional[dict] = None,
+                log = None) -&gt; Spectra:
+    # Observed data
+    if cubes is not None:
+        # Validate input
+        if coords is None:
+            raise ValueError(&#39;Coordinate needed for spectrum&#39;)
+
+        # Extract spectra
+        log.info(&#39;Extracting spectra from cubes&#39;)
+        for cube in cubes:
+            # Observed frequencies shifted during subtraction
+            for coord in coords:
+                spec = cube_utils.spectrum_at_position(cube, coord,
+                                                       spectral_axis_unit=u.GHz,
+                                                       vlsr=vlsr)
+                spec = Spectrum(spec[0], spec[1].quantity,
+                                restfreq=cube_utils.get_restfreq(cube),
+                                rms=cube_utils.get_cube_rms(cube,
+                                                            use_header=True))
+                spectra.append(spec)
+    elif specs is not None:
+        freq_names = [&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;, &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;]
+        int_names = [&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;, &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;]
+        log.info(&#39;Reading input spectra&#39;)
+        for key, (data, units) in enumerate(specs):
+            # Spectral axis
+            freq_name = list(filter(lambda x, unt=units: x in unt,
+                                    freq_names))[0]
+            xaxis = data[freq_name] * units[freq_name]
+
+            # Intensity axis
+            int_name = list(filter(lambda x, unt=units: x in unt,
+                                   int_names))[0]
+            spec = data[int_name] * units[int_name]
+
+            # Noise
+            if rms is not None:
+                rms = rms[key]
+            else:
+                rms = None
+
+            # Equivalencies
+            if &#39;all&#39; in equivalencies:
+                equivalency = equivalencies
+            else:
+                equivalency = {&#39;all&#39;: equivalencies[key]}
+            restfreq = (0. * u.km/u.s).to(u.GHz,
+                                          equivalencies=equivalency[&#39;all&#39;])
+
+            # Shifted spectrum
+            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+            elif xaxis.unit.is_equivalent(u.km/u.s):
+                #if freq_to_vel is None:
+                #    log.warn(&#39;Cannot convert spectral axis to GHz&#39;)
+                #    continue
+                vels = xaxis - vlsr
+                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+            else:
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+
+            # Store
+            spectra.append(spec)
+    else:
+        pass
+
+    return spectra</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.get_spectral_equivalencies"><code class="name flex">
+<span>def <span class="ident">get_spectral_equivalencies</span></span>(<span>restfreqs: list, keys: Union[list, NoneType] = None) ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get spectral equivalencies from rest frequencies.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>restfreqs</code></strong></dt>
+<dd>rest frequencies.</dd>
+<dt><strong><code>keys</code></strong></dt>
+<dd>optional; keys for the output dictionary.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A dictionary with the astropy equivalency functions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_spectral_equivalencies(restfreqs: list,
+                               keys: Optional[list] = None) -&gt; dict:
+    &#34;&#34;&#34;Get spectral equivalencies from rest frequencies.
+
+    Args:
+      restfreqs: rest frequencies.
+      keys: optional; keys for the output dictionary.
+    Returns:
+      A dictionary with the astropy equivalency functions.
+    &#34;&#34;&#34;
+    # Define keys
+    if keys is None:
+        keys = range(len(restfreqs))
+
+    # Process restfreqs
+    if len(restfreqs) == 1:
+        equiv = {key: u.doppler_radio(restfreqs[0]) for key in keys}
+    else:
+        if len(keys) != len(restfreqs):
+            raise ValueError(&#39;Size of keys and restfreqs do not match&#39;)
+        aux = zip(keys, restfreqs)
+        equiv = {key: u.doppler_radio(restfreq) for key, restfreq in aux}
+
+    return equiv</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.observed_to_rest"><code class="name flex">
+<span>def <span class="ident">observed_to_rest</span></span>(<span>freqs: astropy.units.quantity.Quantity, vlsr: astropy.units.quantity.Quantity, equivalencies: dict, spws_map: Union[<built-in function array>, NoneType] = None) ‑> astropy.units.quantity.Quantity</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert observed frequencies to rest frequencies.</p>
+<p>If the same equivalency is used for all frequencies, the equivalencies
+dictionary has to have an 'all' key with the equivalency.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>freqs</code></strong></dt>
+<dd>observed frequencies.</dd>
+<dt><strong><code>vlsr</code></strong></dt>
+<dd>LSR velocity.</dd>
+<dt><strong><code>equivalencies</code></strong></dt>
+<dd>dictionary with the equivalencies to convert frequency to
+velocity.</dd>
+<dt><strong><code>spws_map</code></strong></dt>
+<dd>optional; an array indicating the key in equivalencies for each
+frequency.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>An array with the rest frequencies.</p>
+<h2 id="raises">Raises</h2>
+<p>ValueError if an equivalency is not found.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def observed_to_rest(freqs: u.Quantity, vlsr: u.Quantity, equivalencies: dict,
+                     spws_map: Optional[np.array] = None) -&gt; u.Quantity:
+    &#34;&#34;&#34;Convert observed frequencies to rest frequencies.
+
+    If the same equivalency is used for all frequencies, the equivalencies
+    dictionary has to have an &#39;all&#39; key with the equivalency.
+
+    Args:
+      freqs: observed frequencies.
+      vlsr: LSR velocity.
+      equivalencies: dictionary with the equivalencies to convert frequency to
+        velocity.
+      spws_map: optional; an array indicating the key in equivalencies for each
+        frequency.
+    Returns:
+      An array with the rest frequencies.
+    Raises:
+      ValueError if an equivalency is not found.
+    &#34;&#34;&#34;
+    if spws_map is None:
+        if &#39;all&#39; in equivalencies:
+            return to_rest_freq(freqs, vlsr, equivalencies[&#39;all&#39;])
+        else:
+            raise ValueError(&#39;Could not convert to rest frequency&#39;)
+    else:
+        for spw in np.unique(spws_map):
+            # Equivalency
+            if &#39;all&#39; in equivalencies:
+                equivalency = equivalencies[&#39;all&#39;]
+            else:
+                equivalency = equivalencies[spw]
+
+            # Mask
+            mask = spws_map == spw
+
+            # Convert
+            freqs[mask] = to_rest_freq(freqs[mask], vlsr, equivalency)
+        return freqs</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.query_from_array"><code class="name flex">
+<span>def <span class="ident">query_from_array</span></span>(<span>array: <built-in function array>, units: dict, freq_cols: List[str] = ['freq_low', 'freq_up'], name_cols: Union[List[str], NoneType] = None) ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Iterate over the frequency ranges in input array and obtain lines.</p>
+<p>To determine the output dictionary keys (in order of priority):</p>
+<ul>
+<li>Use the values from <code>name_cols</code>. Example: <code>name_cols=['spw','n']</code> will
+be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
+<li>A name column in the input array.</li>
+<li>If spw and n columns are present, create a
+<code>key='spw&lt;spw value&gt;_&lt;n value&gt;'</code>.</li>
+<li>The number of the row as string.</li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>array</code></strong></dt>
+<dd>structured array with the columns needed.</dd>
+<dt><strong><code>units</code></strong></dt>
+<dd>the units of each array column.</dd>
+<dt><strong><code>freq_cols</code></strong></dt>
+<dd>optional; name of the frequency columns.</dd>
+<dt><strong><code>name_cols</code></strong></dt>
+<dd>optional; columns used to determine the output keys.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Dictionary with the results where the keys are given by the rows names.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def query_from_array(array: np.array,
+                     units: dict,
+                     freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                     name_cols: Optional[List[str]] = None) -&gt; dict:
+    &#34;&#34;&#34;Iterate over the frequency ranges in input array and obtain lines.
+
+    To determine the output dictionary keys (in order of priority):
+
+      - Use the values from `name_cols`. Example: `name_cols=[&#39;spw&#39;,&#39;n&#39;]` will
+        be converter to a key `&#39;spw&lt;spw value&gt;_n&lt;n value&gt;&#39;`.
+      - A name column in the input array.
+      - If spw and n columns are present, create a
+        `key=&#39;spw&lt;spw value&gt;_&lt;n value&gt;&#39;`.
+      - The number of the row as string.
+
+    Args:
+      array: structured array with the columns needed.
+      units: the units of each array column.
+      freq_cols: optional; name of the frequency columns.
+      name_cols: optional; columns used to determine the output keys.
+    Returns:
+      Dictionary with the results where the keys are given by the rows names.
+    &#34;&#34;&#34;
+    # Iterate
+    results = {}
+    for i, row in enumerate(array):
+        # Frequency range
+        freq_range = (row[freq_cols[0]] * units[freq_cols[0]],
+                      row[freq_cols[1]] * units[freq_cols[1]])
+
+        # Key value
+        if name_cols is not None:
+            key = []
+            for colname in name_cols:
+                key.append(f&#39;{colname}{row[colname]}&#39;)
+            key = &#39;_&#39;.join(key)
+        elif &#39;name&#39; in array.dtype.fields:
+            key = array[&#39;name&#39;]
+        elif &#39;spw&#39; in array.dtype.fields and &#39;n&#39; in array.dtype.fields:
+            key = f&#34;spw{row[&#39;spw&#39;]}_{row[&#39;n&#39;]}&#34;
+        else:
+            key = f&#39;{i}&#39;
+
+        # Query
+        results[key] = query_lines(freq_range)
+
+    return results</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.query_lines"><code class="name flex">
+<span>def <span class="ident">query_lines</span></span>(<span>freq_range: Tuple[astropy.units.quantity.Quantity, astropy.units.quantity.Quantity], **kwargs) ‑> Table</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Query splatalogue to get lines in range.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>freq_range</code></strong></dt>
+<dd>frequency range.</dd>
+<dt><strong><code>kwargs</code></strong></dt>
+<dd>optional; additional filters for <code>astroquery</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
+    &#34;&#34;&#34;Query splatalogue to get lines in range.
+
+    Args:
+      freq_range: frequency range.
+      kwargs: optional; additional filters for `astroquery`.
+    &#34;&#34;&#34;
+    columns = (&#39;Species&#39;, &#39;Chemical Name&#39;, &#39;Resolved QNs&#39;,
+               &#39;Freq-GHz(rest frame,redshifted)&#39;,
+               &#39;Meas Freq-GHz(rest frame,redshifted)&#39;,
+               &#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;,
+               &#39;E_U (K)&#39;)
+    query = splat.Splatalogue.query_lines(*freq_range,
+                                          only_NRAO_recommended=True,
+                                          **kwargs)[columns]
+    query.rename_column(&#39;Chemical Name&#39;, &#39;Name&#39;)
+    query.rename_column(&#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;, &#39;log10Aij&#39;)
+    query.rename_column(&#39;E_U (K)&#39;, &#39;Eu&#39;)
+    query.rename_column(&#39;Resolved QNs&#39;, &#39;QNs&#39;)
+    query.rename_column(&#39;Freq-GHz(rest frame,redshifted)&#39;, &#39;Freq&#39;)
+    query.rename_column(&#39;Meas Freq-GHz(rest frame,redshifted)&#39;, &#39;MeasFreq&#39;)
+    query.sort([&#39;Name&#39;, &#39;Species&#39;, &#39;Eu&#39;])
+    query[&#39;Eu&#39;].info.unit = u.K
+    query[&#39;Freq&#39;].info.unit = u.GHz
+    query[&#39;MeasFreq&#39;].info.unit = u.GHz
+
+    return query</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.to_rest_freq"><code class="name flex">
+<span>def <span class="ident">to_rest_freq</span></span>(<span>freqs: astropy.units.quantity.Quantity, vlsr: astropy.units.quantity.Quantity, equivalencies: ~Equivalency) ‑> astropy.units.quantity.Quantity</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert input observed frequencies to rest frequencies.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>freqs</code></strong></dt>
+<dd>observed frequencies.</dd>
+<dt><strong><code>vlsr</code></strong></dt>
+<dd>LSR velocity.</dd>
+<dt><strong><code>equivalencies</code></strong></dt>
+<dd>frequency to velocity equivalency.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_rest_freq(freqs: u.Quantity, vlsr: u.Quantity,
+                 equivalencies: Equivalency) -&gt; u.Quantity:
+    &#34;&#34;&#34;Convert input observed frequencies to rest frequencies.
+
+    Args:
+      freqs: observed frequencies.
+      vlsr: LSR velocity.
+      equivalencies: frequency to velocity equivalency.
+    &#34;&#34;&#34;
+    # Convert to velocity
+    vels = freqs.to(vlsr.unit, equivalencies=equivalencies)
+
+    # Shift and convert back
+    vels = vels - vlsr
+    freqs = vels.to(freqs.unit, equivalencies=equivalencies)
+
+    return freqs</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.processing_tools.zip_columns"><code class="name flex">
+<span>def <span class="ident">zip_columns</span></span>(<span>table: Table, cols: List[str])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generates a zip of columns in a table.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>table</code></strong></dt>
+<dd>input <code>astropy.Table</code>.</dd>
+<dt><strong><code>cols</code></strong></dt>
+<dd>columns to zip.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def zip_columns(table: Table, cols: List[str]):
+    &#34;&#34;&#34;Generates a zip of columns in a table.
+
+    Args:
+      table: input `astropy.Table`.
+      cols: columns to zip.
+    &#34;&#34;&#34;
+    aux = []
+    for col in cols:
+        try:
+            aux.append(table[col].quantity)
+        except TypeError:
+            aux.append(table[col])
+
+    return zip(*aux)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="line_little_helper" href="index.html">line_little_helper</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="line_little_helper.processing_tools.combine_columns" href="#line_little_helper.processing_tools.combine_columns">combine_columns</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.get_spectra" href="#line_little_helper.processing_tools.get_spectra">get_spectra</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.get_spectral_equivalencies" href="#line_little_helper.processing_tools.get_spectral_equivalencies">get_spectral_equivalencies</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.observed_to_rest" href="#line_little_helper.processing_tools.observed_to_rest">observed_to_rest</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.query_from_array" href="#line_little_helper.processing_tools.query_from_array">query_from_array</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.query_lines" href="#line_little_helper.processing_tools.query_lines">query_lines</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.to_rest_freq" href="#line_little_helper.processing_tools.to_rest_freq">to_rest_freq</a></code></li>
+<li><code><a title="line_little_helper.processing_tools.zip_columns" href="#line_little_helper.processing_tools.zip_columns">zip_columns</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+</footer>
+</body>
+</html>
