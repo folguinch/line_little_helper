@@ -93,11 +93,14 @@ def observed_to_rest(freqs: u.Quantity, vlsr: u.Quantity, equivalencies: dict,
             freqs[mask] = to_rest_freq(freqs[mask], vlsr, equivalency)
         return freqs
 
-def query_lines(freq_range: QPair, **kwargs) -> Table:
+def query_lines(freq_range: QPair, 
+                line_lists: List[str] = ['CDMS'], 
+                **kwargs) -> Table:
     """Query splatalogue to get lines in range.
 
     Args:
       freq_range: frequency range.
+      line_lists: optional; only use data from these databases.
       kwargs: optional; additional filters for `astroquery`.
     """
     columns = ('Species', 'Chemical Name', 'Resolved QNs',
@@ -106,7 +109,8 @@ def query_lines(freq_range: QPair, **kwargs) -> Table:
                'Log<sub>10</sub> (A<sub>ij</sub>)',
                'E_U (K)')
     query = splat.Splatalogue.query_lines(*freq_range,
-                                          only_NRAO_recommended=True,
+                                          #only_NRAO_recommended=True,
+                                          line_lists=line_lists,
                                           **kwargs)[columns]
     query.rename_column('Chemical Name', 'Name')
     query.rename_column('Log<sub>10</sub> (A<sub>ij</sub>)', 'log10Aij')

@@ -334,10 +334,11 @@ def _proc(args):
     if args.split is None:
         if args.rms is not None:
             rms = args.rms
+            args.log.info(f'Using rms: {rms.value} {rms.unit}')
         else:
             rms = get_cube_rms(args.cube, use_header=True)
             args.log.info(f'Cube rms: {rms.value} {rms.unit}')
-            args.log.info('Filtering out data < %i rms', args.nsigma)
+        args.log.info('Filtering out data < %i rms', args.nsigma)
 
     # Iterate over transitions
     for transition in args.mol.transitions:

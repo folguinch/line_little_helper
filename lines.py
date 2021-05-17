@@ -177,7 +177,6 @@ class Molecule:
             # Do not use unresolved QNs
             if str(data[1]) == '--':
                 continue
-
             transitions.append(
                 Transition(data[0], data[1], data[2],
                            vlsr=vlsr, eup=data[3], logaij=data[4]))
