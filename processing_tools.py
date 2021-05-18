@@ -94,7 +94,7 @@ def observed_to_rest(freqs: u.Quantity, vlsr: u.Quantity, equivalencies: dict,
         return freqs
 
 def query_lines(freq_range: QPair, 
-                line_lists: List[str] = ['CDMS'], 
+                line_lists: List[str] = ['CDMS', 'JPL'],
                 **kwargs) -> Table:
     """Query splatalogue to get lines in range.
 
