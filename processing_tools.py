@@ -118,7 +118,7 @@ def query_lines(freq_range: QPair,
     query.rename_column('Resolved QNs', 'QNs')
     query.rename_column('Freq-GHz(rest frame,redshifted)', 'Freq')
     query.rename_column('Meas Freq-GHz(rest frame,redshifted)', 'MeasFreq')
-    query.sort(['Name', 'Species', 'Eu'])
+    query.sort(['Name', 'Species', 'MeasFreq', 'Eu'])
     query['Eu'].info.unit = u.K
     query['Freq'].info.unit = u.GHz
     query['MeasFreq'].info.unit = u.GHz
@@ -213,6 +213,17 @@ def zip_columns(table: Table, cols: List[str]):
             aux.append(table[col])
 
     return zip(*aux)
+
+def refine_query(table: Table,
+                 cols: List[str],
+                 exclude_qns: Sequence[str] = (), 
+                 bin_freq: Optional[u.Quantity] = None) -> :
+    """Apply standard filters to a line query table.
+
+    Args:
+    """
+    pass
+    
 
 def get_spectra(spectra: Spectra,
                 cubes: Optional[list] = None,
