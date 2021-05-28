@@ -214,17 +214,6 @@ def zip_columns(table: Table, cols: List[str]):
 
     return zip(*aux)
 
-def refine_query(table: Table,
-                 cols: List[str],
-                 exclude_qns: Sequence[str] = (), 
-                 bin_freq: Optional[u.Quantity] = None) -> :
-    """Apply standard filters to a line query table.
-
-    Args:
-    """
-    pass
-    
-
 def get_spectra(spectra: Spectra,
                 cubes: Optional[list] = None,
                 coords: Optional[list] = None,
