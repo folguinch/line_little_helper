@@ -1,7 +1,11 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TypeVar
 
+from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import numpy as np
+
+Coordinate = TypeVar('Coordinate')
+SpectralCube = TypeVar('SpectralCube')
 
 class Spectrum:
     """Class for storing a single spectrum.
@@ -27,6 +31,30 @@ class Spectrum:
         self.intensity = intensity
         self.restfreq = restfreq
         self.rms = rms
+
+    @classmethod
+    def from_cube(cube: SpectralCube, 
+                  coord: Coordinate, 
+                  spectral_axis_unit: u.Unit = u.GHz,
+                  vlsr: Optional[u.Quantity] = None):
+        """Generate a Spectrum from a cube.
+
+        Args:
+          cubes: list of file names.
+          coord: coordinate where the spectra are extracted.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        """
+        spec = cube_utils.spectrum_at_position(
+            cube,
+            coord,
+            spectral_axis_unit=spectral_axis_unit,
+            vlsr=vlsr,
+        )
+
+        return cls(spec[0], spec[1].quantity,
+                   restfreq=cube_utils.get_restfreq(cube),
+                   rms=cube_utils.get_cube_rms(cube, use_header=True))
 
     def range_mask(self,
                    low: Optional[u.Quantity] = None, 
@@ -108,6 +136,81 @@ class Spectrum:
 
 class Spectra(list):
     """Class to store Spectrum objects."""
+
+    @classmethod
+    def from_cubes(cubes: Sequence[SpectralCube], 
+                   coord: Coordinate, 
+                   spectral_axis_unit: u.Unit = u.GHz,
+                   vlsr: Optional[u.Quantity] = None) -> List:
+    """Generate an Spectra object from input cubes.
+
+    Args:
+      cubes: list of file names.
+      coord: coordinate where the spectra are extracted.
+      spectral_axis_unit: optional; units of the spectral axis.
+      vlsr: optional; LSR velocity.
+    """
+    specs = []
+    for cube in args.cubes:
+        # Observed frequencies shifted during subtraction
+        spec = Spectrum.from_cube(cube, coord,
+                                  spectral_axis_unit=spectral_axis_unit,
+                                  vlsr=vlsr)
+        specs.append(spec)
+
+    return cls(specs)
+
+    @classmethod
+    def from_arrays(
+        arrays: List,
+        restfreq: u.Quantity,
+        equivalencies: dict,
+        vlsr: Optional[u.Quantity] = None,
+        rms: Optional[List[u.Quantity]] = None
+        freq_names: Sequence[str] = ['nu', 'freq', 'frequency', 
+                                     'v', 'vel', 'velocity'],
+        flux_names: Sequence[str] = ['F', 'f', 'Fnu', 'fnu', 
+                                     'intensity', 'T', 'Tb']
+    ):
+        """Creates spectra object from a list structured array.
+
+        The values in `arrays` are pairs consisting of an structured `np.array`
+        and a dictionary with the units for each column.
+        """
+        specs = []
+        for spw, (data, units) in enumerate(arrays):
+            # Spectral axis
+            freq_name = list(filter(lambda x, un=units: x in un, freq_names))[0]
+            xaxis = data[freq_name] * units[freq_name]
+
+            # Intensity axis
+            int_name = list(filter(lambda x, un=units: x in un, int_names))[0]
+            spec = data[int_name] * units[int_name]
+
+            # Noise
+            if rms is not None:
+                noise = rms[spw]
+            else:
+                noise = None
+
+            # Shift spectral axis
+            if 'all' in equivalencies:
+                equivalency = equivalencies
+            else:
+                equivalency = {'all': equivalencies[spw]}
+            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+            elif xaxis.unit.is_equivalent(u.km/u.s):
+                vels = xaxis - vlsr
+                xaxis = vels.to(u.GHz, equivalencies=equivalency['all'])
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+            else:
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+
+            specs.append(spec)
+
+        return cls(specs)
 
     def get_spectrum(self, freq: u.Quantity):
         """Get the first spectrum where freq is in the spectral axis."""
