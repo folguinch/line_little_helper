@@ -113,6 +113,8 @@ def full_split_moments(cube: Cube,
                        outdir: Path,
                        basename: str,
                        vlsr: u.Quantity,
+                       rms: Optional[u.Quantity] = None,
+                       nsigma: Optional[int] = 5,
                        incremental_step: Optional[int] = 2,
                        roll_step: Optional[int] = 2,
                        log: Optional[Logger] = None,) -> None:
@@ -179,10 +181,25 @@ def full_split_moments(cube: Cube,
                       f'{vel[max_ub - 1].value} {vel.unit}'))
         aux_lb = cube[min_lb:max_lb, :, :]
         aux_ub = cube[min_ub:max_ub, :, :]
+        nlb = aux_lb.shape[0]
+        nub = aux_ub.shape[0]
 
         # Moment 0
         aux_lb = aux_lb.moment(order=0)
         aux_ub = aux_ub.moment(order=0)
+
+        # Filter with rms
+        if rms is not None:
+            rmslb = rms / np.sqrt(nlb)
+            rmsub = rms / np.sqrt(ulb)
+            
+            if (np.all(aux_lb < nsigma * rmslb) or 
+                np.all(aux_ub < nsigma * rmsub)):
+                if log is not None: 
+                    log.info('Moment did not reach desired S/N')
+                continue
+
+        # Save
         filename = (f'{basename}_moment0_incremental_'
                     f'{min_lb}-{max_lb - 1}_{color_lb}.fits')
         aux_lb.write(outdir / filename, overwrite=True)
@@ -204,10 +221,25 @@ def full_split_moments(cube: Cube,
             log.info(f'Upper band: {min_ub} -- {max_ub - 1}')
         aux_lb = cube[min_lb:max_lb, :, :]
         aux_ub = cube[min_ub:max_ub, :, :]
+        nlb = aux_lb.shape[0]
+        nub = aux_ub.shape[0]
 
         # Moment 0
         aux_lb = aux_lb.moment(order=0)
         aux_ub = aux_ub.moment(order=0)
+
+        # Filter with rms
+        if rms is not None:
+            rmslb = rms / np.sqrt(nlb)
+            rmsub = rms / np.sqrt(ulb)
+            
+            if (np.all(aux_lb < nsigma * rmslb) or 
+                np.all(aux_ub < nsigma * rmsub)):
+                if log is not None: 
+                    log.info('Moment did not reach desired S/N')
+                continue
+
+        # Save
         filename = (f'{basename}_moment0_rolling_'
                     f'{min_lb}-{max_lb - 1}_{color_lb}.fits')
         aux_lb.write(outdir / filename, overwrite=True)
@@ -331,14 +363,13 @@ def _proc(args):
     spectral_axis = args.cube.spectral_axis.to(u.GHz)
 
     # RMS
-    if args.split is None:
-        if args.rms is not None:
-            rms = args.rms
-            args.log.info(f'Using rms: {rms.value} {rms.unit}')
-        else:
-            rms = get_cube_rms(args.cube, use_header=True)
-            args.log.info(f'Cube rms: {rms.value} {rms.unit}')
-        args.log.info('Filtering out data < %i rms', args.nsigma)
+    if args.rms is not None:
+        rms = args.rms
+        args.log.info(f'Using rms: {rms.value} {rms.unit}')
+    else:
+        rms = get_cube_rms(args.cube, use_header=True,
+                           sampled=args.sampled_rms, log=args.log.info)
+        args.log.info(f'Cube rms: {rms.value} {rms.unit}')
 
     # Iterate over transitions
     for transition in args.mol.transitions:
@@ -376,11 +407,12 @@ def _proc(args):
             args.log.info(f'Split rolling step: {roll_step}')
             full_split_moments(subcube, split_wind_width, split_win,
                                args.outdir[0], transition.generate_name(),
-                               args.vlsr,
+                               args.vlsr, rms=rms, nsigma=args.nsigma,
                                incremental_step=incremental_step,
                                roll_step=roll_step, log=args.log)
         else:
             # Create cube mask
+            args.log.info('Filtering out data < %i rms', args.nsigma)
             mask = subcube > rms * args.nsigma
             subcube = subcube.with_mask(mask)
 
@@ -414,8 +446,12 @@ def main(args: list) -> None:
     parser.add_argument('--vlsr', action=actions.ReadQuantity,
                         default=0 * u.km/u.s,
                         help='LSR velocity.')
-    parser.add_argument('--rms', action=actions.ReadQuantity, default=None,
+    group1 = parser.add_mutually_exclusive_group(required=False)
+    group1.add_argument('--rms', action=actions.ReadQuantity, default=None,
                         help='Noise level.')
+    group1.add_argument('--sampled_rms', action=actions.ReadQuantity, 
+                        default=None,
+                        help='Calculate the rms from a sample of channels.')
     parser.add_argument('--onlyj', action='store_true',
                         help='Filter out F, K transitions.')
     parser.add_argument('--savemasks', action='store_true',
