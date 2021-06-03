@@ -1,13 +1,11 @@
 """Processing data from input."""
 from typing import List, Optional, Sequence, TypeVar, Union
 
-from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import astroquery.splatalogue as splat
 import numpy as np
 
 from common_types import QPair, Table
-from spectrum import Spectra, Spectrum
 
 Equivalency = TypeVar('Equivalency')
 
@@ -214,79 +212,79 @@ def zip_columns(table: Table, cols: List[str]):
 
     return zip(*aux)
 
-def get_spectra(spectra: Spectra,
-                cubes: Optional[list] = None,
-                coords: Optional[list] = None,
-                specs: Optional[list] = None,
-                vlsr: Optional[u.Quantity] = None,
-                rms: Optional[u.Quantity] = None,
-                equivalencies: Optional[dict] = None,
-                log = None) -> Spectra:
-    # Observed data
-    if cubes is not None:
-        # Validate input
-        if coords is None:
-            raise ValueError('Coordinate needed for spectrum')
-
-        # Extract spectra
-        log.info('Extracting spectra from cubes')
-        for cube in cubes:
-            # Observed frequencies shifted during subtraction
-            for coord in coords:
-                spec = cube_utils.spectrum_at_position(cube, coord,
-                                                       spectral_axis_unit=u.GHz,
-                                                       vlsr=vlsr)
-                spec = Spectrum(spec[0], spec[1].quantity,
-                                restfreq=cube_utils.get_restfreq(cube),
-                                rms=cube_utils.get_cube_rms(cube,
-                                                            use_header=True))
-                spectra.append(spec)
-    elif specs is not None:
-        freq_names = ['nu', 'freq', 'frequency', 'v', 'vel', 'velocity']
-        int_names = ['F', 'f', 'Fnu', 'fnu', 'intensity', 'T', 'Tb']
-        log.info('Reading input spectra')
-        for key, (data, units) in enumerate(specs):
-            # Spectral axis
-            freq_name = list(filter(lambda x, unt=units: x in unt,
-                                    freq_names))[0]
-            xaxis = data[freq_name] * units[freq_name]
-
-            # Intensity axis
-            int_name = list(filter(lambda x, unt=units: x in unt,
-                                   int_names))[0]
-            spec = data[int_name] * units[int_name]
-
-            # Noise
-            if rms is not None:
-                rms = rms[key]
-            else:
-                rms = None
-
-            # Equivalencies
-            if 'all' in equivalencies:
-                equivalency = equivalencies
-            else:
-                equivalency = {'all': equivalencies[key]}
-            restfreq = (0. * u.km/u.s).to(u.GHz,
-                                          equivalencies=equivalency['all'])
-
-            # Shifted spectrum
-            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
-                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-            elif xaxis.unit.is_equivalent(u.km/u.s):
-                #if freq_to_vel is None:
-                #    log.warn('Cannot convert spectral axis to GHz')
-                #    continue
-                vels = xaxis - vlsr
-                xaxis = vels.to(u.GHz, equivalencies=equivalency['all'])
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-            else:
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-
-            # Store
-            spectra.append(spec)
-    else:
-        pass
-
-    return spectra
+#def get_spectra(spectra: Spectra,
+#                cubes: Optional[list] = None,
+#                coords: Optional[list] = None,
+#                specs: Optional[list] = None,
+#                vlsr: Optional[u.Quantity] = None,
+#                rms: Optional[u.Quantity] = None,
+#                equivalencies: Optional[dict] = None,
+#                log = None) -> Spectra:
+#    # Observed data
+#    if cubes is not None:
+#        # Validate input
+#        if coords is None:
+#            raise ValueError('Coordinate needed for spectrum')
+#
+#        # Extract spectra
+#        log.info('Extracting spectra from cubes')
+#        for cube in cubes:
+#            # Observed frequencies shifted during subtraction
+#            for coord in coords:
+#                spec = cube_utils.spectrum_at_position(cube, coord,
+#                                                      spectral_axis_unit=u.GHz,
+#                                                       vlsr=vlsr)
+#                spec = Spectrum(spec[0], spec[1].quantity,
+#                                restfreq=cube_utils.get_restfreq(cube),
+#                                rms=cube_utils.get_cube_rms(cube,
+#                                                            use_header=True))
+#                spectra.append(spec)
+#    elif specs is not None:
+#        freq_names = ['nu', 'freq', 'frequency', 'v', 'vel', 'velocity']
+#        int_names = ['F', 'f', 'Fnu', 'fnu', 'intensity', 'T', 'Tb']
+#        log.info('Reading input spectra')
+#        for key, (data, units) in enumerate(specs):
+#            # Spectral axis
+#            freq_name = list(filter(lambda x, unt=units: x in unt,
+#                                    freq_names))[0]
+#            xaxis = data[freq_name] * units[freq_name]
+#
+#            # Intensity axis
+#            int_name = list(filter(lambda x, unt=units: x in unt,
+#                                   int_names))[0]
+#            spec = data[int_name] * units[int_name]
+#
+#            # Noise
+#            if rms is not None:
+#                rms = rms[key]
+#            else:
+#                rms = None
+#
+#            # Equivalencies
+#            if 'all' in equivalencies:
+#                equivalency = equivalencies
+#            else:
+#                equivalency = {'all': equivalencies[key]}
+#            restfreq = (0. * u.km/u.s).to(u.GHz,
+#                                          equivalencies=equivalency['all'])
+#
+#            # Shifted spectrum
+#            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+#                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+#                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+#            elif xaxis.unit.is_equivalent(u.km/u.s):
+#                #if freq_to_vel is None:
+#                #    log.warn('Cannot convert spectral axis to GHz')
+#                #    continue
+#                vels = xaxis - vlsr
+#                xaxis = vels.to(u.GHz, equivalencies=equivalency['all'])
+#                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+#            else:
+#                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+#
+#            # Store
+#            spectra.append(spec)
+#    else:
+#        pass
+#
+#    return spectra
