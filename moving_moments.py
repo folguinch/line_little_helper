@@ -414,6 +414,7 @@ def _proc(args):
         else:
             # Create cube mask
             args.log.info('Filtering out data < %i rms', args.nsigma)
+            mask = subcube > rms * args.nsigma
             if not mask.any():
                 args.log.info('No data over threshold, skipping')
                 continue
