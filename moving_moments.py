@@ -450,8 +450,7 @@ def main(args: list) -> None:
     group1 = parser.add_mutually_exclusive_group(required=False)
     group1.add_argument('--rms', action=actions.ReadQuantity, default=None,
                         help='Noise level.')
-    group1.add_argument('--sampled_rms', action=actions.ReadQuantity,
-                        default=None,
+    group1.add_argument('--sampled_rms', action='store_true',
                         help='Calculate the rms from a sample of channels.')
     parser.add_argument('--onlyj', action='store_true',
                         help='Filter out F, K transitions.')
