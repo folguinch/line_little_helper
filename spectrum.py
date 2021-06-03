@@ -1,8 +1,11 @@
-from typing import Optional, Tuple, TypeVar
+"""Objects for managing spectral data."""
+from typing import List, Optional, Sequence, Tuple, TypeVar
 
 from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import numpy as np
+
+from processing_tools import observed_to_rest
 
 Coordinate = TypeVar('Coordinate')
 SpectralCube = TypeVar('SpectralCube')
@@ -11,7 +14,7 @@ class Spectrum:
     """Class for storing a single spectrum.
 
     A spectrum has a spectral axis and an intensity axis, and optionaly a rest
-    frequency and an rms (noise) value. The rest frequency is used to convert 
+    frequency and an rms (noise) value. The rest frequency is used to convert
     the spectral axis units.
 
     Attributes:
@@ -24,7 +27,7 @@ class Spectrum:
     rms = None
 
     def __init__(self, spectral_axis: u.Quantity, intensity: u.Quantity,
-                 restfreq: Optional[u.Quantity] = None, 
+                 restfreq: Optional[u.Quantity] = None,
                  rms: Optional[u.Quantity] = None) -> None:
         """Initialize a spectrum object."""
         self.spectral_axis = spectral_axis
@@ -33,8 +36,9 @@ class Spectrum:
         self.rms = rms
 
     @classmethod
-    def from_cube(cube: SpectralCube, 
-                  coord: Coordinate, 
+    def from_cube(cls,
+                  cube: SpectralCube,
+                  coord: Coordinate,
                   spectral_axis_unit: u.Unit = u.GHz,
                   vlsr: Optional[u.Quantity] = None):
         """Generate a Spectrum from a cube.
@@ -57,7 +61,7 @@ class Spectrum:
                    rms=cube_utils.get_cube_rms(cube, use_header=True))
 
     def range_mask(self,
-                   low: Optional[u.Quantity] = None, 
+                   low: Optional[u.Quantity] = None,
                    up: Optional[u.Quantity] = None) -> np.array:
         """Creates a mask from spectral axis limits."""
         mask = np.ones(self.spectral_axis.shape, dtype=bool)
@@ -78,23 +82,23 @@ class Spectrum:
         return mask
 
     def combined_mask(self,
-                      low: Optional[u.Quantity] = None, 
+                      low: Optional[u.Quantity] = None,
                       up: Optional[u.Quantity] = None,
                       nsigma: float = 5) -> np.array:
         """Combine range and intensity masks."""
         mask = self.range_mask(low=low, up=up)
         mask = mask & self.intensity_mask(nsigma=nsigma)
-        
+
         return mask
 
-    def peak_frequency(self, 
-                       low: Optional[u.Quantity] = None, 
+    def peak_frequency(self,
+                       low: Optional[u.Quantity] = None,
                        up: Optional[u.Quantity] = None) -> u.Quantity:
         """Return the spectral axis value at the intensity peak.
-        
+
         Regions of the spectral axis where to find the peak can be limited with
         the low and up parameters.
-        
+
         Args:
           low: optional; lower spectral axis limit.
           upper: optional; upper spectral axis limit.
@@ -107,7 +111,7 @@ class Spectrum:
         return self.spectral_axis[mask][ind]
 
     def centroid(self,
-                 low: Optional[u.Quantity] = None, 
+                 low: Optional[u.Quantity] = None,
                  up: Optional[u.Quantity] = None,
                  nsigma: float = 5) -> u.Quantity:
         """Determine the spectral axis value center of mass.
@@ -132,45 +136,47 @@ class Spectrum:
     def is_in(self, freq) -> bool:
         """Is the input frequency in the spectral axis range?"""
         low, up = self.extrema()
-        return freq >= low and freq <= up
+        return low <= freq <= up
 
 class Spectra(list):
     """Class to store Spectrum objects."""
 
     @classmethod
-    def from_cubes(cubes: Sequence[SpectralCube], 
-                   coord: Coordinate, 
+    def from_cubes(cls,
+                   cubes: Sequence[SpectralCube],
+                   coord: Coordinate,
                    spectral_axis_unit: u.Unit = u.GHz,
                    vlsr: Optional[u.Quantity] = None) -> List:
-    """Generate an Spectra object from input cubes.
+        """Generate an Spectra object from input cubes.
 
-    Args:
-      cubes: list of file names.
-      coord: coordinate where the spectra are extracted.
-      spectral_axis_unit: optional; units of the spectral axis.
-      vlsr: optional; LSR velocity.
-    """
-    specs = []
-    for cube in args.cubes:
-        # Observed frequencies shifted during subtraction
-        spec = Spectrum.from_cube(cube, coord,
-                                  spectral_axis_unit=spectral_axis_unit,
-                                  vlsr=vlsr)
-        specs.append(spec)
+        Args:
+          cubes: list of file names.
+          coord: coordinate where the spectra are extracted.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        """
+        specs = []
+        for cube in cubes:
+            # Observed frequencies shifted during subtraction
+            spec = Spectrum.from_cube(cube, coord,
+                                    spectral_axis_unit=spectral_axis_unit,
+                                    vlsr=vlsr)
+            specs.append(spec)
 
-    return cls(specs)
+        return cls(specs)
 
     @classmethod
     def from_arrays(
+        cls,
         arrays: List,
         restfreq: u.Quantity,
         equivalencies: dict,
         vlsr: Optional[u.Quantity] = None,
-        rms: Optional[List[u.Quantity]] = None
-        freq_names: Sequence[str] = ['nu', 'freq', 'frequency', 
-                                     'v', 'vel', 'velocity'],
-        flux_names: Sequence[str] = ['F', 'f', 'Fnu', 'fnu', 
-                                     'intensity', 'T', 'Tb']
+        rms: Optional[List[u.Quantity]] = None,
+        freq_names: Sequence[str] = ('nu', 'freq', 'frequency',
+                                     'v', 'vel', 'velocity'),
+        flux_names: Sequence[str] = ('F', 'f', 'Fnu', 'fnu',
+                                     'intensity', 'T', 'Tb'),
     ):
         """Creates spectra object from a list structured array.
 
@@ -184,7 +190,7 @@ class Spectra(list):
             xaxis = data[freq_name] * units[freq_name]
 
             # Intensity axis
-            int_name = list(filter(lambda x, un=units: x in un, int_names))[0]
+            int_name = list(filter(lambda x, un=units: x in un, flux_names))[0]
             spec = data[int_name] * units[int_name]
 
             # Noise

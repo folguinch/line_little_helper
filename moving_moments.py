@@ -3,7 +3,7 @@
 number of channels.
 """
 from pathlib import Path
-from typing import TypeVar, Optional, List
+from typing import TypeVar, Optional, List, Sequence
 import argparse
 import sys
 
@@ -191,11 +191,11 @@ def full_split_moments(cube: Cube,
         # Filter with rms
         if rms is not None:
             rmslb = rms / np.sqrt(nlb)
-            rmsub = rms / np.sqrt(ulb)
-            
-            if (np.all(aux_lb < nsigma * rmslb) or 
+            rmsub = rms / np.sqrt(nub)
+
+            if (np.all(aux_lb < nsigma * rmslb) or
                 np.all(aux_ub < nsigma * rmsub)):
-                if log is not None: 
+                if log is not None:
                     log.info('Moment did not reach desired S/N')
                 continue
 
@@ -231,11 +231,11 @@ def full_split_moments(cube: Cube,
         # Filter with rms
         if rms is not None:
             rmslb = rms / np.sqrt(nlb)
-            rmsub = rms / np.sqrt(ulb)
-            
-            if (np.all(aux_lb < nsigma * rmslb) or 
+            rmsub = rms / np.sqrt(nub)
+
+            if (np.all(aux_lb < nsigma * rmslb) or
                 np.all(aux_ub < nsigma * rmsub)):
-                if log is not None: 
+                if log is not None:
                     log.info('Moment did not reach desired S/N')
                 continue
 
@@ -250,7 +250,8 @@ def full_split_moments(cube: Cube,
 def full_incremental_moments(cube: Cube,
                              outdir: Path,
                              transition: str,
-                             steps: Optional[List[int]] = [1, 2, 3, 5, 8, 10],
+                             steps: Optional[Sequence[int]] = (1, 2, 3,
+                                                               5, 8, 10),
                              log: Optional[Logger] = None,
                              save_masks: bool = False) -> None:
     """Calculate moments at increasing window sizes.
@@ -336,7 +337,7 @@ def _preproc(args):
 
     # Frequency ranges
     spectral_axis = args.cube.spectral_axis.to(u.GHz)
-    obs_freq_range = spectral_axis[[0,-1]] 
+    obs_freq_range = spectral_axis[[0,-1]]
     args.log.info((f'Observed freq. range: {obs_freq_range[0].value} '
                    f'{obs_freq_range[1].value} {obs_freq_range[1].unit}'))
     if args.vlsr is not None:
@@ -449,7 +450,7 @@ def main(args: list) -> None:
     group1 = parser.add_mutually_exclusive_group(required=False)
     group1.add_argument('--rms', action=actions.ReadQuantity, default=None,
                         help='Noise level.')
-    group1.add_argument('--sampled_rms', action=actions.ReadQuantity, 
+    group1.add_argument('--sampled_rms', action=actions.ReadQuantity,
                         default=None,
                         help='Calculate the rms from a sample of channels.')
     parser.add_argument('--onlyj', action='store_true',

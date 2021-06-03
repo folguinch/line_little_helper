@@ -1,5 +1,5 @@
 """Processing data from input."""
-from typing import List, Optional, TypeVar, Union
+from typing import List, Optional, Sequence, TypeVar, Union
 
 from toolkit.astro_tools import cube_utils
 import astropy.units as u
@@ -93,8 +93,8 @@ def observed_to_rest(freqs: u.Quantity, vlsr: u.Quantity, equivalencies: dict,
             freqs[mask] = to_rest_freq(freqs[mask], vlsr, equivalency)
         return freqs
 
-def query_lines(freq_range: QPair, 
-                line_lists: List[str] = ['CDMS', 'JPL'],
+def query_lines(freq_range: QPair,
+                line_lists: Sequence[str] = ('CDMS', 'JPL'),
                 **kwargs) -> Table:
     """Query splatalogue to get lines in range.
 
@@ -127,7 +127,7 @@ def query_lines(freq_range: QPair,
 
 def query_from_array(array: np.array,
                      units: dict,
-                     freq_cols: List[str] = ['freq_low', 'freq_up'],
+                     freq_cols: Sequence[str] = ('freq_low', 'freq_up'),
                      name_cols: Optional[List[str]] = None) -> dict:
     """Iterate over the frequency ranges in input array and obtain lines.
 
@@ -176,7 +176,7 @@ def query_from_array(array: np.array,
 def combine_columns(table: Table,
                     cols: list) -> Union[np.array, u.Quantity]:
     """Combine 2 columns in table replacing elements.
-    
+
     Args:
       table: input `astropy.Table`.
       cols: columns to merge.
