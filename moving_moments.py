@@ -282,7 +282,6 @@ def full_incremental_moments(cube: Cube,
     # Binary structure for dilating only along spectral axis
     binstruc = np.zeros((3,)*3, dtype=bool)
     binstruc[:, 1, 1] = True
-    print(binstruc)
 
     # Grids to evaluate mask
     m, n = maxind.shape
@@ -415,8 +414,7 @@ def _proc(args):
         else:
             # Create cube mask
             args.log.info('Filtering out data < %i rms', args.nsigma)
-            mask = subcube > rms * args.nsigma
-            if not np.any(mask):
+            if not mask.any():
                 args.log.info('No data over threshold, skipping')
                 continue
             subcube = subcube.with_mask(mask)
