@@ -3,9 +3,11 @@ from typing import List, Optional, Sequence, Tuple, TypeVar
 
 from toolkit.astro_tools import cube_utils
 import astropy.units as u
+import matplotlib.pyplot as plt
 import numpy as np
 
 from processing_tools import observed_to_rest
+from lines import Molecule
 
 Coordinate = TypeVar('Coordinate')
 SpectralCube = TypeVar('SpectralCube')
@@ -44,7 +46,7 @@ class Spectrum:
         """Generate a Spectrum from a cube.
 
         Args:
-          cubes: list of file names.
+          cubes: spectral cube.
           coord: coordinate where the spectra are extracted.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
@@ -138,6 +140,58 @@ class Spectrum:
         low, up = self.extrema()
         return low <= freq <= up
 
+    def filter(self, molecule: Molecule) -> Molecule:
+        """Create a new `Molecule` with transitions in the spectra."""
+        transitions = []
+        for transition in molecule.transitions:
+            if self.is_in(transition.obsfreq):
+                transitions.append(transition)
+
+        return Molecule(molecule.name, transitions)
+
+    def plot(self, output: 'Path',
+             ax: Optional['Axis'] = None,
+             molecule: Optional[Molecule] = None) -> None:
+        """Plot spectra and overplot line transitions.
+
+        Args:
+          output: figure path.
+          ax: optional; axis object.
+          molecule: optional; transitions to overplot.
+        """
+        # Figure
+        if ax is None:
+            plt.close()
+            fig = plt.figure(figsize=(5, 6))
+            ax = fig.add_subplot(111)
+
+        # Plot
+        xunit = self.spectral_axis.unit
+        ax.plot(self.spectral_axis, self.intensity, 'b-')
+        ax.set_xlim(*self.extrema())
+        ax.set_ylim(np.min(self.intensity), 1.1 * np.max(self.intensity))
+        ax.set_ylabel(f'Intensity ({self.intensity.unit:latex_inline})',
+                    color='b')
+        ax.set_xlabel(f'Frequency ({self.spectral_axis.unit:latex_inline})')
+
+        # Plot transitions
+        ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
+        for i, transition in enumerate(molecule.transitions):
+            # Line
+            obsfreq = transition.obsfreq.to(xunit).value
+            ax.axvline(obsfreq, color='c', linestyle='--')
+
+            # Label
+            xy = obsfreq, ylocs[i%6]
+            ax.annotate(transition.qns, xy, xytext=xy, verticalalignment='top',
+                        horizontalalignment='right')
+
+        # Save
+        try:
+            fig.savefig(output)
+        except NameError:
+            pass
+
 class Spectra(list):
     """Class to store Spectrum objects."""
 
@@ -159,8 +213,8 @@ class Spectra(list):
         for cube in cubes:
             # Observed frequencies shifted during subtraction
             spec = Spectrum.from_cube(cube, coord,
-                                    spectral_axis_unit=spectral_axis_unit,
-                                    vlsr=vlsr)
+                                      spectral_axis_unit=spectral_axis_unit,
+                                      vlsr=vlsr)
             specs.append(spec)
 
         return cls(specs)

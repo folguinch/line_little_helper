@@ -84,8 +84,10 @@ class Transition:
         return cls(species, qns, restfreq, obsfreq=obsfreq, eup=eup, vlsr=vlsr,
                    logaij=logaij)
 
-    def generate_name(self,
-                      include: Optional[List[str]] = ['species', 'qns']) -> str:
+    def generate_name(
+        self,
+        include: Optional[Sequence[str]] = ('species', 'qns'),
+    ) -> str:
         """Generate a name string from requested keys.
 
         The default is to use the species and QNs for the name. It replaces any
