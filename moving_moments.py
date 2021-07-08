@@ -447,8 +447,8 @@ def main(args: list) -> None:
         parents=args_parents)
     parser.add_argument('--shrink', action='store_true',
                         help='Shrink to minimal cube.')
-    parser.add_argument('--vlsr', action=actions.ReadQuantity,
-                        default=0 * u.km/u.s,
+    parser.add_argument('--vlsr', metavar=('VEL', 'UNIT'), default=0 * u.km/u.s,
+                        action=actions.ReadQuantity,
                         help='LSR velocity.')
     group1 = parser.add_mutually_exclusive_group(required=False)
     group1.add_argument('--rms', action=actions.ReadQuantity, default=None,
@@ -467,7 +467,7 @@ def main(args: list) -> None:
     parser.add_argument('molecule', nargs=1,
                         help='Molecule name or formula.')
     parser.add_argument('winwidth', nargs=1, type=int,
-                        help='Window with in channels.')
+                        help='Window width in channels.')
     #group1 = parser.add_mutually_exclusive_group(required=True)
     #parser.add_argument('lineconfig', nargs=1, action=actions.CheckFile,
     #                    help='Line configuration file')
