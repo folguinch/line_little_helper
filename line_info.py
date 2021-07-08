@@ -53,11 +53,18 @@ def _post(args: argparse.ArgumentParser) -> None:
                 # Filter molecules
                 molec = spec.filter(args.molec)
 
+                # Frequency range
+                if args.freqrange is not None:
+                    xlim = args.freqrange
+                else:
+                    xlim = None
+
                 # Plot
-                suffix = f'_spectrum_{molec.name}.png'
+                suffix = (f'_spectrum_{molec.name}_'
+                          f'{position[0]}_{position[1]}.png')
                 output = cube_file.stem + suffix
                 output = args.outdir[0] / output
-                spec.plot(output, molecule=molec)
+                spec.plot(output, molecule=molec, xlim=xlim)
 
 def main(args: list):
     """Search Splatalogue for line information.

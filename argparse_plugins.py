@@ -39,8 +39,8 @@ def query_freqrange(required: bool = False) -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(add_help=False)
     group1 = parser.add_mutually_exclusive_group(required=required)
-    group1.add_argument('--freqrange', nargs=3, default=None,
-                        action=actions.ReadQuantity,
+    group1.add_argument('--freqrange', metavar=('LOW',  'UP', 'UNIT'), nargs=3,
+                        default=None, action=actions.ReadQuantity,
                         help='Frequency range.')
     group1.add_argument('--alma', nargs=1, type=int, default=None,
                         help='ALMA band number.')

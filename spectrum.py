@@ -153,13 +153,15 @@ class Spectrum:
 
     def plot(self, output: 'Path',
              ax: Optional['Axis'] = None,
-             molecule: Optional[Molecule] = None) -> None:
+             molecule: Optional[Molecule] = None,
+             xlim: Optional[Sequence[u.Quantity]] = None) -> None:
         """Plot spectra and overplot line transitions.
 
         Args:
           output: figure path.
           ax: optional; axis object.
           molecule: optional; transitions to overplot.
+          xlim: optional; x-axis limits.
         """
         # Figure
         if ax is None:
@@ -169,7 +171,8 @@ class Spectrum:
 
         # Plot
         xunit = self.spectral_axis.unit
-        xlim = self.extrema()
+        if xlim is None:
+            xlim = self.extrema()
         ax.plot(self.spectral_axis, self.intensity, 'b-')
         ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
         ax.set_ylim(np.min(self.intensity.value), 
