@@ -56,7 +56,7 @@ def _post(args: argparse.ArgumentParser) -> None:
                 # Frequency range
                 if args.freqrange is not None:
                     xlim = args.freqrange
-                    suffix = f'{xlim[0].value:.2f}_{xlim[1].value:.2f}'
+                    suffix = f'{xlim[0].value:.2f}_{xlim[1].value:.2f}_'
                 else:
                     xlim = None
                     suffix = ''
