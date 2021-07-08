@@ -38,15 +38,15 @@ def _post(args: argparse.ArgumentParser) -> None:
         for cube_file in args.cubes:
             # Cube
             args.log.info(f'Loading cube: {cube_file}')
-            cube = spectral_cube.SpctralCube(cube_file)
-            wcs = args.wcs.sub(['longitude', 'latitude'])
+            cube = spectral_cube.SpectralCube.read(cube_file)
+            wcs = cube.wcs.sub(['longitude', 'latitude'])
 
             # Positions
             args.position_fn(args, wcs=wcs)
 
             # Extract spectra
             for position in args.pos:
-                args.log.info('Loading spectra at: {position}')
+                args.log.info(f'Loading spectra at: {position}')
                 spec = Spectrum.from_cube(cube, position, vlsr=args.vlsr)
 
                 # Filter molecules
@@ -65,23 +65,23 @@ def main(args: list):
       args: command line arguments.
     """
     freq_range_parent, freq_range_fn = query_freqrange(required=True)
-    pipe = [freq_range_fn, _preproc, _proc]
-    args_parents = [freq_range_parent,
-                    parents.logger('debug_line_info.log'),
-                    parents.source_position(),
-                    parents.verify_files(
-                        'cubes',
-                        cubes={'help': 'Cube file names', 'nargs': '*'}),
-                    parents.paths(
-                        'outdir',
-                        outdir={'help': 'Plot output directory', 'nargs': 1})
-                    ]
+    pipe = [freq_range_fn, _preproc, _proc, _post]
+    args_parents = [
+        freq_range_parent,
+        parents.logger('debug_line_info.log'),
+        parents.source_position(),
+        parents.verify_files('cubes',
+                             cubes={'help': 'Cube file names', 'nargs': '*'}),
+        parents.paths('outdir',
+                      outdir={'help': 'Plot output directory', 'nargs': 1}),
+    ]
     parser = argparse.ArgumentParser(
         add_help=True,
         description='Display line information upon request.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
-    parser.add_argument('--vlsr', action=actions.ReadQuantity, default=None,
+    parser.add_argument('--vlsr', metavar=('VEL UNIT',), default=None,
+                        action=actions.ReadQuantity, 
                         help='Velocity shift for observed frequencies')
     parser.add_argument('molecule', nargs=1,
                         help='Molecule name or formula')

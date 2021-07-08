@@ -60,7 +60,9 @@ class Spectrum:
 
         return cls(spec[0], spec[1].quantity,
                    restfreq=cube_utils.get_restfreq(cube),
-                   rms=cube_utils.get_cube_rms(cube, use_header=True))
+                   rms=cube_utils.get_cube_rms(cube, 
+                                               use_header=True,
+                                               sampled=True))
 
     def range_mask(self,
                    low: Optional[u.Quantity] = None,
