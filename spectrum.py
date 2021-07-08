@@ -181,7 +181,7 @@ class Spectrum:
         ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
         for i, transition in enumerate(molecule.transitions):
             # Line
-            obsfreq = transition.obsfreq.to(xunit).value
+            obsfreq = transition.restfreq.to(xunit).value
             ax.axvline(obsfreq, color='c', linestyle='--')
 
             # Label
