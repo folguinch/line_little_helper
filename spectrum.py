@@ -146,7 +146,7 @@ class Spectrum:
         """Create a new `Molecule` with transitions in the spectra."""
         transitions = []
         for transition in molecule.transitions:
-            if self.is_in(transition.obsfreq):
+            if self.is_in(transition.restfreq):
                 transitions.append(transition)
 
         return Molecule(molecule.name, transitions)
@@ -175,17 +175,18 @@ class Spectrum:
         ax.set_ylim(np.min(self.intensity.value), 
                     1.1 * np.max(self.intensity.value))
         ax.set_ylabel(f'Intensity ({self.intensity.unit:latex_inline})')
-        ax.set_xlabel(f'Frequency ({self.spectral_axis.unit:latex_inline})')
+        ax.set_xlabel(('Rest frequency'
+                       f'({self.spectral_axis.unit:latex_inline})'))
 
         # Plot transitions
         ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
         for i, transition in enumerate(molecule.transitions):
             # Line
-            obsfreq = transition.restfreq.to(xunit).value
-            ax.axvline(obsfreq, color='c', linestyle='--')
+            restfreq = transition.restfreq.to(xunit).value
+            ax.axvline(restfreq, color='c', linestyle='--')
 
             # Label
-            xy = obsfreq, ylocs[i%6]
+            xy = restfreq, ylocs[i%6]
             ax.annotate(transition.qns, xy, xytext=xy, verticalalignment='top',
                         horizontalalignment='right')
 
