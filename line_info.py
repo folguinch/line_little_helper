@@ -55,8 +55,8 @@ def _post(args: argparse.ArgumentParser) -> None:
 
                 # Plot
                 suffix = f'_spectrum_{molec.name}.png'
-                output = cube_file.with_suffix(suffix)
-                output = args.outdir[0] / output.name
+                output = cube_file.stem + suffix
+                output = args.outdir[0] / output
                 spec.plot(output, molecule=molec)
 
 def main(args: list):
