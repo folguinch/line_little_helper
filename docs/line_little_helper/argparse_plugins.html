@@ -68,8 +68,8 @@ def query_freqrange(required: bool = False) -&gt; argparse.ArgumentParser:
     &#34;&#34;&#34;
     parser = argparse.ArgumentParser(add_help=False)
     group1 = parser.add_mutually_exclusive_group(required=required)
-    group1.add_argument(&#39;--freqrange&#39;, nargs=3, default=None,
-                        action=actions.ReadQuantity,
+    group1.add_argument(&#39;--freqrange&#39;, metavar=(&#39;LOW&#39;,  &#39;UP&#39;, &#39;UNIT&#39;), nargs=3,
+                        default=None, action=actions.ReadQuantity,
                         help=&#39;Frequency range.&#39;)
     group1.add_argument(&#39;--alma&#39;, nargs=1, type=int, default=None,
                         help=&#39;ALMA band number.&#39;)
@@ -153,8 +153,8 @@ A function to fill the value of the parser <code>freq_range</code> attribute.</p
     &#34;&#34;&#34;
     parser = argparse.ArgumentParser(add_help=False)
     group1 = parser.add_mutually_exclusive_group(required=required)
-    group1.add_argument(&#39;--freqrange&#39;, nargs=3, default=None,
-                        action=actions.ReadQuantity,
+    group1.add_argument(&#39;--freqrange&#39;, metavar=(&#39;LOW&#39;,  &#39;UP&#39;, &#39;UNIT&#39;), nargs=3,
+                        default=None, action=actions.ReadQuantity,
                         help=&#39;Frequency range.&#39;)
     group1.add_argument(&#39;--alma&#39;, nargs=1, type=int, default=None,
                         help=&#39;ALMA band number.&#39;)

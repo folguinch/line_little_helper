@@ -33,13 +33,13 @@ number of channels.</p>
 &#34;&#34;&#34;Find line velocity at peak and calculate 1st moment maps incresing the
 number of channels.
 &#34;&#34;&#34;
+from pathlib import Path
+from typing import TypeVar, Optional, List, Sequence
 import argparse
-import os
 import sys
 
 from astropy.io import fits
-from astropy.stats import gaussian_fwhm_to_sigma
-from toolkit.math import quick_rms
+from toolkit.astro_tools.cube_utils import get_restfreq, get_cube_rms
 import astropy.units as u
 import toolkit.argparse_tools.actions as actions
 import toolkit.argparse_tools.parents as parents
@@ -47,7 +47,22 @@ import toolkit.argparse_tools.loaders as aploaders
 import numpy as np
 import scipy.ndimage as ndimg
 
-def get_header(cube, bunit=None):
+from lines import Molecule
+from processing_tools import to_rest_freq
+
+Cube = TypeVar(&#39;Cube&#39;)
+Logger = TypeVar(&#39;Logger&#39;)
+
+def get_header(cube: Cube, bunit: u.Unit = None) -&gt; fits.Header:
+    &#34;&#34;&#34;Extract 2-D header from cube header.
+
+    Args:
+      cube: spectral cube.
+      bunit: flux unit.
+
+    Return:
+      A FITS header object.
+    &#34;&#34;&#34;
     # Header
     header = cube.wcs.sub([&#39;longitude&#39;, &#39;latitude&#39;]).to_header()
 
@@ -63,152 +78,446 @@ def get_header(cube, bunit=None):
 
     return header
 
-def save_mask(mask, header, filename, dtype=int):
+def save_mask(mask: np.array, header: fits.Header, filename: Path,
+              dtype: Optional = int) -&gt; None:
+    &#34;&#34;&#34;Save masks.
+
+    Args:
+      mask: mask array.
+      header: FITS header.
+      filename: file name.
+      dtype: optional; data type.
+    &#34;&#34;&#34;
     hdu = fits.PrimaryHDU(mask.astype(dtype))
     hdu.header = header
     hdu.writeto(filename, overwrite=True)
 
-def get_results(vel, data, cube, outdir, logger, savemasks=False):
-    # Max index along spectral axis
+def cube_to_marray(cube: Cube, unit: Optional[u.Unit] = None) -&gt; np.ma.array:
+    &#34;&#34;&#34;Convert an `SpectralCube` to `np.ma.array`.
+
+    Args:
+      cube: spectral cube.
+      unit: optional; units of the output data.
+
+    Returns:
+      A numpy masked array with the data of the cube.
+    &#34;&#34;&#34;
+    # Check units
+    if unit is None:
+        unit = cube.unit
+
+    # Convert to masked array
+    data = cube.filled_data[:].to(unit).value
+    data = np.ma.array(data, mask=np.isnan(data))
+
+    return data
+
+def max_vel_ind(data: np.array, headers: List[fits.Header],
+                vel: u.Quantity, output: Path) -&gt; np.array:
+    &#34;&#34;&#34;Calculate a line peak index and peak velocity maps.
+
+    Args:
+      data: an array with the data.
+      headers: two headers, one for the index map and one for the velocity map.
+      vel: velocity axis.
+      output: output base name
+    &#34;&#34;&#34;
     mask = np.all(data.mask, axis=0)
     maxind = np.nanargmax(data, axis=0)
     maxvel = vel[maxind]
     maxvel[mask] = np.nan
 
     # Save
-    output = os.path.join(outdir[0], &#39;line_%s.fits&#39;)
+    out = str(output) + &#39;_%s.fits&#39;
     hdu = fits.PrimaryHDU(maxind)
-    hdu.header = get_header(cube)
-    hdu.writeto(output % &#39;spec_peak_index&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+    hdu.header = headers[0]
+    hdu.writeto(out % &#39;spec_peak_index&#39;, overwrite=True, output_verify=&#39;fix&#39;)
     hdu = fits.PrimaryHDU(maxvel.value)
-    hdu.header = get_header(cube, bunit=vel.unit)
-    hdu.writeto(output % &#39;spec_peak_vel&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+    hdu.header = headers[1]
+    hdu.writeto(out % &#39;spec_peak_vel&#39;, overwrite=True, output_verify=&#39;fix&#39;)
 
-    # FHWM and stddev in channels
-    data_filled = np.ma.filled(data, fill_value=np.nan)
-    mask = data_filled &gt; 0.5*np.nanmax(data_filled, axis=0)
-    mask[data.mask] = False
-    if savemasks:
-        filename = output % (&#39;fwhm_mask&#39;)
-        save_mask(mask, cube.header, filename, dtype=float)
-    fwhm_chan = np.sum(mask, axis=0)
-    fwhm_chan = np.ma.array(fwhm_chan, mask=np.all(data.mask, axis=0))
-    sigma = gaussian_fwhm_to_sigma * fwhm_chan
-    medchan = int(np.ma.median(sigma))
-    meanchan = int(np.ma.mean(sigma))
-    logger.info(&#39;Median line stddev: %i channels&#39;, medchan)
-    logger.info(&#39;Mean line stddev: %i channels&#39;, meanchan)
-    if medchan==0:
-        logger.warn(&#39;Median linewidth=0, using 1 instead&#39;)
-        medchan = 1
+    return maxind
 
-    # Iterate over sigma values
+def full_split_moments(cube: Cube,
+                       split_width: int,
+                       split_win: int,
+                       outdir: Path,
+                       basename: str,
+                       vlsr: u.Quantity,
+                       rms: Optional[u.Quantity] = None,
+                       nsigma: Optional[int] = 5,
+                       incremental_step: Optional[int] = 2,
+                       roll_step: Optional[int] = 2,
+                       log: Optional[Logger] = None,) -&gt; None:
+    &#34;&#34;&#34;Calculate moment 0 at mirrored windows arround line center.
+
+    The spectral axis is divided in 2 bands (lower band `lb` and upper band
+    `ub`). Two steps are performed in each band:
+
+    1. Incremental step: the mirrored windows are expanded towards lower and
+      higher channels in the `lb` and `ub`, respectively. The amount of
+      increment is given by `incremental_step`.
+    2. Rolling step: the mirrored windows are rolled (keeping the `split_win`
+      size constant) towards lower and higher channels in the `lb` and `ub`,
+      respectively. The amount of rolling is given by `roll_step`.
+
+    Args:
+      cube: spectral cube with spectral axis in systemic velocity units.
+      split_width: size of the window around the line center to ignore (in
+        channels).
+      split_win: size of the window where the moment 0 are calculated.
+      outdir: path to save the output images.
+      basename: base name for the images.
+      vlsr: LSR velocity.
+      incremental_step: optional; amount of increment for the incremental step.
+      roll_step: optional; number of channels to roll the split windows.
+      log: optional; logger.
+    &#34;&#34;&#34;
+    # Index of the minimum velocity
+    vel = cube.spectral_axis - vlsr
+    vel = vel.to(u.km / u.s)
+    ind = np.nanargmin(np.abs(vel))
+    if log is not None:
+        log.info(f&#39;Spectral axis length: {vel.size}&#39;)
+        log.info(f&#39;Line central channel: {ind}&#39;)
+
+    # Half split width
+    half_split_width = split_width // 2
+
+    # Central limits
+    max_lb = ind - half_split_width + 1
+    min_ub = ind + half_split_width
+
+    # Colors
+    if vel[max_lb] &lt; vel[min_ub]:
+        color_lb = &#39;blue&#39;
+        color_ub = &#39;red&#39;
+    else:
+        color_lb = &#39;red&#39;
+        color_ub = &#39;blue&#39;
+
+    # Increasing windows size step
+    range_min_lb = np.arange(max_lb - split_win, 0, -incremental_step)
+    range_max_ub = np.arange(min_ub + split_win, len(vel), incremental_step)
+    for min_lb, max_ub in zip(range_min_lb, range_max_ub):
+        # Subcubes
+        if log is not None:
+            print(&#39;-&#39; * 50)
+            log.info(&#39;Calculating moments for ranges:&#39;)
+            log.info(f&#39;Lower band: {min_lb} -- {max_lb - 1}&#39;)
+            log.info((f&#39;            {vel[min_lb].value} -- &#39;
+                      f&#39;{vel[max_lb - 1].value} {vel.unit}&#39;))
+            log.info(f&#39;Upper band: {min_ub} -- {max_ub - 1}&#39;)
+            log.info((f&#39;            {vel[min_ub].value} -- &#39;
+                      f&#39;{vel[max_ub - 1].value} {vel.unit}&#39;))
+        aux_lb = cube[min_lb:max_lb, :, :]
+        aux_ub = cube[min_ub:max_ub, :, :]
+        nlb = aux_lb.shape[0]
+        nub = aux_ub.shape[0]
+
+        # Moment 0
+        aux_lb = aux_lb.moment(order=0)
+        aux_ub = aux_ub.moment(order=0)
+
+        # Filter with rms
+        if rms is not None:
+            rmslb = rms / np.sqrt(nlb)
+            rmsub = rms / np.sqrt(nub)
+
+            if (np.all(aux_lb &lt; nsigma * rmslb) or
+                np.all(aux_ub &lt; nsigma * rmsub)):
+                if log is not None:
+                    log.info(&#39;Moment did not reach desired S/N&#39;)
+                continue
+
+        # Save
+        filename = (f&#39;{basename}_moment0_incremental_&#39;
+                    f&#39;{min_lb}-{max_lb - 1}_{color_lb}.fits&#39;)
+        aux_lb.write(outdir / filename, overwrite=True)
+        filename = (f&#39;{basename}_moment0_incremental_&#39;
+                    f&#39;{min_ub}-{max_ub - 1}_{color_ub}.fits&#39;)
+        aux_ub.write(outdir / filename, overwrite=True)
+
+    # Rolling windows step
+    range_min_lb = np.arange(max_lb - split_win, 0, -roll_step)
+    range_max_ub = np.arange(min_ub + split_win, len(vel), roll_step)
+    for min_lb, max_ub in zip(range_min_lb, range_max_ub):
+        # Subcubes
+        max_lb = min_lb + split_win
+        min_ub = max_ub - split_win
+        if log is not None:
+            print(&#39;-&#39; * 50)
+            log.info(&#39;Calculating moments for ranges:&#39;)
+            log.info(f&#39;Lower band: {min_lb} -- {max_lb - 1}&#39;)
+            log.info(f&#39;Upper band: {min_ub} -- {max_ub - 1}&#39;)
+        aux_lb = cube[min_lb:max_lb, :, :]
+        aux_ub = cube[min_ub:max_ub, :, :]
+        nlb = aux_lb.shape[0]
+        nub = aux_ub.shape[0]
+
+        # Moment 0
+        aux_lb = aux_lb.moment(order=0)
+        aux_ub = aux_ub.moment(order=0)
+
+        # Filter with rms
+        if rms is not None:
+            rmslb = rms / np.sqrt(nlb)
+            rmsub = rms / np.sqrt(nub)
+
+            if (np.all(aux_lb &lt; nsigma * rmslb) or
+                np.all(aux_ub &lt; nsigma * rmsub)):
+                if log is not None:
+                    log.info(&#39;Moment did not reach desired S/N&#39;)
+                continue
+
+        # Save
+        filename = (f&#39;{basename}_moment0_rolling_&#39;
+                    f&#39;{min_lb}-{max_lb - 1}_{color_lb}.fits&#39;)
+        aux_lb.write(outdir / filename, overwrite=True)
+        filename = (f&#39;{basename}_moment0_rolling_&#39;
+                    f&#39;{min_ub}-{max_ub - 1}_{color_ub}.fits&#39;)
+        aux_ub.write(outdir / filename, overwrite=True)
+
+def full_incremental_moments(cube: Cube,
+                             outdir: Path,
+                             transition: str,
+                             steps: Optional[Sequence[int]] = (1, 2, 3,
+                                                               5, 8, 10),
+                             log: Optional[Logger] = None,
+                             save_masks: bool = False) -&gt; None:
+    &#34;&#34;&#34;Calculate moments at increasing window sizes.
+
+    The function locates the line peaks per pixel, and computes moment maps by
+    delating along the spectral axis around the peak. The number of iterations
+    for the dilation function are given in `steps`.
+
+    Args:
+      cube: spectral cube with spectral axis in velocity.
+      outdir: output directory.
+      transition: transition name.
+      steps: optional; list of numbers of iterations for dilation.
+      log: optional; logger.
+      save_masks: optional; save masks at each step.
+    &#34;&#34;&#34;
+    # Velocity axis
+    if log is not None:
+        log.info(&#39;Calculating peak velocity map&#39;)
+    vel = cube.spectral_axis
+    dvel = np.abs(vel[0] - vel[1])
+    data = cube_to_marray(cube)
+
+    # Max index along spectral axis
+    headers = [get_header(cube), get_header(cube, bunit=vel.unit)]
+    maxind = max_vel_ind(data, headers, vel, outdir / transition)
+
+    # Binary structure for dilating only along spectral axis
     binstruc = np.zeros((3,)*3, dtype=bool)
     binstruc[:, 1, 1] = True
+
+    # Grids to evaluate mask
     m, n = maxind.shape
-    I, J = np.ogrid[:m,:n]
-    imgs = []
-    for i in [1, 2, 3, 5, 8, 10]:
-        # Auxiliary mask
-        aux = np.zeros(data.shape, dtype=bool)
+    ii, jj = np.ogrid[:m,:n]
 
-        # Set max values to True
-        aux[maxind, I, J] = True
-        aux[0][np.all(data.mask, axis=0)] = False
-        if i==1 and savemasks:
-            filename = output % (&#39;moment1_0sigma_mask&#39;)
-            save_mask(aux, cube.header, filename)
+    # Auxiliary mask
+    mask = np.zeros(data.shape, dtype=bool)
 
+    # Set max values to True
+    mask[maxind, ii, jj] = True
+    mask[0][np.all(data.mask, axis=0)] = False
+    if save_masks:
+        if log is not None:
+            log.info(&#39;Saving initial mask&#39;)
+        filename = outdir / f&#39;{transition}_moment1_initial_mask.fits&#39;
+        save_mask(mask, cube.header, filename)
+
+    # Iterate over steps values
+    for iterations in steps:
         # Dilate mask
-        logger.info(&#39;Dilating %i times&#39;, i*medchan)
-        aux = ndimg.binary_dilation(aux, structure=binstruc, 
-                iterations=i*medchan)
+        width = dvel * (iterations*2 + 1)
+        if log is not None:
+            log.info(&#39;-&#39; * 50)
+            log.info(f&#39;Dilating {iterations} times&#39;)
+            log.info(f&#39;Width of window: {width.value} {width.unit}&#39;)
+        aux = ndimg.binary_dilation(mask,
+                                    structure=binstruc,
+                                    iterations=iterations)
+
+        # Those in the dialted mask with values over threshold
         aux = aux &amp; ~data.mask
-        if savemasks:
-            filename = output % (&#39;moment1_%isigma_mask&#39; % i)
-            save_mask(aux, cube.header, filename)
+
+        # Save mask
+        if save_masks:
+            filename = f&#39;{transition}_moment1_dilate{iterations}_mask.fits&#39;
+            save_mask(aux, cube.header, outdir / filename)
 
         # Subcube
         aux = cube.with_mask(aux)
         aux = aux.moment(order=1)
-        aux.write(output % (&#39;moment1_%isigma&#39; % i), overwrite=True)
+        filename = f&#39;{transition}_moment1_dilate{iterations}.fits&#39;
+        aux.write(outdir / filename, overwrite=True)
 
-def loader(args):
+def _preproc(args):
+    &#34;&#34;&#34;Generate the necessary objects to process the data.&#34;&#34;&#34;
     # Load cube
     args.log.info(&#39;Loading cube&#39;)
     args.cube(args, args.cubename)
 
     # Load config
-    args.log.info(&#39;Loading configuration&#39;)
-    args.config(args, args.lineconfig)
+    #args.log.info(&#39;Loading configuration&#39;)
+    #args.config(args, args.lineconfig)
 
-def proc(args):
-    # Create subcube
-    chan1, chan2 = args.config.getintlist(args.section[0],&#39;chanran&#39;)
-    args.log.info(&#39;Channel range: %i, %i&#39;, chan1, chan2)
-    restfreq = args.config.getquantity(args.section[0],&#39;freq&#39;)
-    subcube = args.cube[chan1:chan2+1,:,:]
-    subcube = subcube.with_spectral_unit(u.km/u.s, 
-            velocity_convention=&#39;radio&#39;,
-            rest_value=restfreq)
-
-    # Create cube mask
-    if &#39;RMS&#39; in subcube.header:
-        args.log.info(&#39;RMS key in cube header&#39;)
-        rms = float(subcube.header[&#39;RMS&#39;])*subcube.unit
+    # Frequency ranges
+    spectral_axis = args.cube.spectral_axis.to(u.GHz)
+    obs_freq_range = spectral_axis[[0,-1]]
+    args.log.info((f&#39;Observed freq. range: {obs_freq_range[0].value} &#39;
+                   f&#39;{obs_freq_range[1].value} {obs_freq_range[1].unit}&#39;))
+    if args.vlsr is not None:
+        equiv = u.doppler_radio(get_restfreq(args.cube))
+        rest_freq_range = to_rest_freq(obs_freq_range, args.vlsr, equiv)
+        args.log.info((f&#39;Rest freq. range: {rest_freq_range[0].value} &#39;
+                       f&#39;{rest_freq_range[1].value} {rest_freq_range[1].unit}&#39;))
     else:
-        args.log.info(&#39;Calculating rms value&#39;)
-        rms = quick_rms(subcube)*subcube.unit
-    args.log.info(&#39;rms value: {0.value} {0.unit}&#39;.format(rms))
-    args.log.info(&#39;Filtering out data &lt; %i rms&#39;, args.nsigma)
-    mask = subcube &gt; rms*args.nsigma
-    subcube = subcube.with_mask(mask)
-    if args.shrink:
-        subcube = subcube.minimal_subcube()
-    data = subcube.filled_data[:].to(rms.unit).value
-    data = np.ma.array(data, mask=np.isnan(data))
+        args.log.warn(&#39;Could not determine rest frequency, using observed&#39;)
+        rest_freq_range = obs_freq_range
 
-    # Velocity axis
-    vel = subcube.spectral_axis
+    # Create molecule
+    if args.onlyj:
+        filter_out = [&#39;F&#39;, &#39;K&#39;]
+    else:
+        filter_out = None
+    args.mol = Molecule.from_query(f&#39; {args.molecule[0]} &#39;, rest_freq_range,
+                                   vlsr=args.vlsr, filter_out=filter_out)
+    args.log.info(f&#39;Number of transitions: {len(args.mol.transitions)}&#39;)
 
-    # Calculate results
-    get_results(vel, data, subcube, args.outdir, args.log,
-            savemasks=args.savemasks)
+def _proc(args):
+    &#34;&#34;&#34;Process the cube.&#34;&#34;&#34;
+    # Spectral axis
+    spectral_axis = args.cube.spectral_axis.to(u.GHz)
 
-def main(args):
+    # RMS
+    if args.rms is not None:
+        rms = args.rms
+        args.log.info(f&#39;Using rms: {rms.value} {rms.unit}&#39;)
+    else:
+        rms = get_cube_rms(args.cube, use_header=True,
+                           sampled=args.sampled_rms, log=args.log.info)
+        args.log.info(f&#39;Cube rms: {rms.value} {rms.unit}&#39;)
+
+    # Iterate over transitions
+    for transition in args.mol.transitions:
+        args.log.info(&#39;=&#39;*50)
+        args.log.info((f&#39;Working on transition: &#39;
+                       f&#39;{transition.species} {transition.qns}&#39;))
+        args.log.info((f&#39;Observed freq.: &#39;
+                       f&#39;{transition.obsfreq.value} {transition.obsfreq.unit}&#39;))
+
+        # Get channel range
+        diff = np.abs(spectral_axis - transition.obsfreq)
+        ind = np.nanargmin(diff)
+        chan1, chan2 = ind - args.winwidth[0]//2, ind + args.winwidth[0]//2
+        if chan1 &lt; 0:
+            chan1 = 0
+        if chan2 &gt; len(spectral_axis):
+            chan2 = len(spectral_axis) - 1
+        args.log.info(f&#39;Closest channel to line transition: {ind}&#39;)
+        args.log.info(f&#39;Channel range: {chan1} -- {chan2}&#39;)
+
+        # Subcube
+        subcube = args.cube[chan1:chan2+1,:,:]
+        subcube = subcube.with_spectral_unit(u.km/u.s,
+                                             velocity_convention=&#39;radio&#39;,
+                                             rest_value=transition.restfreq)
+
+        # Calculate results
+        if args.split is not None:
+            args.log.info(&#39;Split window set:&#39;)
+            split_wind_width, split_win = args.split
+            incremental_step, roll_step = args.split_steps
+            args.log.info(f&#39;Split width: {split_wind_width}&#39;)
+            args.log.info(f&#39;Split min window width: {split_win}&#39;)
+            args.log.info(f&#39;Split incremental step: {incremental_step}&#39;)
+            args.log.info(f&#39;Split rolling step: {roll_step}&#39;)
+            full_split_moments(subcube, split_wind_width, split_win,
+                               args.outdir[0], transition.generate_name(),
+                               args.vlsr, rms=rms, nsigma=args.nsigma,
+                               incremental_step=incremental_step,
+                               roll_step=roll_step, log=args.log)
+        else:
+            # Create cube mask
+            args.log.info(&#39;Filtering out data &lt; %i rms&#39;, args.nsigma)
+            mask = subcube &gt; rms * args.nsigma
+            if not mask.any():
+                args.log.info(&#39;No data over threshold, skipping&#39;)
+                continue
+            subcube = subcube.with_mask(mask)
+
+            # Shrink cube
+            if args.shrink:
+                args.log.info(&#39;Shrinking subcube&#39;)
+                subcube.allow_huge_operations = True
+                subcube = subcube.minimal_subcube()
+
+            # Calculate moments
+            full_incremental_moments(subcube.to(rms.unit), args.outdir[0],
+                                     transition.generate_name(), log=args.log,
+                                     save_masks=args.savemasks)
+
+def main(args: list) -&gt; None:
     &#34;&#34;&#34;Moment 1 maps from different windows.
-    
+
     Args:
       args: arguments for argparse.
     &#34;&#34;&#34;
     # Parser
-    pipe = [loader, proc]
+    pipe = [_preproc, _proc]
     args_parents = [parents.logger(&#39;debug_moving_moments.log&#39;)]
     parser = argparse.ArgumentParser(
         add_help=True,
-        description=&#39;Moment 1 maps from incresing local window size&#39;,
+        description=&#39;Moment 0/1 maps from incresing local window size&#39;,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
     parser.add_argument(&#39;--shrink&#39;, action=&#39;store_true&#39;,
-                        help=&#39;Shrink to minimal cube&#39;)
+                        help=&#39;Shrink to minimal cube.&#39;)
+    parser.add_argument(&#39;--vlsr&#39;, action=actions.ReadQuantity,
+                        default=0 * u.km/u.s,
+                        help=&#39;LSR velocity.&#39;)
+    group1 = parser.add_mutually_exclusive_group(required=False)
+    group1.add_argument(&#39;--rms&#39;, action=actions.ReadQuantity, default=None,
+                        help=&#39;Noise level.&#39;)
+    group1.add_argument(&#39;--sampled_rms&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Calculate the rms from a sample of channels.&#39;)
+    parser.add_argument(&#39;--onlyj&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Filter out F, K transitions.&#39;)
     parser.add_argument(&#39;--savemasks&#39;, action=&#39;store_true&#39;,
-                        help=&#39;Save masks at each step&#39;)
-    group1 = parser.add_mutually_exclusive_group(required=True)
+                        help=&#39;Save masks at each step.&#39;)
+    parser.add_argument(&#39;--split&#39;, metavar=[&#39;WIDTH&#39;, &#39;WIN&#39;], nargs=2, type=int,
+                        help=&#39;Width of split window and moment 0 window.&#39;)
+    parser.add_argument(&#39;--split_steps&#39;, metavar=[&#39;INCR&#39;, &#39;ROLL&#39;], nargs=2,
+                        type=int, default=[2, 2],
+                        help=&#39;Steps for incremental and rolling steps.&#39;)
+    parser.add_argument(&#39;molecule&#39;, nargs=1,
+                        help=&#39;Molecule name or formula.&#39;)
+    parser.add_argument(&#39;winwidth&#39;, nargs=1, type=int,
+                        help=&#39;Window with in channels.&#39;)
+    #group1 = parser.add_mutually_exclusive_group(required=True)
     #parser.add_argument(&#39;lineconfig&#39;, nargs=1, action=actions.CheckFile,
     #                    help=&#39;Line configuration file&#39;)
     #parser.add_argument(&#39;section&#39;, nargs=1,
     #                    help=&#39;Configuration section&#39;)
-
-    parser.add_argument(&#39;cubename&#39;, nargs=1, action=actions.CheckFile,
-                        help=&#39;Cube file name&#39;)
     parser.add_argument(&#39;outdir&#39;, nargs=1, action=actions.MakePath,
-                        help=&#39;Output directory&#39;)
-    parser.set_defaults(pipe=pipe, results=None,
-            cube=aploaders.load_spectral_cube,
-            config=aploaders.load_config, nsigma=5.)
+                        help=&#39;Output directory.&#39;)
+    parser.add_argument(&#39;cubenames&#39;, nargs=&#39;*&#39;, action=actions.CheckFile,
+                        help=&#39;Cube file name(s).&#39;)
+    parser.set_defaults(pipe=pipe, results=None, cubename=None,
+                        cube=aploaders.load_spectral_cube, mol=None,
+                        nsigma=5.)
     args = parser.parse_args(args)
-    for fn in args.pipe:
-        fn(args)
+    for cube in args.cubenames:
+        args.log.info(f&#39;Working on cube: {cube}&#39;)
+        args.cubename = cube
+        for fn in args.pipe:
+            fn(args)
+        args.cube = aploaders.load_spectral_cube
 
 if __name__==&#39;__main__&#39;:
     main(sys.argv[1:])</code></pre>
@@ -221,16 +530,361 @@ if __name__==&#39;__main__&#39;:
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="line_little_helper.moving_moments.get_header"><code class="name flex">
-<span>def <span class="ident">get_header</span></span>(<span>cube, bunit=None)</span>
+<dt id="line_little_helper.moving_moments.cube_to_marray"><code class="name flex">
+<span>def <span class="ident">cube_to_marray</span></span>(<span>cube: ~Cube, unit: Union[astropy.units.core.Unit, NoneType] = None) ‑> <function array at 0x7f0da0438c80></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Convert an <code>SpectralCube</code> to <code>np.ma.array</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cube</code></strong></dt>
+<dd>spectral cube.</dd>
+<dt><strong><code>unit</code></strong></dt>
+<dd>optional; units of the output data.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A numpy masked array with the data of the cube.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_header(cube, bunit=None):
+<pre><code class="python">def cube_to_marray(cube: Cube, unit: Optional[u.Unit] = None) -&gt; np.ma.array:
+    &#34;&#34;&#34;Convert an `SpectralCube` to `np.ma.array`.
+
+    Args:
+      cube: spectral cube.
+      unit: optional; units of the output data.
+
+    Returns:
+      A numpy masked array with the data of the cube.
+    &#34;&#34;&#34;
+    # Check units
+    if unit is None:
+        unit = cube.unit
+
+    # Convert to masked array
+    data = cube.filled_data[:].to(unit).value
+    data = np.ma.array(data, mask=np.isnan(data))
+
+    return data</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.full_incremental_moments"><code class="name flex">
+<span>def <span class="ident">full_incremental_moments</span></span>(<span>cube: ~Cube, outdir: pathlib.Path, transition: str, steps: Union[Sequence[int], NoneType] = (1, 2, 3, 5, 8, 10), log: Union[~Logger, NoneType] = None, save_masks: bool = False) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate moments at increasing window sizes.</p>
+<p>The function locates the line peaks per pixel, and computes moment maps by
+delating along the spectral axis around the peak. The number of iterations
+for the dilation function are given in <code>steps</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cube</code></strong></dt>
+<dd>spectral cube with spectral axis in velocity.</dd>
+<dt><strong><code>outdir</code></strong></dt>
+<dd>output directory.</dd>
+<dt><strong><code>transition</code></strong></dt>
+<dd>transition name.</dd>
+<dt><strong><code>steps</code></strong></dt>
+<dd>optional; list of numbers of iterations for dilation.</dd>
+<dt><strong><code>log</code></strong></dt>
+<dd>optional; logger.</dd>
+<dt><strong><code>save_masks</code></strong></dt>
+<dd>optional; save masks at each step.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def full_incremental_moments(cube: Cube,
+                             outdir: Path,
+                             transition: str,
+                             steps: Optional[Sequence[int]] = (1, 2, 3,
+                                                               5, 8, 10),
+                             log: Optional[Logger] = None,
+                             save_masks: bool = False) -&gt; None:
+    &#34;&#34;&#34;Calculate moments at increasing window sizes.
+
+    The function locates the line peaks per pixel, and computes moment maps by
+    delating along the spectral axis around the peak. The number of iterations
+    for the dilation function are given in `steps`.
+
+    Args:
+      cube: spectral cube with spectral axis in velocity.
+      outdir: output directory.
+      transition: transition name.
+      steps: optional; list of numbers of iterations for dilation.
+      log: optional; logger.
+      save_masks: optional; save masks at each step.
+    &#34;&#34;&#34;
+    # Velocity axis
+    if log is not None:
+        log.info(&#39;Calculating peak velocity map&#39;)
+    vel = cube.spectral_axis
+    dvel = np.abs(vel[0] - vel[1])
+    data = cube_to_marray(cube)
+
+    # Max index along spectral axis
+    headers = [get_header(cube), get_header(cube, bunit=vel.unit)]
+    maxind = max_vel_ind(data, headers, vel, outdir / transition)
+
+    # Binary structure for dilating only along spectral axis
+    binstruc = np.zeros((3,)*3, dtype=bool)
+    binstruc[:, 1, 1] = True
+
+    # Grids to evaluate mask
+    m, n = maxind.shape
+    ii, jj = np.ogrid[:m,:n]
+
+    # Auxiliary mask
+    mask = np.zeros(data.shape, dtype=bool)
+
+    # Set max values to True
+    mask[maxind, ii, jj] = True
+    mask[0][np.all(data.mask, axis=0)] = False
+    if save_masks:
+        if log is not None:
+            log.info(&#39;Saving initial mask&#39;)
+        filename = outdir / f&#39;{transition}_moment1_initial_mask.fits&#39;
+        save_mask(mask, cube.header, filename)
+
+    # Iterate over steps values
+    for iterations in steps:
+        # Dilate mask
+        width = dvel * (iterations*2 + 1)
+        if log is not None:
+            log.info(&#39;-&#39; * 50)
+            log.info(f&#39;Dilating {iterations} times&#39;)
+            log.info(f&#39;Width of window: {width.value} {width.unit}&#39;)
+        aux = ndimg.binary_dilation(mask,
+                                    structure=binstruc,
+                                    iterations=iterations)
+
+        # Those in the dialted mask with values over threshold
+        aux = aux &amp; ~data.mask
+
+        # Save mask
+        if save_masks:
+            filename = f&#39;{transition}_moment1_dilate{iterations}_mask.fits&#39;
+            save_mask(aux, cube.header, outdir / filename)
+
+        # Subcube
+        aux = cube.with_mask(aux)
+        aux = aux.moment(order=1)
+        filename = f&#39;{transition}_moment1_dilate{iterations}.fits&#39;
+        aux.write(outdir / filename, overwrite=True)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.full_split_moments"><code class="name flex">
+<span>def <span class="ident">full_split_moments</span></span>(<span>cube: ~Cube, split_width: int, split_win: int, outdir: pathlib.Path, basename: str, vlsr: astropy.units.quantity.Quantity, rms: Union[astropy.units.quantity.Quantity, NoneType] = None, nsigma: Union[int, NoneType] = 5, incremental_step: Union[int, NoneType] = 2, roll_step: Union[int, NoneType] = 2, log: Union[~Logger, NoneType] = None) ‑> NoneType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate moment 0 at mirrored windows arround line center.</p>
+<p>The spectral axis is divided in 2 bands (lower band <code>lb</code> and upper band
+<code>ub</code>). Two steps are performed in each band:</p>
+<ol>
+<li>Incremental step: the mirrored windows are expanded towards lower and
+higher channels in the <code>lb</code> and <code>ub</code>, respectively. The amount of
+increment is given by <code>incremental_step</code>.</li>
+<li>Rolling step: the mirrored windows are rolled (keeping the <code>split_win</code>
+size constant) towards lower and higher channels in the <code>lb</code> and <code>ub</code>,
+respectively. The amount of rolling is given by <code>roll_step</code>.</li>
+</ol>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cube</code></strong></dt>
+<dd>spectral cube with spectral axis in systemic velocity units.</dd>
+<dt><strong><code>split_width</code></strong></dt>
+<dd>size of the window around the line center to ignore (in
+channels).</dd>
+<dt><strong><code>split_win</code></strong></dt>
+<dd>size of the window where the moment 0 are calculated.</dd>
+<dt><strong><code>outdir</code></strong></dt>
+<dd>path to save the output images.</dd>
+<dt><strong><code>basename</code></strong></dt>
+<dd>base name for the images.</dd>
+<dt><strong><code>vlsr</code></strong></dt>
+<dd>LSR velocity.</dd>
+<dt><strong><code>incremental_step</code></strong></dt>
+<dd>optional; amount of increment for the incremental step.</dd>
+<dt><strong><code>roll_step</code></strong></dt>
+<dd>optional; number of channels to roll the split windows.</dd>
+<dt><strong><code>log</code></strong></dt>
+<dd>optional; logger.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def full_split_moments(cube: Cube,
+                       split_width: int,
+                       split_win: int,
+                       outdir: Path,
+                       basename: str,
+                       vlsr: u.Quantity,
+                       rms: Optional[u.Quantity] = None,
+                       nsigma: Optional[int] = 5,
+                       incremental_step: Optional[int] = 2,
+                       roll_step: Optional[int] = 2,
+                       log: Optional[Logger] = None,) -&gt; None:
+    &#34;&#34;&#34;Calculate moment 0 at mirrored windows arround line center.
+
+    The spectral axis is divided in 2 bands (lower band `lb` and upper band
+    `ub`). Two steps are performed in each band:
+
+    1. Incremental step: the mirrored windows are expanded towards lower and
+      higher channels in the `lb` and `ub`, respectively. The amount of
+      increment is given by `incremental_step`.
+    2. Rolling step: the mirrored windows are rolled (keeping the `split_win`
+      size constant) towards lower and higher channels in the `lb` and `ub`,
+      respectively. The amount of rolling is given by `roll_step`.
+
+    Args:
+      cube: spectral cube with spectral axis in systemic velocity units.
+      split_width: size of the window around the line center to ignore (in
+        channels).
+      split_win: size of the window where the moment 0 are calculated.
+      outdir: path to save the output images.
+      basename: base name for the images.
+      vlsr: LSR velocity.
+      incremental_step: optional; amount of increment for the incremental step.
+      roll_step: optional; number of channels to roll the split windows.
+      log: optional; logger.
+    &#34;&#34;&#34;
+    # Index of the minimum velocity
+    vel = cube.spectral_axis - vlsr
+    vel = vel.to(u.km / u.s)
+    ind = np.nanargmin(np.abs(vel))
+    if log is not None:
+        log.info(f&#39;Spectral axis length: {vel.size}&#39;)
+        log.info(f&#39;Line central channel: {ind}&#39;)
+
+    # Half split width
+    half_split_width = split_width // 2
+
+    # Central limits
+    max_lb = ind - half_split_width + 1
+    min_ub = ind + half_split_width
+
+    # Colors
+    if vel[max_lb] &lt; vel[min_ub]:
+        color_lb = &#39;blue&#39;
+        color_ub = &#39;red&#39;
+    else:
+        color_lb = &#39;red&#39;
+        color_ub = &#39;blue&#39;
+
+    # Increasing windows size step
+    range_min_lb = np.arange(max_lb - split_win, 0, -incremental_step)
+    range_max_ub = np.arange(min_ub + split_win, len(vel), incremental_step)
+    for min_lb, max_ub in zip(range_min_lb, range_max_ub):
+        # Subcubes
+        if log is not None:
+            print(&#39;-&#39; * 50)
+            log.info(&#39;Calculating moments for ranges:&#39;)
+            log.info(f&#39;Lower band: {min_lb} -- {max_lb - 1}&#39;)
+            log.info((f&#39;            {vel[min_lb].value} -- &#39;
+                      f&#39;{vel[max_lb - 1].value} {vel.unit}&#39;))
+            log.info(f&#39;Upper band: {min_ub} -- {max_ub - 1}&#39;)
+            log.info((f&#39;            {vel[min_ub].value} -- &#39;
+                      f&#39;{vel[max_ub - 1].value} {vel.unit}&#39;))
+        aux_lb = cube[min_lb:max_lb, :, :]
+        aux_ub = cube[min_ub:max_ub, :, :]
+        nlb = aux_lb.shape[0]
+        nub = aux_ub.shape[0]
+
+        # Moment 0
+        aux_lb = aux_lb.moment(order=0)
+        aux_ub = aux_ub.moment(order=0)
+
+        # Filter with rms
+        if rms is not None:
+            rmslb = rms / np.sqrt(nlb)
+            rmsub = rms / np.sqrt(nub)
+
+            if (np.all(aux_lb &lt; nsigma * rmslb) or
+                np.all(aux_ub &lt; nsigma * rmsub)):
+                if log is not None:
+                    log.info(&#39;Moment did not reach desired S/N&#39;)
+                continue
+
+        # Save
+        filename = (f&#39;{basename}_moment0_incremental_&#39;
+                    f&#39;{min_lb}-{max_lb - 1}_{color_lb}.fits&#39;)
+        aux_lb.write(outdir / filename, overwrite=True)
+        filename = (f&#39;{basename}_moment0_incremental_&#39;
+                    f&#39;{min_ub}-{max_ub - 1}_{color_ub}.fits&#39;)
+        aux_ub.write(outdir / filename, overwrite=True)
+
+    # Rolling windows step
+    range_min_lb = np.arange(max_lb - split_win, 0, -roll_step)
+    range_max_ub = np.arange(min_ub + split_win, len(vel), roll_step)
+    for min_lb, max_ub in zip(range_min_lb, range_max_ub):
+        # Subcubes
+        max_lb = min_lb + split_win
+        min_ub = max_ub - split_win
+        if log is not None:
+            print(&#39;-&#39; * 50)
+            log.info(&#39;Calculating moments for ranges:&#39;)
+            log.info(f&#39;Lower band: {min_lb} -- {max_lb - 1}&#39;)
+            log.info(f&#39;Upper band: {min_ub} -- {max_ub - 1}&#39;)
+        aux_lb = cube[min_lb:max_lb, :, :]
+        aux_ub = cube[min_ub:max_ub, :, :]
+        nlb = aux_lb.shape[0]
+        nub = aux_ub.shape[0]
+
+        # Moment 0
+        aux_lb = aux_lb.moment(order=0)
+        aux_ub = aux_ub.moment(order=0)
+
+        # Filter with rms
+        if rms is not None:
+            rmslb = rms / np.sqrt(nlb)
+            rmsub = rms / np.sqrt(nub)
+
+            if (np.all(aux_lb &lt; nsigma * rmslb) or
+                np.all(aux_ub &lt; nsigma * rmsub)):
+                if log is not None:
+                    log.info(&#39;Moment did not reach desired S/N&#39;)
+                continue
+
+        # Save
+        filename = (f&#39;{basename}_moment0_rolling_&#39;
+                    f&#39;{min_lb}-{max_lb - 1}_{color_lb}.fits&#39;)
+        aux_lb.write(outdir / filename, overwrite=True)
+        filename = (f&#39;{basename}_moment0_rolling_&#39;
+                    f&#39;{min_ub}-{max_ub - 1}_{color_ub}.fits&#39;)
+        aux_ub.write(outdir / filename, overwrite=True)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.moving_moments.get_header"><code class="name flex">
+<span>def <span class="ident">get_header</span></span>(<span>cube: ~Cube, bunit: astropy.units.core.Unit = None) ‑> astropy.io.fits.header.Header</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Extract 2-D header from cube header.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cube</code></strong></dt>
+<dd>spectral cube.</dd>
+<dt><strong><code>bunit</code></strong></dt>
+<dd>flux unit.</dd>
+</dl>
+<h2 id="return">Return</h2>
+<p>A FITS header object.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_header(cube: Cube, bunit: u.Unit = None) -&gt; fits.Header:
+    &#34;&#34;&#34;Extract 2-D header from cube header.
+
+    Args:
+      cube: spectral cube.
+      bunit: flux unit.
+
+    Return:
+      A FITS header object.
+    &#34;&#34;&#34;
     # Header
     header = cube.wcs.sub([&#39;longitude&#39;, &#39;latitude&#39;]).to_header()
 
@@ -247,102 +901,8 @@ if __name__==&#39;__main__&#39;:
     return header</code></pre>
 </details>
 </dd>
-<dt id="line_little_helper.moving_moments.get_results"><code class="name flex">
-<span>def <span class="ident">get_results</span></span>(<span>vel, data, cube, outdir, logger, savemasks=False)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def get_results(vel, data, cube, outdir, logger, savemasks=False):
-    # Max index along spectral axis
-    mask = np.all(data.mask, axis=0)
-    maxind = np.nanargmax(data, axis=0)
-    maxvel = vel[maxind]
-    maxvel[mask] = np.nan
-
-    # Save
-    output = os.path.join(outdir[0], &#39;line_%s.fits&#39;)
-    hdu = fits.PrimaryHDU(maxind)
-    hdu.header = get_header(cube)
-    hdu.writeto(output % &#39;spec_peak_index&#39;, overwrite=True, output_verify=&#39;fix&#39;)
-    hdu = fits.PrimaryHDU(maxvel.value)
-    hdu.header = get_header(cube, bunit=vel.unit)
-    hdu.writeto(output % &#39;spec_peak_vel&#39;, overwrite=True, output_verify=&#39;fix&#39;)
-
-    # FHWM and stddev in channels
-    data_filled = np.ma.filled(data, fill_value=np.nan)
-    mask = data_filled &gt; 0.5*np.nanmax(data_filled, axis=0)
-    mask[data.mask] = False
-    if savemasks:
-        filename = output % (&#39;fwhm_mask&#39;)
-        save_mask(mask, cube.header, filename, dtype=float)
-    fwhm_chan = np.sum(mask, axis=0)
-    fwhm_chan = np.ma.array(fwhm_chan, mask=np.all(data.mask, axis=0))
-    sigma = gaussian_fwhm_to_sigma * fwhm_chan
-    medchan = int(np.ma.median(sigma))
-    meanchan = int(np.ma.mean(sigma))
-    logger.info(&#39;Median line stddev: %i channels&#39;, medchan)
-    logger.info(&#39;Mean line stddev: %i channels&#39;, meanchan)
-    if medchan==0:
-        logger.warn(&#39;Median linewidth=0, using 1 instead&#39;)
-        medchan = 1
-
-    # Iterate over sigma values
-    binstruc = np.zeros((3,)*3, dtype=bool)
-    binstruc[:, 1, 1] = True
-    m, n = maxind.shape
-    I, J = np.ogrid[:m,:n]
-    imgs = []
-    for i in [1, 2, 3, 5, 8, 10]:
-        # Auxiliary mask
-        aux = np.zeros(data.shape, dtype=bool)
-
-        # Set max values to True
-        aux[maxind, I, J] = True
-        aux[0][np.all(data.mask, axis=0)] = False
-        if i==1 and savemasks:
-            filename = output % (&#39;moment1_0sigma_mask&#39;)
-            save_mask(aux, cube.header, filename)
-
-        # Dilate mask
-        logger.info(&#39;Dilating %i times&#39;, i*medchan)
-        aux = ndimg.binary_dilation(aux, structure=binstruc, 
-                iterations=i*medchan)
-        aux = aux &amp; ~data.mask
-        if savemasks:
-            filename = output % (&#39;moment1_%isigma_mask&#39; % i)
-            save_mask(aux, cube.header, filename)
-
-        # Subcube
-        aux = cube.with_mask(aux)
-        aux = aux.moment(order=1)
-        aux.write(output % (&#39;moment1_%isigma&#39; % i), overwrite=True)</code></pre>
-</details>
-</dd>
-<dt id="line_little_helper.moving_moments.loader"><code class="name flex">
-<span>def <span class="ident">loader</span></span>(<span>args)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def loader(args):
-    # Load cube
-    args.log.info(&#39;Loading cube&#39;)
-    args.cube(args, args.cubename)
-
-    # Load config
-    args.log.info(&#39;Loading configuration&#39;)
-    args.config(args, args.lineconfig)</code></pre>
-</details>
-</dd>
 <dt id="line_little_helper.moving_moments.main"><code class="name flex">
-<span>def <span class="ident">main</span></span>(<span>args)</span>
+<span>def <span class="ident">main</span></span>(<span>args: list) ‑> NoneType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Moment 1 maps from different windows.</p>
@@ -355,95 +915,141 @@ if __name__==&#39;__main__&#39;:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def main(args):
+<pre><code class="python">def main(args: list) -&gt; None:
     &#34;&#34;&#34;Moment 1 maps from different windows.
-    
+
     Args:
       args: arguments for argparse.
     &#34;&#34;&#34;
     # Parser
-    pipe = [loader, proc]
+    pipe = [_preproc, _proc]
     args_parents = [parents.logger(&#39;debug_moving_moments.log&#39;)]
     parser = argparse.ArgumentParser(
         add_help=True,
-        description=&#39;Moment 1 maps from incresing local window size&#39;,
+        description=&#39;Moment 0/1 maps from incresing local window size&#39;,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
     parser.add_argument(&#39;--shrink&#39;, action=&#39;store_true&#39;,
-                        help=&#39;Shrink to minimal cube&#39;)
+                        help=&#39;Shrink to minimal cube.&#39;)
+    parser.add_argument(&#39;--vlsr&#39;, action=actions.ReadQuantity,
+                        default=0 * u.km/u.s,
+                        help=&#39;LSR velocity.&#39;)
+    group1 = parser.add_mutually_exclusive_group(required=False)
+    group1.add_argument(&#39;--rms&#39;, action=actions.ReadQuantity, default=None,
+                        help=&#39;Noise level.&#39;)
+    group1.add_argument(&#39;--sampled_rms&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Calculate the rms from a sample of channels.&#39;)
+    parser.add_argument(&#39;--onlyj&#39;, action=&#39;store_true&#39;,
+                        help=&#39;Filter out F, K transitions.&#39;)
     parser.add_argument(&#39;--savemasks&#39;, action=&#39;store_true&#39;,
-                        help=&#39;Save masks at each step&#39;)
-    group1 = parser.add_mutually_exclusive_group(required=True)
+                        help=&#39;Save masks at each step.&#39;)
+    parser.add_argument(&#39;--split&#39;, metavar=[&#39;WIDTH&#39;, &#39;WIN&#39;], nargs=2, type=int,
+                        help=&#39;Width of split window and moment 0 window.&#39;)
+    parser.add_argument(&#39;--split_steps&#39;, metavar=[&#39;INCR&#39;, &#39;ROLL&#39;], nargs=2,
+                        type=int, default=[2, 2],
+                        help=&#39;Steps for incremental and rolling steps.&#39;)
+    parser.add_argument(&#39;molecule&#39;, nargs=1,
+                        help=&#39;Molecule name or formula.&#39;)
+    parser.add_argument(&#39;winwidth&#39;, nargs=1, type=int,
+                        help=&#39;Window with in channels.&#39;)
+    #group1 = parser.add_mutually_exclusive_group(required=True)
     #parser.add_argument(&#39;lineconfig&#39;, nargs=1, action=actions.CheckFile,
     #                    help=&#39;Line configuration file&#39;)
     #parser.add_argument(&#39;section&#39;, nargs=1,
     #                    help=&#39;Configuration section&#39;)
-
-    parser.add_argument(&#39;cubename&#39;, nargs=1, action=actions.CheckFile,
-                        help=&#39;Cube file name&#39;)
     parser.add_argument(&#39;outdir&#39;, nargs=1, action=actions.MakePath,
-                        help=&#39;Output directory&#39;)
-    parser.set_defaults(pipe=pipe, results=None,
-            cube=aploaders.load_spectral_cube,
-            config=aploaders.load_config, nsigma=5.)
+                        help=&#39;Output directory.&#39;)
+    parser.add_argument(&#39;cubenames&#39;, nargs=&#39;*&#39;, action=actions.CheckFile,
+                        help=&#39;Cube file name(s).&#39;)
+    parser.set_defaults(pipe=pipe, results=None, cubename=None,
+                        cube=aploaders.load_spectral_cube, mol=None,
+                        nsigma=5.)
     args = parser.parse_args(args)
-    for fn in args.pipe:
-        fn(args)</code></pre>
+    for cube in args.cubenames:
+        args.log.info(f&#39;Working on cube: {cube}&#39;)
+        args.cubename = cube
+        for fn in args.pipe:
+            fn(args)
+        args.cube = aploaders.load_spectral_cube</code></pre>
 </details>
 </dd>
-<dt id="line_little_helper.moving_moments.proc"><code class="name flex">
-<span>def <span class="ident">proc</span></span>(<span>args)</span>
+<dt id="line_little_helper.moving_moments.max_vel_ind"><code class="name flex">
+<span>def <span class="ident">max_vel_ind</span></span>(<span>data: <built-in function array>, headers: List[astropy.io.fits.header.Header], vel: astropy.units.quantity.Quantity, output: pathlib.Path) ‑> <built-in function array></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Calculate a line peak index and peak velocity maps.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong></dt>
+<dd>an array with the data.</dd>
+<dt><strong><code>headers</code></strong></dt>
+<dd>two headers, one for the index map and one for the velocity map.</dd>
+<dt><strong><code>vel</code></strong></dt>
+<dd>velocity axis.</dd>
+<dt><strong><code>output</code></strong></dt>
+<dd>output base name</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def proc(args):
-    # Create subcube
-    chan1, chan2 = args.config.getintlist(args.section[0],&#39;chanran&#39;)
-    args.log.info(&#39;Channel range: %i, %i&#39;, chan1, chan2)
-    restfreq = args.config.getquantity(args.section[0],&#39;freq&#39;)
-    subcube = args.cube[chan1:chan2+1,:,:]
-    subcube = subcube.with_spectral_unit(u.km/u.s, 
-            velocity_convention=&#39;radio&#39;,
-            rest_value=restfreq)
+<pre><code class="python">def max_vel_ind(data: np.array, headers: List[fits.Header],
+                vel: u.Quantity, output: Path) -&gt; np.array:
+    &#34;&#34;&#34;Calculate a line peak index and peak velocity maps.
 
-    # Create cube mask
-    if &#39;RMS&#39; in subcube.header:
-        args.log.info(&#39;RMS key in cube header&#39;)
-        rms = float(subcube.header[&#39;RMS&#39;])*subcube.unit
-    else:
-        args.log.info(&#39;Calculating rms value&#39;)
-        rms = quick_rms(subcube)*subcube.unit
-    args.log.info(&#39;rms value: {0.value} {0.unit}&#39;.format(rms))
-    args.log.info(&#39;Filtering out data &lt; %i rms&#39;, args.nsigma)
-    mask = subcube &gt; rms*args.nsigma
-    subcube = subcube.with_mask(mask)
-    if args.shrink:
-        subcube = subcube.minimal_subcube()
-    data = subcube.filled_data[:].to(rms.unit).value
-    data = np.ma.array(data, mask=np.isnan(data))
+    Args:
+      data: an array with the data.
+      headers: two headers, one for the index map and one for the velocity map.
+      vel: velocity axis.
+      output: output base name
+    &#34;&#34;&#34;
+    mask = np.all(data.mask, axis=0)
+    maxind = np.nanargmax(data, axis=0)
+    maxvel = vel[maxind]
+    maxvel[mask] = np.nan
 
-    # Velocity axis
-    vel = subcube.spectral_axis
+    # Save
+    out = str(output) + &#39;_%s.fits&#39;
+    hdu = fits.PrimaryHDU(maxind)
+    hdu.header = headers[0]
+    hdu.writeto(out % &#39;spec_peak_index&#39;, overwrite=True, output_verify=&#39;fix&#39;)
+    hdu = fits.PrimaryHDU(maxvel.value)
+    hdu.header = headers[1]
+    hdu.writeto(out % &#39;spec_peak_vel&#39;, overwrite=True, output_verify=&#39;fix&#39;)
 
-    # Calculate results
-    get_results(vel, data, subcube, args.outdir, args.log,
-            savemasks=args.savemasks)</code></pre>
+    return maxind</code></pre>
 </details>
 </dd>
 <dt id="line_little_helper.moving_moments.save_mask"><code class="name flex">
-<span>def <span class="ident">save_mask</span></span>(<span>mask, header, filename, dtype=builtins.int)</span>
+<span>def <span class="ident">save_mask</span></span>(<span>mask: <built-in function array>, header: astropy.io.fits.header.Header, filename: pathlib.Path, dtype: Optional = builtins.int) ‑> NoneType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Save masks.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>mask</code></strong></dt>
+<dd>mask array.</dd>
+<dt><strong><code>header</code></strong></dt>
+<dd>FITS header.</dd>
+<dt><strong><code>filename</code></strong></dt>
+<dd>file name.</dd>
+<dt><strong><code>dtype</code></strong></dt>
+<dd>optional; data type.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def save_mask(mask, header, filename, dtype=int):
+<pre><code class="python">def save_mask(mask: np.array, header: fits.Header, filename: Path,
+              dtype: Optional = int) -&gt; None:
+    &#34;&#34;&#34;Save masks.
+
+    Args:
+      mask: mask array.
+      header: FITS header.
+      filename: file name.
+      dtype: optional; data type.
+    &#34;&#34;&#34;
     hdu = fits.PrimaryHDU(mask.astype(dtype))
     hdu.header = header
     hdu.writeto(filename, overwrite=True)</code></pre>
@@ -466,12 +1072,13 @@ if __name__==&#39;__main__&#39;:
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="two-column">
+<ul class="">
+<li><code><a title="line_little_helper.moving_moments.cube_to_marray" href="#line_little_helper.moving_moments.cube_to_marray">cube_to_marray</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.full_incremental_moments" href="#line_little_helper.moving_moments.full_incremental_moments">full_incremental_moments</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.full_split_moments" href="#line_little_helper.moving_moments.full_split_moments">full_split_moments</a></code></li>
 <li><code><a title="line_little_helper.moving_moments.get_header" href="#line_little_helper.moving_moments.get_header">get_header</a></code></li>
-<li><code><a title="line_little_helper.moving_moments.get_results" href="#line_little_helper.moving_moments.get_results">get_results</a></code></li>
-<li><code><a title="line_little_helper.moving_moments.loader" href="#line_little_helper.moving_moments.loader">loader</a></code></li>
 <li><code><a title="line_little_helper.moving_moments.main" href="#line_little_helper.moving_moments.main">main</a></code></li>
-<li><code><a title="line_little_helper.moving_moments.proc" href="#line_little_helper.moving_moments.proc">proc</a></code></li>
+<li><code><a title="line_little_helper.moving_moments.max_vel_ind" href="#line_little_helper.moving_moments.max_vel_ind">max_vel_ind</a></code></li>
 <li><code><a title="line_little_helper.moving_moments.save_mask" href="#line_little_helper.moving_moments.save_mask">save_mask</a></code></li>
 </ul>
 </li>

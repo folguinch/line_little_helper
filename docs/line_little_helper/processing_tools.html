@@ -28,15 +28,13 @@
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;Processing data from input.&#34;&#34;&#34;
-from typing import List, Optional, TypeVar, Union
+from typing import List, Optional, Sequence, TypeVar, Union
 
-from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import astroquery.splatalogue as splat
 import numpy as np
 
 from common_types import QPair, Table
-from spectrum import Spectra, Spectrum
 
 Equivalency = TypeVar(&#39;Equivalency&#39;)
 
@@ -122,11 +120,14 @@ def observed_to_rest(freqs: u.Quantity, vlsr: u.Quantity, equivalencies: dict,
             freqs[mask] = to_rest_freq(freqs[mask], vlsr, equivalency)
         return freqs
 
-def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
+def query_lines(freq_range: QPair,
+                line_lists: Sequence[str] = (&#39;CDMS&#39;, &#39;JPL&#39;),
+                **kwargs) -&gt; Table:
     &#34;&#34;&#34;Query splatalogue to get lines in range.
 
     Args:
       freq_range: frequency range.
+      line_lists: optional; only use data from these databases.
       kwargs: optional; additional filters for `astroquery`.
     &#34;&#34;&#34;
     columns = (&#39;Species&#39;, &#39;Chemical Name&#39;, &#39;Resolved QNs&#39;,
@@ -135,7 +136,8 @@ def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
                &#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;,
                &#39;E_U (K)&#39;)
     query = splat.Splatalogue.query_lines(*freq_range,
-                                          only_NRAO_recommended=True,
+                                          #only_NRAO_recommended=True,
+                                          line_lists=line_lists,
                                           **kwargs)[columns]
     query.rename_column(&#39;Chemical Name&#39;, &#39;Name&#39;)
     query.rename_column(&#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;, &#39;log10Aij&#39;)
@@ -143,7 +145,7 @@ def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
     query.rename_column(&#39;Resolved QNs&#39;, &#39;QNs&#39;)
     query.rename_column(&#39;Freq-GHz(rest frame,redshifted)&#39;, &#39;Freq&#39;)
     query.rename_column(&#39;Meas Freq-GHz(rest frame,redshifted)&#39;, &#39;MeasFreq&#39;)
-    query.sort([&#39;Name&#39;, &#39;Species&#39;, &#39;Eu&#39;])
+    query.sort([&#39;Name&#39;, &#39;Species&#39;, &#39;MeasFreq&#39;, &#39;Eu&#39;])
     query[&#39;Eu&#39;].info.unit = u.K
     query[&#39;Freq&#39;].info.unit = u.GHz
     query[&#39;MeasFreq&#39;].info.unit = u.GHz
@@ -152,7 +154,7 @@ def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
 
 def query_from_array(array: np.array,
                      units: dict,
-                     freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                     freq_cols: Sequence[str] = (&#39;freq_low&#39;, &#39;freq_up&#39;),
                      name_cols: Optional[List[str]] = None) -&gt; dict:
     &#34;&#34;&#34;Iterate over the frequency ranges in input array and obtain lines.
 
@@ -201,7 +203,7 @@ def query_from_array(array: np.array,
 def combine_columns(table: Table,
                     cols: list) -&gt; Union[np.array, u.Quantity]:
     &#34;&#34;&#34;Combine 2 columns in table replacing elements.
-    
+
     Args:
       table: input `astropy.Table`.
       cols: columns to merge.
@@ -216,6 +218,7 @@ def combine_columns(table: Table,
         # Replace masked elements
         mask = val.mask
         val[mask].mask = False
+        val.dtype = float
         val[mask] = table[cols[1]][mask]
     except AttributeError:
         pass
@@ -238,82 +241,82 @@ def zip_columns(table: Table, cols: List[str]):
 
     return zip(*aux)
 
-def get_spectra(spectra: Spectra,
-                cubes: Optional[list] = None,
-                coords: Optional[list] = None,
-                specs: Optional[list] = None,
-                vlsr: Optional[u.Quantity] = None,
-                rms: Optional[u.Quantity] = None,
-                equivalencies: Optional[dict] = None,
-                log = None) -&gt; Spectra:
-    # Observed data
-    if cubes is not None:
-        # Validate input
-        if coords is None:
-            raise ValueError(&#39;Coordinate needed for spectrum&#39;)
-
-        # Extract spectra
-        log.info(&#39;Extracting spectra from cubes&#39;)
-        for cube in cubes:
-            # Observed frequencies shifted during subtraction
-            for coord in coords:
-                spec = cube_utils.spectrum_at_position(cube, coord,
-                                                       spectral_axis_unit=u.GHz,
-                                                       vlsr=vlsr)
-                spec = Spectrum(spec[0], spec[1].quantity,
-                                restfreq=cube_utils.get_restfreq(cube),
-                                rms=cube_utils.get_cube_rms(cube,
-                                                            use_header=True))
-                spectra.append(spec)
-    elif specs is not None:
-        freq_names = [&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;, &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;]
-        int_names = [&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;, &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;]
-        log.info(&#39;Reading input spectra&#39;)
-        for key, (data, units) in enumerate(specs):
-            # Spectral axis
-            freq_name = list(filter(lambda x, unt=units: x in unt,
-                                    freq_names))[0]
-            xaxis = data[freq_name] * units[freq_name]
-
-            # Intensity axis
-            int_name = list(filter(lambda x, unt=units: x in unt,
-                                   int_names))[0]
-            spec = data[int_name] * units[int_name]
-
-            # Noise
-            if rms is not None:
-                rms = rms[key]
-            else:
-                rms = None
-
-            # Equivalencies
-            if &#39;all&#39; in equivalencies:
-                equivalency = equivalencies
-            else:
-                equivalency = {&#39;all&#39;: equivalencies[key]}
-            restfreq = (0. * u.km/u.s).to(u.GHz,
-                                          equivalencies=equivalency[&#39;all&#39;])
-
-            # Shifted spectrum
-            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
-                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-            elif xaxis.unit.is_equivalent(u.km/u.s):
-                #if freq_to_vel is None:
-                #    log.warn(&#39;Cannot convert spectral axis to GHz&#39;)
-                #    continue
-                vels = xaxis - vlsr
-                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-            else:
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-
-            # Store
-            spectra.append(spec)
-    else:
-        pass
-
-    return spectra</code></pre>
+#def get_spectra(spectra: Spectra,
+#                cubes: Optional[list] = None,
+#                coords: Optional[list] = None,
+#                specs: Optional[list] = None,
+#                vlsr: Optional[u.Quantity] = None,
+#                rms: Optional[u.Quantity] = None,
+#                equivalencies: Optional[dict] = None,
+#                log = None) -&gt; Spectra:
+#    # Observed data
+#    if cubes is not None:
+#        # Validate input
+#        if coords is None:
+#            raise ValueError(&#39;Coordinate needed for spectrum&#39;)
+#
+#        # Extract spectra
+#        log.info(&#39;Extracting spectra from cubes&#39;)
+#        for cube in cubes:
+#            # Observed frequencies shifted during subtraction
+#            for coord in coords:
+#                spec = cube_utils.spectrum_at_position(cube, coord,
+#                                                      spectral_axis_unit=u.GHz,
+#                                                       vlsr=vlsr)
+#                spec = Spectrum(spec[0], spec[1].quantity,
+#                                restfreq=cube_utils.get_restfreq(cube),
+#                                rms=cube_utils.get_cube_rms(cube,
+#                                                            use_header=True))
+#                spectra.append(spec)
+#    elif specs is not None:
+#        freq_names = [&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;, &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;]
+#        int_names = [&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;, &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;]
+#        log.info(&#39;Reading input spectra&#39;)
+#        for key, (data, units) in enumerate(specs):
+#            # Spectral axis
+#            freq_name = list(filter(lambda x, unt=units: x in unt,
+#                                    freq_names))[0]
+#            xaxis = data[freq_name] * units[freq_name]
+#
+#            # Intensity axis
+#            int_name = list(filter(lambda x, unt=units: x in unt,
+#                                   int_names))[0]
+#            spec = data[int_name] * units[int_name]
+#
+#            # Noise
+#            if rms is not None:
+#                rms = rms[key]
+#            else:
+#                rms = None
+#
+#            # Equivalencies
+#            if &#39;all&#39; in equivalencies:
+#                equivalency = equivalencies
+#            else:
+#                equivalency = {&#39;all&#39;: equivalencies[key]}
+#            restfreq = (0. * u.km/u.s).to(u.GHz,
+#                                          equivalencies=equivalency[&#39;all&#39;])
+#
+#            # Shifted spectrum
+#            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+#                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+#                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+#            elif xaxis.unit.is_equivalent(u.km/u.s):
+#                #if freq_to_vel is None:
+#                #    log.warn(&#39;Cannot convert spectral axis to GHz&#39;)
+#                #    continue
+#                vels = xaxis - vlsr
+#                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
+#                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+#            else:
+#                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
+#
+#            # Store
+#            spectra.append(spec)
+#    else:
+#        pass
+#
+#    return spectra</code></pre>
 </details>
 </section>
 <section>
@@ -342,7 +345,7 @@ def get_spectra(spectra: Spectra,
 <pre><code class="python">def combine_columns(table: Table,
                     cols: list) -&gt; Union[np.array, u.Quantity]:
     &#34;&#34;&#34;Combine 2 columns in table replacing elements.
-    
+
     Args:
       table: input `astropy.Table`.
       cols: columns to merge.
@@ -357,98 +360,12 @@ def get_spectra(spectra: Spectra,
         # Replace masked elements
         mask = val.mask
         val[mask].mask = False
+        val.dtype = float
         val[mask] = table[cols[1]][mask]
     except AttributeError:
         pass
 
     return val</code></pre>
-</details>
-</dd>
-<dt id="line_little_helper.processing_tools.get_spectra"><code class="name flex">
-<span>def <span class="ident">get_spectra</span></span>(<span>spectra: spectrum.Spectra, cubes: Union[list, NoneType] = None, coords: Union[list, NoneType] = None, specs: Union[list, NoneType] = None, vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None, rms: Union[astropy.units.quantity.Quantity, NoneType] = None, equivalencies: Union[dict, NoneType] = None, log=None) ‑> spectrum.Spectra</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def get_spectra(spectra: Spectra,
-                cubes: Optional[list] = None,
-                coords: Optional[list] = None,
-                specs: Optional[list] = None,
-                vlsr: Optional[u.Quantity] = None,
-                rms: Optional[u.Quantity] = None,
-                equivalencies: Optional[dict] = None,
-                log = None) -&gt; Spectra:
-    # Observed data
-    if cubes is not None:
-        # Validate input
-        if coords is None:
-            raise ValueError(&#39;Coordinate needed for spectrum&#39;)
-
-        # Extract spectra
-        log.info(&#39;Extracting spectra from cubes&#39;)
-        for cube in cubes:
-            # Observed frequencies shifted during subtraction
-            for coord in coords:
-                spec = cube_utils.spectrum_at_position(cube, coord,
-                                                       spectral_axis_unit=u.GHz,
-                                                       vlsr=vlsr)
-                spec = Spectrum(spec[0], spec[1].quantity,
-                                restfreq=cube_utils.get_restfreq(cube),
-                                rms=cube_utils.get_cube_rms(cube,
-                                                            use_header=True))
-                spectra.append(spec)
-    elif specs is not None:
-        freq_names = [&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;, &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;]
-        int_names = [&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;, &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;]
-        log.info(&#39;Reading input spectra&#39;)
-        for key, (data, units) in enumerate(specs):
-            # Spectral axis
-            freq_name = list(filter(lambda x, unt=units: x in unt,
-                                    freq_names))[0]
-            xaxis = data[freq_name] * units[freq_name]
-
-            # Intensity axis
-            int_name = list(filter(lambda x, unt=units: x in unt,
-                                   int_names))[0]
-            spec = data[int_name] * units[int_name]
-
-            # Noise
-            if rms is not None:
-                rms = rms[key]
-            else:
-                rms = None
-
-            # Equivalencies
-            if &#39;all&#39; in equivalencies:
-                equivalency = equivalencies
-            else:
-                equivalency = {&#39;all&#39;: equivalencies[key]}
-            restfreq = (0. * u.km/u.s).to(u.GHz,
-                                          equivalencies=equivalency[&#39;all&#39;])
-
-            # Shifted spectrum
-            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
-                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-            elif xaxis.unit.is_equivalent(u.km/u.s):
-                #if freq_to_vel is None:
-                #    log.warn(&#39;Cannot convert spectral axis to GHz&#39;)
-                #    continue
-                vels = xaxis - vlsr
-                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-            else:
-                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=rms)
-
-            # Store
-            spectra.append(spec)
-    else:
-        pass
-
-    return spectra</code></pre>
 </details>
 </dd>
 <dt id="line_little_helper.processing_tools.get_spectral_equivalencies"><code class="name flex">
@@ -564,7 +481,7 @@ frequency.</dd>
 </details>
 </dd>
 <dt id="line_little_helper.processing_tools.query_from_array"><code class="name flex">
-<span>def <span class="ident">query_from_array</span></span>(<span>array: <built-in function array>, units: dict, freq_cols: List[str] = ['freq_low', 'freq_up'], name_cols: Union[List[str], NoneType] = None) ‑> dict</span>
+<span>def <span class="ident">query_from_array</span></span>(<span>array: <built-in function array>, units: dict, freq_cols: Sequence[str] = ('freq_low', 'freq_up'), name_cols: Union[List[str], NoneType] = None) ‑> dict</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Iterate over the frequency ranges in input array and obtain lines.</p>
@@ -596,7 +513,7 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
 </summary>
 <pre><code class="python">def query_from_array(array: np.array,
                      units: dict,
-                     freq_cols: List[str] = [&#39;freq_low&#39;, &#39;freq_up&#39;],
+                     freq_cols: Sequence[str] = (&#39;freq_low&#39;, &#39;freq_up&#39;),
                      name_cols: Optional[List[str]] = None) -&gt; dict:
     &#34;&#34;&#34;Iterate over the frequency ranges in input array and obtain lines.
 
@@ -644,7 +561,7 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
 </details>
 </dd>
 <dt id="line_little_helper.processing_tools.query_lines"><code class="name flex">
-<span>def <span class="ident">query_lines</span></span>(<span>freq_range: Tuple[astropy.units.quantity.Quantity, astropy.units.quantity.Quantity], **kwargs) ‑> Table</span>
+<span>def <span class="ident">query_lines</span></span>(<span>freq_range: Tuple[astropy.units.quantity.Quantity, astropy.units.quantity.Quantity], line_lists: Sequence[str] = ('CDMS', 'JPL'), **kwargs) ‑> Table</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Query splatalogue to get lines in range.</p>
@@ -652,6 +569,8 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
 <dl>
 <dt><strong><code>freq_range</code></strong></dt>
 <dd>frequency range.</dd>
+<dt><strong><code>line_lists</code></strong></dt>
+<dd>optional; only use data from these databases.</dd>
 <dt><strong><code>kwargs</code></strong></dt>
 <dd>optional; additional filters for <code>astroquery</code>.</dd>
 </dl></div>
@@ -659,11 +578,14 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def query_lines(freq_range: QPair, **kwargs) -&gt; Table:
+<pre><code class="python">def query_lines(freq_range: QPair,
+                line_lists: Sequence[str] = (&#39;CDMS&#39;, &#39;JPL&#39;),
+                **kwargs) -&gt; Table:
     &#34;&#34;&#34;Query splatalogue to get lines in range.
 
     Args:
       freq_range: frequency range.
+      line_lists: optional; only use data from these databases.
       kwargs: optional; additional filters for `astroquery`.
     &#34;&#34;&#34;
     columns = (&#39;Species&#39;, &#39;Chemical Name&#39;, &#39;Resolved QNs&#39;,
@@ -672,7 +594,8 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
                &#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;,
                &#39;E_U (K)&#39;)
     query = splat.Splatalogue.query_lines(*freq_range,
-                                          only_NRAO_recommended=True,
+                                          #only_NRAO_recommended=True,
+                                          line_lists=line_lists,
                                           **kwargs)[columns]
     query.rename_column(&#39;Chemical Name&#39;, &#39;Name&#39;)
     query.rename_column(&#39;Log&lt;sub&gt;10&lt;/sub&gt; (A&lt;sub&gt;ij&lt;/sub&gt;)&#39;, &#39;log10Aij&#39;)
@@ -680,7 +603,7 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
     query.rename_column(&#39;Resolved QNs&#39;, &#39;QNs&#39;)
     query.rename_column(&#39;Freq-GHz(rest frame,redshifted)&#39;, &#39;Freq&#39;)
     query.rename_column(&#39;Meas Freq-GHz(rest frame,redshifted)&#39;, &#39;MeasFreq&#39;)
-    query.sort([&#39;Name&#39;, &#39;Species&#39;, &#39;Eu&#39;])
+    query.sort([&#39;Name&#39;, &#39;Species&#39;, &#39;MeasFreq&#39;, &#39;Eu&#39;])
     query[&#39;Eu&#39;].info.unit = u.K
     query[&#39;Freq&#39;].info.unit = u.GHz
     query[&#39;MeasFreq&#39;].info.unit = u.GHz
@@ -777,7 +700,6 @@ be converter to a key <code>'spw&lt;spw value&gt;_n&lt;n value&gt;'</code>.</li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="line_little_helper.processing_tools.combine_columns" href="#line_little_helper.processing_tools.combine_columns">combine_columns</a></code></li>
-<li><code><a title="line_little_helper.processing_tools.get_spectra" href="#line_little_helper.processing_tools.get_spectra">get_spectra</a></code></li>
 <li><code><a title="line_little_helper.processing_tools.get_spectral_equivalencies" href="#line_little_helper.processing_tools.get_spectral_equivalencies">get_spectral_equivalencies</a></code></li>
 <li><code><a title="line_little_helper.processing_tools.observed_to_rest" href="#line_little_helper.processing_tools.observed_to_rest">observed_to_rest</a></code></li>
 <li><code><a title="line_little_helper.processing_tools.query_from_array" href="#line_little_helper.processing_tools.query_from_array">query_from_array</a></code></li>

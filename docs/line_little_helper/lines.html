@@ -29,7 +29,7 @@
 </summary>
 <pre><code class="python">&#34;&#34;&#34;Store information of molecular lines.
 &#34;&#34;&#34;
-from typing import List, Optional, TypeVar
+from typing import List, Optional, TypeVar, Sequence
 
 import astropy.units as u
 
@@ -113,6 +113,28 @@ class Transition:
         return cls(species, qns, restfreq, obsfreq=obsfreq, eup=eup, vlsr=vlsr,
                    logaij=logaij)
 
+    def generate_name(
+        self,
+        include: Optional[Sequence[str]] = (&#39;species&#39;, &#39;qns&#39;),
+    ) -&gt; str:
+        &#34;&#34;&#34;Generate a name string from requested keys.
+
+        The default is to use the species and QNs for the name. It replaces any
+        brackets and comas with underscores.
+
+        Args:
+          include: optional; which values include in the name.
+        &#34;&#34;&#34;
+        name = []
+        if &#39;species&#39; in include:
+            name.append(f&#39;{self.species}&#39;.replace(&#39;=&#39;, &#39;&#39;))
+        if &#39;qns&#39; in include:
+            qns = f&#39;{self.qns}&#39;
+            qns = qns.replace(&#39;-&#39;, &#39;_&#39;).replace(&#39;(&#39;, &#39;&#39;).replace(&#39;)&#39;, &#39;&#39;)
+            qns = qns.replace(&#39;,&#39;, &#39;_&#39;).replace(&#39;=&#39;,&#39;_&#39;).replace(&#39;/&#39;, &#39;_&#39;)
+            name.append(qns)
+        return &#39;_&#39;.join(name)
+
 class Molecule:
     &#34;&#34;&#34;Class for storing molecule information.
 
@@ -156,6 +178,7 @@ class Molecule:
     @classmethod
     def from_query(cls, name: str, freq_range: QPair,
                    vlsr: Optional[u.Quantity] = None,
+                   filter_out: Optional[list] = None,
                    **kwargs):
         &#34;&#34;&#34;Obtain information about molecule from splat.
 
@@ -164,6 +187,7 @@ class Molecule:
             [astroquery](https://astroquery.readthedocs.io/en/v0.1-0/splatalogue.html).
           freq_range: frequency range to look for transitions.
           vlsr: optional; LSR velocity to obtain observed frequency.
+          filter_out: optional; filter out transitions with given QNs.
           kwargs: optional additional query constraints.
         &#34;&#34;&#34;
         table = query_lines(freq_range, chemical_name=name, **kwargs)
@@ -171,9 +195,23 @@ class Molecule:
         transitions = []
         cols = [&#39;Species&#39;, &#39;QNs&#39;, &#39;Freq&#39;, &#39;Eu&#39;, &#39;log10Aij&#39;]
         for data in zip_columns(table, cols):
+            # Filter transitions
+            if filter_out is not None:
+                aux = False
+                for fil in filter_out:
+                    if fil in data[1]:
+                        aux = True
+                        break
+                if aux:
+                    continue
+
+            # Do not use unresolved QNs
+            if str(data[1]) == &#39;--&#39;:
+                continue
             transitions.append(
-                Transition(data[0], data[1], data[2], 
+                Transition(data[0], data[1], data[2],
                            vlsr=vlsr, eup=data[3], logaij=data[4]))
+
         return cls(name.strip(), transitions)
 
 class Molecules(list):
@@ -264,6 +302,7 @@ class Molecules(list):
     @classmethod
     def from_query(cls, name: str, freq_range: QPair,
                    vlsr: Optional[u.Quantity] = None,
+                   filter_out: Optional[list] = None,
                    **kwargs):
         &#34;&#34;&#34;Obtain information about molecule from splat.
 
@@ -272,6 +311,7 @@ class Molecules(list):
             [astroquery](https://astroquery.readthedocs.io/en/v0.1-0/splatalogue.html).
           freq_range: frequency range to look for transitions.
           vlsr: optional; LSR velocity to obtain observed frequency.
+          filter_out: optional; filter out transitions with given QNs.
           kwargs: optional additional query constraints.
         &#34;&#34;&#34;
         table = query_lines(freq_range, chemical_name=name, **kwargs)
@@ -279,9 +319,23 @@ class Molecules(list):
         transitions = []
         cols = [&#39;Species&#39;, &#39;QNs&#39;, &#39;Freq&#39;, &#39;Eu&#39;, &#39;log10Aij&#39;]
         for data in zip_columns(table, cols):
+            # Filter transitions
+            if filter_out is not None:
+                aux = False
+                for fil in filter_out:
+                    if fil in data[1]:
+                        aux = True
+                        break
+                if aux:
+                    continue
+
+            # Do not use unresolved QNs
+            if str(data[1]) == &#39;--&#39;:
+                continue
             transitions.append(
-                Transition(data[0], data[1], data[2], 
+                Transition(data[0], data[1], data[2],
                            vlsr=vlsr, eup=data[3], logaij=data[4]))
+
         return cls(name.strip(), transitions)</code></pre>
 </details>
 <h3>Static methods</h3>
@@ -320,7 +374,7 @@ def from_config(cls, name: str, config: Config):
 </details>
 </dd>
 <dt id="line_little_helper.lines.Molecule.from_query"><code class="name flex">
-<span>def <span class="ident">from_query</span></span>(<span>name: str, freq_range: Tuple[astropy.units.quantity.Quantity, astropy.units.quantity.Quantity], vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None, **kwargs)</span>
+<span>def <span class="ident">from_query</span></span>(<span>name: str, freq_range: Tuple[astropy.units.quantity.Quantity, astropy.units.quantity.Quantity], vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None, filter_out: Union[list, NoneType] = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Obtain information about molecule from splat.</p>
@@ -333,6 +387,8 @@ def from_config(cls, name: str, config: Config):
 <dd>frequency range to look for transitions.</dd>
 <dt><strong><code>vlsr</code></strong></dt>
 <dd>optional; LSR velocity to obtain observed frequency.</dd>
+<dt><strong><code>filter_out</code></strong></dt>
+<dd>optional; filter out transitions with given QNs.</dd>
 <dt><strong><code>kwargs</code></strong></dt>
 <dd>optional additional query constraints.</dd>
 </dl></div>
@@ -343,6 +399,7 @@ def from_config(cls, name: str, config: Config):
 <pre><code class="python">@classmethod
 def from_query(cls, name: str, freq_range: QPair,
                vlsr: Optional[u.Quantity] = None,
+               filter_out: Optional[list] = None,
                **kwargs):
     &#34;&#34;&#34;Obtain information about molecule from splat.
 
@@ -351,6 +408,7 @@ def from_query(cls, name: str, freq_range: QPair,
         [astroquery](https://astroquery.readthedocs.io/en/v0.1-0/splatalogue.html).
       freq_range: frequency range to look for transitions.
       vlsr: optional; LSR velocity to obtain observed frequency.
+      filter_out: optional; filter out transitions with given QNs.
       kwargs: optional additional query constraints.
     &#34;&#34;&#34;
     table = query_lines(freq_range, chemical_name=name, **kwargs)
@@ -358,9 +416,23 @@ def from_query(cls, name: str, freq_range: QPair,
     transitions = []
     cols = [&#39;Species&#39;, &#39;QNs&#39;, &#39;Freq&#39;, &#39;Eu&#39;, &#39;log10Aij&#39;]
     for data in zip_columns(table, cols):
+        # Filter transitions
+        if filter_out is not None:
+            aux = False
+            for fil in filter_out:
+                if fil in data[1]:
+                    aux = True
+                    break
+            if aux:
+                continue
+
+        # Do not use unresolved QNs
+        if str(data[1]) == &#39;--&#39;:
+            continue
         transitions.append(
-            Transition(data[0], data[1], data[2], 
+            Transition(data[0], data[1], data[2],
                        vlsr=vlsr, eup=data[3], logaij=data[4]))
+
     return cls(name.strip(), transitions)</code></pre>
 </details>
 </dd>
@@ -526,7 +598,29 @@ def from_config(cls, configs: dict):
         logaij = config.getfloat(&#39;logaij&#39;, fallback=None)
 
         return cls(species, qns, restfreq, obsfreq=obsfreq, eup=eup, vlsr=vlsr,
-                   logaij=logaij)</code></pre>
+                   logaij=logaij)
+
+    def generate_name(
+        self,
+        include: Optional[Sequence[str]] = (&#39;species&#39;, &#39;qns&#39;),
+    ) -&gt; str:
+        &#34;&#34;&#34;Generate a name string from requested keys.
+
+        The default is to use the species and QNs for the name. It replaces any
+        brackets and comas with underscores.
+
+        Args:
+          include: optional; which values include in the name.
+        &#34;&#34;&#34;
+        name = []
+        if &#39;species&#39; in include:
+            name.append(f&#39;{self.species}&#39;.replace(&#39;=&#39;, &#39;&#39;))
+        if &#39;qns&#39; in include:
+            qns = f&#39;{self.qns}&#39;
+            qns = qns.replace(&#39;-&#39;, &#39;_&#39;).replace(&#39;(&#39;, &#39;&#39;).replace(&#39;)&#39;, &#39;&#39;)
+            qns = qns.replace(&#39;,&#39;, &#39;_&#39;).replace(&#39;=&#39;,&#39;_&#39;).replace(&#39;/&#39;, &#39;_&#39;)
+            name.append(qns)
+        return &#39;_&#39;.join(name)</code></pre>
 </details>
 <h3>Static methods</h3>
 <dl>
@@ -569,6 +663,48 @@ def from_config(cls, config:Config,
 </details>
 </dd>
 </dl>
+<h3>Methods</h3>
+<dl>
+<dt id="line_little_helper.lines.Transition.generate_name"><code class="name flex">
+<span>def <span class="ident">generate_name</span></span>(<span>self, include: Union[Sequence[str], NoneType] = ('species', 'qns')) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate a name string from requested keys.</p>
+<p>The default is to use the species and QNs for the name. It replaces any
+brackets and comas with underscores.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>include</code></strong></dt>
+<dd>optional; which values include in the name.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def generate_name(
+    self,
+    include: Optional[Sequence[str]] = (&#39;species&#39;, &#39;qns&#39;),
+) -&gt; str:
+    &#34;&#34;&#34;Generate a name string from requested keys.
+
+    The default is to use the species and QNs for the name. It replaces any
+    brackets and comas with underscores.
+
+    Args:
+      include: optional; which values include in the name.
+    &#34;&#34;&#34;
+    name = []
+    if &#39;species&#39; in include:
+        name.append(f&#39;{self.species}&#39;.replace(&#39;=&#39;, &#39;&#39;))
+    if &#39;qns&#39; in include:
+        qns = f&#39;{self.qns}&#39;
+        qns = qns.replace(&#39;-&#39;, &#39;_&#39;).replace(&#39;(&#39;, &#39;&#39;).replace(&#39;)&#39;, &#39;&#39;)
+        qns = qns.replace(&#39;,&#39;, &#39;_&#39;).replace(&#39;=&#39;,&#39;_&#39;).replace(&#39;/&#39;, &#39;_&#39;)
+        name.append(qns)
+    return &#39;_&#39;.join(name)</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 </dl>
 </section>
@@ -603,6 +739,7 @@ def from_config(cls, config:Config,
 <h4><code><a title="line_little_helper.lines.Transition" href="#line_little_helper.lines.Transition">Transition</a></code></h4>
 <ul class="">
 <li><code><a title="line_little_helper.lines.Transition.from_config" href="#line_little_helper.lines.Transition.from_config">from_config</a></code></li>
+<li><code><a title="line_little_helper.lines.Transition.generate_name" href="#line_little_helper.lines.Transition.generate_name">generate_name</a></code></li>
 </ul>
 </li>
 </ul>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
 <title>line_little_helper.spectrum API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Objects for managing spectral data." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,20 +22,30 @@
 <h1 class="title">Module <code>line_little_helper.spectrum</code></h1>
 </header>
 <section id="section-intro">
+<p>Objects for managing spectral data.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from typing import Optional, Tuple
+<pre><code class="python">&#34;&#34;&#34;Objects for managing spectral data.&#34;&#34;&#34;
+from typing import List, Optional, Sequence, Tuple, TypeVar
 
+from toolkit.astro_tools import cube_utils
 import astropy.units as u
+import matplotlib.pyplot as plt
 import numpy as np
+
+from processing_tools import observed_to_rest
+from lines import Molecule
+
+Coordinate = TypeVar(&#39;Coordinate&#39;)
+SpectralCube = TypeVar(&#39;SpectralCube&#39;)
 
 class Spectrum:
     &#34;&#34;&#34;Class for storing a single spectrum.
 
     A spectrum has a spectral axis and an intensity axis, and optionaly a rest
-    frequency and an rms (noise) value. The rest frequency is used to convert 
+    frequency and an rms (noise) value. The rest frequency is used to convert
     the spectral axis units.
 
     Attributes:
@@ -48,7 +58,7 @@ class Spectrum:
     rms = None
 
     def __init__(self, spectral_axis: u.Quantity, intensity: u.Quantity,
-                 restfreq: Optional[u.Quantity] = None, 
+                 restfreq: Optional[u.Quantity] = None,
                  rms: Optional[u.Quantity] = None) -&gt; None:
         &#34;&#34;&#34;Initialize a spectrum object.&#34;&#34;&#34;
         self.spectral_axis = spectral_axis
@@ -56,8 +66,35 @@ class Spectrum:
         self.restfreq = restfreq
         self.rms = rms
 
+    @classmethod
+    def from_cube(cls,
+                  cube: SpectralCube,
+                  coord: Coordinate,
+                  spectral_axis_unit: u.Unit = u.GHz,
+                  vlsr: Optional[u.Quantity] = None):
+        &#34;&#34;&#34;Generate a Spectrum from a cube.
+
+        Args:
+          cubes: spectral cube.
+          coord: coordinate where the spectra are extracted.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        &#34;&#34;&#34;
+        spec = cube_utils.spectrum_at_position(
+            cube,
+            coord,
+            spectral_axis_unit=spectral_axis_unit,
+            vlsr=vlsr,
+        )
+
+        return cls(spec[0], spec[1].quantity,
+                   restfreq=cube_utils.get_restfreq(cube),
+                   rms=cube_utils.get_cube_rms(cube, 
+                                               use_header=True,
+                                               sampled=True))
+
     def range_mask(self,
-                   low: Optional[u.Quantity] = None, 
+                   low: Optional[u.Quantity] = None,
                    up: Optional[u.Quantity] = None) -&gt; np.array:
         &#34;&#34;&#34;Creates a mask from spectral axis limits.&#34;&#34;&#34;
         mask = np.ones(self.spectral_axis.shape, dtype=bool)
@@ -78,23 +115,23 @@ class Spectrum:
         return mask
 
     def combined_mask(self,
-                      low: Optional[u.Quantity] = None, 
+                      low: Optional[u.Quantity] = None,
                       up: Optional[u.Quantity] = None,
                       nsigma: float = 5) -&gt; np.array:
         &#34;&#34;&#34;Combine range and intensity masks.&#34;&#34;&#34;
         mask = self.range_mask(low=low, up=up)
         mask = mask &amp; self.intensity_mask(nsigma=nsigma)
-        
+
         return mask
 
-    def peak_frequency(self, 
-                       low: Optional[u.Quantity] = None, 
+    def peak_frequency(self,
+                       low: Optional[u.Quantity] = None,
                        up: Optional[u.Quantity] = None) -&gt; u.Quantity:
         &#34;&#34;&#34;Return the spectral axis value at the intensity peak.
-        
+
         Regions of the spectral axis where to find the peak can be limited with
         the low and up parameters.
-        
+
         Args:
           low: optional; lower spectral axis limit.
           upper: optional; upper spectral axis limit.
@@ -107,7 +144,7 @@ class Spectrum:
         return self.spectral_axis[mask][ind]
 
     def centroid(self,
-                 low: Optional[u.Quantity] = None, 
+                 low: Optional[u.Quantity] = None,
                  up: Optional[u.Quantity] = None,
                  nsigma: float = 5) -&gt; u.Quantity:
         &#34;&#34;&#34;Determine the spectral axis value center of mass.
@@ -132,10 +169,144 @@ class Spectrum:
     def is_in(self, freq) -&gt; bool:
         &#34;&#34;&#34;Is the input frequency in the spectral axis range?&#34;&#34;&#34;
         low, up = self.extrema()
-        return freq &gt;= low and freq &lt;= up
+        return low &lt;= freq &lt;= up
+
+    def filter(self, molecule: Molecule) -&gt; Molecule:
+        &#34;&#34;&#34;Create a new `Molecule` with transitions in the spectra.&#34;&#34;&#34;
+        transitions = []
+        for transition in molecule.transitions:
+            if self.is_in(transition.restfreq):
+                transitions.append(transition)
+
+        return Molecule(molecule.name, transitions)
+
+    def plot(self, output: &#39;Path&#39;,
+             ax: Optional[&#39;Axis&#39;] = None,
+             molecule: Optional[Molecule] = None,
+             xlim: Optional[Sequence[u.Quantity]] = None) -&gt; None:
+        &#34;&#34;&#34;Plot spectra and overplot line transitions.
+
+        Args:
+          output: figure path.
+          ax: optional; axis object.
+          molecule: optional; transitions to overplot.
+          xlim: optional; x-axis limits.
+        &#34;&#34;&#34;
+        # Figure
+        if ax is None:
+            plt.close()
+            fig = plt.figure(figsize=(15, 6))
+            ax = fig.add_subplot(111)
+
+        # Plot
+        xunit = self.spectral_axis.unit
+        if xlim is None:
+            xlim = self.extrema()
+        ax.plot(self.spectral_axis, self.intensity, &#39;b-&#39;)
+        ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
+        ax.set_ylim(np.min(self.intensity.value), 
+                    1.1 * np.max(self.intensity.value))
+        ax.set_ylabel(f&#39;Intensity ({self.intensity.unit:latex_inline})&#39;)
+        ax.set_xlabel((&#39;Rest frequency&#39;
+                       f&#39;({self.spectral_axis.unit:latex_inline})&#39;))
+
+        # Plot transitions
+        ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
+        for i, transition in enumerate(molecule.transitions):
+            # Line
+            restfreq = transition.restfreq.to(xunit).value
+            ax.axvline(restfreq, color=&#39;c&#39;, linestyle=&#39;--&#39;)
+
+            # Label
+            xy = restfreq, ylocs[i%6]
+            ax.annotate(transition.qns, xy, xytext=xy, verticalalignment=&#39;top&#39;,
+                        horizontalalignment=&#39;right&#39;)
+
+        # Save
+        try:
+            fig.savefig(output)
+        except NameError:
+            pass
 
 class Spectra(list):
     &#34;&#34;&#34;Class to store Spectrum objects.&#34;&#34;&#34;
+
+    @classmethod
+    def from_cubes(cls,
+                   cubes: Sequence[SpectralCube],
+                   coord: Coordinate,
+                   spectral_axis_unit: u.Unit = u.GHz,
+                   vlsr: Optional[u.Quantity] = None) -&gt; List:
+        &#34;&#34;&#34;Generate an Spectra object from input cubes.
+
+        Args:
+          cubes: list of file names.
+          coord: coordinate where the spectra are extracted.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        &#34;&#34;&#34;
+        specs = []
+        for cube in cubes:
+            # Observed frequencies shifted during subtraction
+            spec = Spectrum.from_cube(cube, coord,
+                                      spectral_axis_unit=spectral_axis_unit,
+                                      vlsr=vlsr)
+            specs.append(spec)
+
+        return cls(specs)
+
+    @classmethod
+    def from_arrays(
+        cls,
+        arrays: List,
+        restfreq: u.Quantity,
+        equivalencies: dict,
+        vlsr: Optional[u.Quantity] = None,
+        rms: Optional[List[u.Quantity]] = None,
+        freq_names: Sequence[str] = (&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;,
+                                     &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;),
+        flux_names: Sequence[str] = (&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;,
+                                     &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;),
+    ):
+        &#34;&#34;&#34;Creates spectra object from a list structured array.
+
+        The values in `arrays` are pairs consisting of an structured `np.array`
+        and a dictionary with the units for each column.
+        &#34;&#34;&#34;
+        specs = []
+        for spw, (data, units) in enumerate(arrays):
+            # Spectral axis
+            freq_name = list(filter(lambda x, un=units: x in un, freq_names))[0]
+            xaxis = data[freq_name] * units[freq_name]
+
+            # Intensity axis
+            int_name = list(filter(lambda x, un=units: x in un, flux_names))[0]
+            spec = data[int_name] * units[int_name]
+
+            # Noise
+            if rms is not None:
+                noise = rms[spw]
+            else:
+                noise = None
+
+            # Shift spectral axis
+            if &#39;all&#39; in equivalencies:
+                equivalency = equivalencies
+            else:
+                equivalency = {&#39;all&#39;: equivalencies[spw]}
+            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+            elif xaxis.unit.is_equivalent(u.km/u.s):
+                vels = xaxis - vlsr
+                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+            else:
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+
+            specs.append(spec)
+
+        return cls(specs)
 
     def get_spectrum(self, freq: u.Quantity):
         &#34;&#34;&#34;Get the first spectrum where freq is in the spectral axis.&#34;&#34;&#34;
@@ -168,6 +339,83 @@ class Spectra(list):
 <pre><code class="python">class Spectra(list):
     &#34;&#34;&#34;Class to store Spectrum objects.&#34;&#34;&#34;
 
+    @classmethod
+    def from_cubes(cls,
+                   cubes: Sequence[SpectralCube],
+                   coord: Coordinate,
+                   spectral_axis_unit: u.Unit = u.GHz,
+                   vlsr: Optional[u.Quantity] = None) -&gt; List:
+        &#34;&#34;&#34;Generate an Spectra object from input cubes.
+
+        Args:
+          cubes: list of file names.
+          coord: coordinate where the spectra are extracted.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        &#34;&#34;&#34;
+        specs = []
+        for cube in cubes:
+            # Observed frequencies shifted during subtraction
+            spec = Spectrum.from_cube(cube, coord,
+                                      spectral_axis_unit=spectral_axis_unit,
+                                      vlsr=vlsr)
+            specs.append(spec)
+
+        return cls(specs)
+
+    @classmethod
+    def from_arrays(
+        cls,
+        arrays: List,
+        restfreq: u.Quantity,
+        equivalencies: dict,
+        vlsr: Optional[u.Quantity] = None,
+        rms: Optional[List[u.Quantity]] = None,
+        freq_names: Sequence[str] = (&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;,
+                                     &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;),
+        flux_names: Sequence[str] = (&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;,
+                                     &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;),
+    ):
+        &#34;&#34;&#34;Creates spectra object from a list structured array.
+
+        The values in `arrays` are pairs consisting of an structured `np.array`
+        and a dictionary with the units for each column.
+        &#34;&#34;&#34;
+        specs = []
+        for spw, (data, units) in enumerate(arrays):
+            # Spectral axis
+            freq_name = list(filter(lambda x, un=units: x in un, freq_names))[0]
+            xaxis = data[freq_name] * units[freq_name]
+
+            # Intensity axis
+            int_name = list(filter(lambda x, un=units: x in un, flux_names))[0]
+            spec = data[int_name] * units[int_name]
+
+            # Noise
+            if rms is not None:
+                noise = rms[spw]
+            else:
+                noise = None
+
+            # Shift spectral axis
+            if &#39;all&#39; in equivalencies:
+                equivalency = equivalencies
+            else:
+                equivalency = {&#39;all&#39;: equivalencies[spw]}
+            if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+                xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+            elif xaxis.unit.is_equivalent(u.km/u.s):
+                vels = xaxis - vlsr
+                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+            else:
+                spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+
+            specs.append(spec)
+
+        return cls(specs)
+
     def get_spectrum(self, freq: u.Quantity):
         &#34;&#34;&#34;Get the first spectrum where freq is in the spectral axis.&#34;&#34;&#34;
         for sp in self:
@@ -180,6 +428,119 @@ class Spectra(list):
 <ul class="hlist">
 <li>builtins.list</li>
 </ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="line_little_helper.spectrum.Spectra.from_arrays"><code class="name flex">
+<span>def <span class="ident">from_arrays</span></span>(<span>arrays: List, restfreq: astropy.units.quantity.Quantity, equivalencies: dict, vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None, rms: Union[List[astropy.units.quantity.Quantity], NoneType] = None, freq_names: Sequence[str] = ('nu', 'freq', 'frequency', 'v', 'vel', 'velocity'), flux_names: Sequence[str] = ('F', 'f', 'Fnu', 'fnu', 'intensity', 'T', 'Tb'))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates spectra object from a list structured array.</p>
+<p>The values in <code>arrays</code> are pairs consisting of an structured <code>np.array</code>
+and a dictionary with the units for each column.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_arrays(
+    cls,
+    arrays: List,
+    restfreq: u.Quantity,
+    equivalencies: dict,
+    vlsr: Optional[u.Quantity] = None,
+    rms: Optional[List[u.Quantity]] = None,
+    freq_names: Sequence[str] = (&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;,
+                                 &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;),
+    flux_names: Sequence[str] = (&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;,
+                                 &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;),
+):
+    &#34;&#34;&#34;Creates spectra object from a list structured array.
+
+    The values in `arrays` are pairs consisting of an structured `np.array`
+    and a dictionary with the units for each column.
+    &#34;&#34;&#34;
+    specs = []
+    for spw, (data, units) in enumerate(arrays):
+        # Spectral axis
+        freq_name = list(filter(lambda x, un=units: x in un, freq_names))[0]
+        xaxis = data[freq_name] * units[freq_name]
+
+        # Intensity axis
+        int_name = list(filter(lambda x, un=units: x in un, flux_names))[0]
+        spec = data[int_name] * units[int_name]
+
+        # Noise
+        if rms is not None:
+            noise = rms[spw]
+        else:
+            noise = None
+
+        # Shift spectral axis
+        if &#39;all&#39; in equivalencies:
+            equivalency = equivalencies
+        else:
+            equivalency = {&#39;all&#39;: equivalencies[spw]}
+        if xaxis.unit.is_equivalent(u.Hz) and vlsr is not None:
+            xaxis = observed_to_rest(xaxis, vlsr, equivalency)
+            spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+        elif xaxis.unit.is_equivalent(u.km/u.s):
+            vels = xaxis - vlsr
+            xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
+            spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+        else:
+            spec = Spectrum(xaxis, spec, restfreq=restfreq, rms=noise)
+
+        specs.append(spec)
+
+    return cls(specs)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.spectrum.Spectra.from_cubes"><code class="name flex">
+<span>def <span class="ident">from_cubes</span></span>(<span>cubes: Sequence[~SpectralCube], coord: ~Coordinate, spectral_axis_unit: astropy.units.core.Unit = Unit("GHz"), vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None) ‑> List</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate an Spectra object from input cubes.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cubes</code></strong></dt>
+<dd>list of file names.</dd>
+<dt><strong><code>coord</code></strong></dt>
+<dd>coordinate where the spectra are extracted.</dd>
+<dt><strong><code>spectral_axis_unit</code></strong></dt>
+<dd>optional; units of the spectral axis.</dd>
+<dt><strong><code>vlsr</code></strong></dt>
+<dd>optional; LSR velocity.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_cubes(cls,
+               cubes: Sequence[SpectralCube],
+               coord: Coordinate,
+               spectral_axis_unit: u.Unit = u.GHz,
+               vlsr: Optional[u.Quantity] = None) -&gt; List:
+    &#34;&#34;&#34;Generate an Spectra object from input cubes.
+
+    Args:
+      cubes: list of file names.
+      coord: coordinate where the spectra are extracted.
+      spectral_axis_unit: optional; units of the spectral axis.
+      vlsr: optional; LSR velocity.
+    &#34;&#34;&#34;
+    specs = []
+    for cube in cubes:
+        # Observed frequencies shifted during subtraction
+        spec = Spectrum.from_cube(cube, coord,
+                                  spectral_axis_unit=spectral_axis_unit,
+                                  vlsr=vlsr)
+        specs.append(spec)
+
+    return cls(specs)</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="line_little_helper.spectrum.Spectra.get_spectrum"><code class="name flex">
@@ -231,7 +592,7 @@ the spectral axis units.</p>
     &#34;&#34;&#34;Class for storing a single spectrum.
 
     A spectrum has a spectral axis and an intensity axis, and optionaly a rest
-    frequency and an rms (noise) value. The rest frequency is used to convert 
+    frequency and an rms (noise) value. The rest frequency is used to convert
     the spectral axis units.
 
     Attributes:
@@ -244,7 +605,7 @@ the spectral axis units.</p>
     rms = None
 
     def __init__(self, spectral_axis: u.Quantity, intensity: u.Quantity,
-                 restfreq: Optional[u.Quantity] = None, 
+                 restfreq: Optional[u.Quantity] = None,
                  rms: Optional[u.Quantity] = None) -&gt; None:
         &#34;&#34;&#34;Initialize a spectrum object.&#34;&#34;&#34;
         self.spectral_axis = spectral_axis
@@ -252,8 +613,35 @@ the spectral axis units.</p>
         self.restfreq = restfreq
         self.rms = rms
 
+    @classmethod
+    def from_cube(cls,
+                  cube: SpectralCube,
+                  coord: Coordinate,
+                  spectral_axis_unit: u.Unit = u.GHz,
+                  vlsr: Optional[u.Quantity] = None):
+        &#34;&#34;&#34;Generate a Spectrum from a cube.
+
+        Args:
+          cubes: spectral cube.
+          coord: coordinate where the spectra are extracted.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        &#34;&#34;&#34;
+        spec = cube_utils.spectrum_at_position(
+            cube,
+            coord,
+            spectral_axis_unit=spectral_axis_unit,
+            vlsr=vlsr,
+        )
+
+        return cls(spec[0], spec[1].quantity,
+                   restfreq=cube_utils.get_restfreq(cube),
+                   rms=cube_utils.get_cube_rms(cube, 
+                                               use_header=True,
+                                               sampled=True))
+
     def range_mask(self,
-                   low: Optional[u.Quantity] = None, 
+                   low: Optional[u.Quantity] = None,
                    up: Optional[u.Quantity] = None) -&gt; np.array:
         &#34;&#34;&#34;Creates a mask from spectral axis limits.&#34;&#34;&#34;
         mask = np.ones(self.spectral_axis.shape, dtype=bool)
@@ -274,23 +662,23 @@ the spectral axis units.</p>
         return mask
 
     def combined_mask(self,
-                      low: Optional[u.Quantity] = None, 
+                      low: Optional[u.Quantity] = None,
                       up: Optional[u.Quantity] = None,
                       nsigma: float = 5) -&gt; np.array:
         &#34;&#34;&#34;Combine range and intensity masks.&#34;&#34;&#34;
         mask = self.range_mask(low=low, up=up)
         mask = mask &amp; self.intensity_mask(nsigma=nsigma)
-        
+
         return mask
 
-    def peak_frequency(self, 
-                       low: Optional[u.Quantity] = None, 
+    def peak_frequency(self,
+                       low: Optional[u.Quantity] = None,
                        up: Optional[u.Quantity] = None) -&gt; u.Quantity:
         &#34;&#34;&#34;Return the spectral axis value at the intensity peak.
-        
+
         Regions of the spectral axis where to find the peak can be limited with
         the low and up parameters.
-        
+
         Args:
           low: optional; lower spectral axis limit.
           upper: optional; upper spectral axis limit.
@@ -303,7 +691,7 @@ the spectral axis units.</p>
         return self.spectral_axis[mask][ind]
 
     def centroid(self,
-                 low: Optional[u.Quantity] = None, 
+                 low: Optional[u.Quantity] = None,
                  up: Optional[u.Quantity] = None,
                  nsigma: float = 5) -&gt; u.Quantity:
         &#34;&#34;&#34;Determine the spectral axis value center of mass.
@@ -328,7 +716,64 @@ the spectral axis units.</p>
     def is_in(self, freq) -&gt; bool:
         &#34;&#34;&#34;Is the input frequency in the spectral axis range?&#34;&#34;&#34;
         low, up = self.extrema()
-        return freq &gt;= low and freq &lt;= up</code></pre>
+        return low &lt;= freq &lt;= up
+
+    def filter(self, molecule: Molecule) -&gt; Molecule:
+        &#34;&#34;&#34;Create a new `Molecule` with transitions in the spectra.&#34;&#34;&#34;
+        transitions = []
+        for transition in molecule.transitions:
+            if self.is_in(transition.restfreq):
+                transitions.append(transition)
+
+        return Molecule(molecule.name, transitions)
+
+    def plot(self, output: &#39;Path&#39;,
+             ax: Optional[&#39;Axis&#39;] = None,
+             molecule: Optional[Molecule] = None,
+             xlim: Optional[Sequence[u.Quantity]] = None) -&gt; None:
+        &#34;&#34;&#34;Plot spectra and overplot line transitions.
+
+        Args:
+          output: figure path.
+          ax: optional; axis object.
+          molecule: optional; transitions to overplot.
+          xlim: optional; x-axis limits.
+        &#34;&#34;&#34;
+        # Figure
+        if ax is None:
+            plt.close()
+            fig = plt.figure(figsize=(15, 6))
+            ax = fig.add_subplot(111)
+
+        # Plot
+        xunit = self.spectral_axis.unit
+        if xlim is None:
+            xlim = self.extrema()
+        ax.plot(self.spectral_axis, self.intensity, &#39;b-&#39;)
+        ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
+        ax.set_ylim(np.min(self.intensity.value), 
+                    1.1 * np.max(self.intensity.value))
+        ax.set_ylabel(f&#39;Intensity ({self.intensity.unit:latex_inline})&#39;)
+        ax.set_xlabel((&#39;Rest frequency&#39;
+                       f&#39;({self.spectral_axis.unit:latex_inline})&#39;))
+
+        # Plot transitions
+        ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
+        for i, transition in enumerate(molecule.transitions):
+            # Line
+            restfreq = transition.restfreq.to(xunit).value
+            ax.axvline(restfreq, color=&#39;c&#39;, linestyle=&#39;--&#39;)
+
+            # Label
+            xy = restfreq, ylocs[i%6]
+            ax.annotate(transition.qns, xy, xytext=xy, verticalalignment=&#39;top&#39;,
+                        horizontalalignment=&#39;right&#39;)
+
+        # Save
+        try:
+            fig.savefig(output)
+        except NameError:
+            pass</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -339,6 +784,57 @@ the spectral axis units.</p>
 <dt id="line_little_helper.spectrum.Spectrum.rms"><code class="name">var <span class="ident">rms</span></code></dt>
 <dd>
 <div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="line_little_helper.spectrum.Spectrum.from_cube"><code class="name flex">
+<span>def <span class="ident">from_cube</span></span>(<span>cube: ~SpectralCube, coord: ~Coordinate, spectral_axis_unit: astropy.units.core.Unit = Unit("GHz"), vlsr: Union[astropy.units.quantity.Quantity, NoneType] = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate a Spectrum from a cube.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>cubes</code></strong></dt>
+<dd>spectral cube.</dd>
+<dt><strong><code>coord</code></strong></dt>
+<dd>coordinate where the spectra are extracted.</dd>
+<dt><strong><code>spectral_axis_unit</code></strong></dt>
+<dd>optional; units of the spectral axis.</dd>
+<dt><strong><code>vlsr</code></strong></dt>
+<dd>optional; LSR velocity.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_cube(cls,
+              cube: SpectralCube,
+              coord: Coordinate,
+              spectral_axis_unit: u.Unit = u.GHz,
+              vlsr: Optional[u.Quantity] = None):
+    &#34;&#34;&#34;Generate a Spectrum from a cube.
+
+    Args:
+      cubes: spectral cube.
+      coord: coordinate where the spectra are extracted.
+      spectral_axis_unit: optional; units of the spectral axis.
+      vlsr: optional; LSR velocity.
+    &#34;&#34;&#34;
+    spec = cube_utils.spectrum_at_position(
+        cube,
+        coord,
+        spectral_axis_unit=spectral_axis_unit,
+        vlsr=vlsr,
+    )
+
+    return cls(spec[0], spec[1].quantity,
+               restfreq=cube_utils.get_restfreq(cube),
+               rms=cube_utils.get_cube_rms(cube, 
+                                           use_header=True,
+                                           sampled=True))</code></pre>
+</details>
 </dd>
 </dl>
 <h3>Methods</h3>
@@ -364,7 +860,7 @@ the spectral axis units.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def centroid(self,
-             low: Optional[u.Quantity] = None, 
+             low: Optional[u.Quantity] = None,
              up: Optional[u.Quantity] = None,
              nsigma: float = 5) -&gt; u.Quantity:
     &#34;&#34;&#34;Determine the spectral axis value center of mass.
@@ -393,13 +889,13 @@ the spectral axis units.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def combined_mask(self,
-                  low: Optional[u.Quantity] = None, 
+                  low: Optional[u.Quantity] = None,
                   up: Optional[u.Quantity] = None,
                   nsigma: float = 5) -&gt; np.array:
     &#34;&#34;&#34;Combine range and intensity masks.&#34;&#34;&#34;
     mask = self.range_mask(low=low, up=up)
     mask = mask &amp; self.intensity_mask(nsigma=nsigma)
-    
+
     return mask</code></pre>
 </details>
 </dd>
@@ -415,6 +911,25 @@ the spectral axis units.</p>
 <pre><code class="python">def extrema(self) -&gt; Tuple[u.Quantity]:
     &#34;&#34;&#34;Returns the extremes of the spectral axis.&#34;&#34;&#34;
     return np.min(self.spectral_axis), np.max(self.spectral_axis)</code></pre>
+</details>
+</dd>
+<dt id="line_little_helper.spectrum.Spectrum.filter"><code class="name flex">
+<span>def <span class="ident">filter</span></span>(<span>self, molecule: lines.Molecule) ‑> lines.Molecule</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a new <code>Molecule</code> with transitions in the spectra.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def filter(self, molecule: Molecule) -&gt; Molecule:
+    &#34;&#34;&#34;Create a new `Molecule` with transitions in the spectra.&#34;&#34;&#34;
+    transitions = []
+    for transition in molecule.transitions:
+        if self.is_in(transition.restfreq):
+            transitions.append(transition)
+
+    return Molecule(molecule.name, transitions)</code></pre>
 </details>
 </dd>
 <dt id="line_little_helper.spectrum.Spectrum.intensity_mask"><code class="name flex">
@@ -448,7 +963,7 @@ the spectral axis units.</p>
 <pre><code class="python">def is_in(self, freq) -&gt; bool:
     &#34;&#34;&#34;Is the input frequency in the spectral axis range?&#34;&#34;&#34;
     low, up = self.extrema()
-    return freq &gt;= low and freq &lt;= up</code></pre>
+    return low &lt;= freq &lt;= up</code></pre>
 </details>
 </dd>
 <dt id="line_little_helper.spectrum.Spectrum.peak_frequency"><code class="name flex">
@@ -471,14 +986,14 @@ the low and up parameters.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def peak_frequency(self, 
-                   low: Optional[u.Quantity] = None, 
+<pre><code class="python">def peak_frequency(self,
+                   low: Optional[u.Quantity] = None,
                    up: Optional[u.Quantity] = None) -&gt; u.Quantity:
     &#34;&#34;&#34;Return the spectral axis value at the intensity peak.
-    
+
     Regions of the spectral axis where to find the peak can be limited with
     the low and up parameters.
-    
+
     Args:
       low: optional; lower spectral axis limit.
       upper: optional; upper spectral axis limit.
@@ -491,6 +1006,75 @@ the low and up parameters.</p>
     return self.spectral_axis[mask][ind]</code></pre>
 </details>
 </dd>
+<dt id="line_little_helper.spectrum.Spectrum.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, output: Path, ax: Union[_ForwardRef('Axis'), NoneType] = None, molecule: Union[lines.Molecule, NoneType] = None, xlim: Union[Sequence[astropy.units.quantity.Quantity], NoneType] = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot spectra and overplot line transitions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>output</code></strong></dt>
+<dd>figure path.</dd>
+<dt><strong><code>ax</code></strong></dt>
+<dd>optional; axis object.</dd>
+<dt><strong><code>molecule</code></strong></dt>
+<dd>optional; transitions to overplot.</dd>
+<dt><strong><code>xlim</code></strong></dt>
+<dd>optional; x-axis limits.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(self, output: &#39;Path&#39;,
+         ax: Optional[&#39;Axis&#39;] = None,
+         molecule: Optional[Molecule] = None,
+         xlim: Optional[Sequence[u.Quantity]] = None) -&gt; None:
+    &#34;&#34;&#34;Plot spectra and overplot line transitions.
+
+    Args:
+      output: figure path.
+      ax: optional; axis object.
+      molecule: optional; transitions to overplot.
+      xlim: optional; x-axis limits.
+    &#34;&#34;&#34;
+    # Figure
+    if ax is None:
+        plt.close()
+        fig = plt.figure(figsize=(15, 6))
+        ax = fig.add_subplot(111)
+
+    # Plot
+    xunit = self.spectral_axis.unit
+    if xlim is None:
+        xlim = self.extrema()
+    ax.plot(self.spectral_axis, self.intensity, &#39;b-&#39;)
+    ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
+    ax.set_ylim(np.min(self.intensity.value), 
+                1.1 * np.max(self.intensity.value))
+    ax.set_ylabel(f&#39;Intensity ({self.intensity.unit:latex_inline})&#39;)
+    ax.set_xlabel((&#39;Rest frequency&#39;
+                   f&#39;({self.spectral_axis.unit:latex_inline})&#39;))
+
+    # Plot transitions
+    ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
+    for i, transition in enumerate(molecule.transitions):
+        # Line
+        restfreq = transition.restfreq.to(xunit).value
+        ax.axvline(restfreq, color=&#39;c&#39;, linestyle=&#39;--&#39;)
+
+        # Label
+        xy = restfreq, ylocs[i%6]
+        ax.annotate(transition.qns, xy, xytext=xy, verticalalignment=&#39;top&#39;,
+                    horizontalalignment=&#39;right&#39;)
+
+    # Save
+    try:
+        fig.savefig(output)
+    except NameError:
+        pass</code></pre>
+</details>
+</dd>
 <dt id="line_little_helper.spectrum.Spectrum.range_mask"><code class="name flex">
 <span>def <span class="ident">range_mask</span></span>(<span>self, low: Union[astropy.units.quantity.Quantity, NoneType] = None, up: Union[astropy.units.quantity.Quantity, NoneType] = None) ‑> <built-in function array></span>
 </code></dt>
@@ -501,7 +1085,7 @@ the low and up parameters.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def range_mask(self,
-               low: Optional[u.Quantity] = None, 
+               low: Optional[u.Quantity] = None,
                up: Optional[u.Quantity] = None) -&gt; np.array:
     &#34;&#34;&#34;Creates a mask from spectral axis limits.&#34;&#34;&#34;
     mask = np.ones(self.spectral_axis.shape, dtype=bool)
@@ -534,6 +1118,8 @@ the low and up parameters.</p>
 <li>
 <h4><code><a title="line_little_helper.spectrum.Spectra" href="#line_little_helper.spectrum.Spectra">Spectra</a></code></h4>
 <ul class="">
+<li><code><a title="line_little_helper.spectrum.Spectra.from_arrays" href="#line_little_helper.spectrum.Spectra.from_arrays">from_arrays</a></code></li>
+<li><code><a title="line_little_helper.spectrum.Spectra.from_cubes" href="#line_little_helper.spectrum.Spectra.from_cubes">from_cubes</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectra.get_spectrum" href="#line_little_helper.spectrum.Spectra.get_spectrum">get_spectrum</a></code></li>
 </ul>
 </li>
@@ -543,9 +1129,12 @@ the low and up parameters.</p>
 <li><code><a title="line_little_helper.spectrum.Spectrum.centroid" href="#line_little_helper.spectrum.Spectrum.centroid">centroid</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.combined_mask" href="#line_little_helper.spectrum.Spectrum.combined_mask">combined_mask</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.extrema" href="#line_little_helper.spectrum.Spectrum.extrema">extrema</a></code></li>
+<li><code><a title="line_little_helper.spectrum.Spectrum.filter" href="#line_little_helper.spectrum.Spectrum.filter">filter</a></code></li>
+<li><code><a title="line_little_helper.spectrum.Spectrum.from_cube" href="#line_little_helper.spectrum.Spectrum.from_cube">from_cube</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.intensity_mask" href="#line_little_helper.spectrum.Spectrum.intensity_mask">intensity_mask</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.is_in" href="#line_little_helper.spectrum.Spectrum.is_in">is_in</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.peak_frequency" href="#line_little_helper.spectrum.Spectrum.peak_frequency">peak_frequency</a></code></li>
+<li><code><a title="line_little_helper.spectrum.Spectrum.plot" href="#line_little_helper.spectrum.Spectrum.plot">plot</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.range_mask" href="#line_little_helper.spectrum.Spectrum.range_mask">range_mask</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.restfreq" href="#line_little_helper.spectrum.Spectrum.restfreq">restfreq</a></code></li>
 <li><code><a title="line_little_helper.spectrum.Spectrum.rms" href="#line_little_helper.spectrum.Spectrum.rms">rms</a></code></li>

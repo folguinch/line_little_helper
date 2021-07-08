@@ -109,52 +109,13 @@ def _proc2(args):
             return
         # Extract spectra
         args.log.info(&#39;Extracting spectra from cubes&#39;)
-        for cube in args.cubes:
-            # Observed frequencies shifted during subtraction
-            spec = cube_utils.spectrum_at_position(cube, args.coord[0],
-                                                   spectral_axis_unit=u.GHz,
-                                                   vlsr=args.vlsr)
-            spec = Spectrum(spec[0], spec[1].quantity,
-                            restfreq=cube_utils.get_restfreq(cube),
-                            rms=cube_utils.get_cube_rms(cube, use_header=True))
-            args.spectra.append(spec)
+        args.spectra = Spectra.from_cubes(args.cubes, args.coord[0], 
+                                          vlsr=args.vlsr)
     elif args.spec is not None:
-        freq_names = [&#39;nu&#39;, &#39;freq&#39;, &#39;frequency&#39;, &#39;v&#39;, &#39;vel&#39;, &#39;velocity&#39;]
-        int_names = [&#39;F&#39;, &#39;f&#39;, &#39;Fnu&#39;, &#39;fnu&#39;, &#39;intensity&#39;, &#39;T&#39;, &#39;Tb&#39;]
         args.log.info(&#39;Reading input spectra&#39;)
-        for spw, (data, units) in enumerate(args.spec):
-            # Spectral axis
-            freq_name = list(filter(lambda x, un=units: x in un, freq_names))[0]
-            xaxis = data[freq_name] * units[freq_name]
-
-            # Intensity axis
-            int_name = list(filter(lambda x, un=units: x in un, int_names))[0]
-            spec = data[int_name] * units[int_name]
-
-            # Noise
-            if args.rms is not None:
-                rms = args.rms[spw]
-            else:
-                rms = None
-
-            # Shift spectral axis
-            if &#39;all&#39; in args.equivalencies:
-                equivalency = args.equivalencies
-            else:
-                equivalency = {&#39;all&#39;: args.equivalencies[spw]}
-            if xaxis.unit.is_equivalent(u.Hz) and args.vlsr is not None:
-                xaxis = observed_to_rest(xaxis, args.vlsr, equivalency)
-                spec = Spectrum(xaxis, spec, restfreq=args.restfreq, rms=rms)
-            elif xaxis.unit.is_equivalent(u.km/u.s):
-                #if freq_to_vel is None:
-                #    args.log.warn(&#39;Cannot convert spectral axis to GHz&#39;)
-                #    continue
-                vels = xaxis - args.vlsr
-                xaxis = vels.to(u.GHz, equivalencies=equivalency[&#39;all&#39;])
-                spec = Spectrum(xaxis, spec, restfreq=args.restfreq, rms=rms)
-            else:
-                spec = Spectrum(xaxis, spec, restfreq=args.restfreq, rms=rms)
-            args.spectra.append(spec)
+        args.spectra = Spectra.from_arrays(args.spec, args.restfreq,
+                                           args.equivalencies, vlsr=args.vlsr,
+                                           rms=args.rms)
     else:
         pass
 

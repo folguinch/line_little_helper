@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
 <title>line_little_helper.line_info API documentation</title>
-<meta name="description" content="Display line information upon request …" />
+<meta name="description" content="Script to display line information upon request …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,7 +22,7 @@
 <h1 class="title">Module <code>line_little_helper.line_info</code></h1>
 </header>
 <section id="section-intro">
-<p>Display line information upon request.</p>
+<p>Script to display line information upon request.</p>
 <p>For usage and command line options run:</p>
 <pre><code class="language-bash">python line_info.py --help
 </code></pre>
@@ -31,19 +31,22 @@
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">#!/bin/python3
-&#34;&#34;&#34;Display line information upon request.
+&#34;&#34;&#34;Script to display line information upon request.
 
 For usage and command line options run:
 ```bash
 python line_info.py --help
 ```
 &#34;&#34;&#34;
+from pathlib import Path
 import argparse
 import sys
 
 from toolkit.argparse_tools import actions, parents
+import spectral_cube
 
 from lines import Molecule
+from spectrum import Spectrum
 from argparse_plugins import query_freqrange
 
 def _preproc(args: argparse.ArgumentParser) -&gt; None:
@@ -59,27 +62,74 @@ def _proc(args: argparse.ArgumentParser) -&gt; None:
                                      vlsr=args.vlsr)
 
     # Print result
-    print(args.molec)
+    args.log.info(f&#39;Molecule information: {args.molec}&#39;)
+
+def _post(args: argparse.ArgumentParser) -&gt; None:
+    &#34;&#34;&#34;Additional tasks.&#34;&#34;&#34;
+    if args.cubes and (args.position or args.reference or args.coordinate):
+        # Load cubes
+        for cube_file in args.cubes:
+            # Cube
+            args.log.info(f&#39;Loading cube: {cube_file}&#39;)
+            cube = spectral_cube.SpectralCube.read(cube_file)
+            wcs = cube.wcs.sub([&#39;longitude&#39;, &#39;latitude&#39;])
+
+            # Positions
+            args.position_fn(args, wcs=wcs)
+
+            # Extract spectra
+            for position in args.pos:
+                args.log.info(f&#39;Loading spectra at: {position}&#39;)
+                spec = Spectrum.from_cube(cube, position, vlsr=args.vlsr)
+
+                # Filter molecules
+                molec = spec.filter(args.molec)
+
+                # Frequency range
+                if args.freqrange is not None:
+                    xlim = args.freqrange
+                    suffix = f&#39;{xlim[0].value:.2f}_{xlim[1].value:.2f}_&#39;
+                else:
+                    xlim = None
+                    suffix = &#39;&#39;
+
+                # Plot
+                suffix = (f&#39;_spectrum_{molec.name}_&#39;
+                          f&#39;{suffix}&#39;
+                          f&#39;{position[0]}_{position[1]}.png&#39;)
+                output = cube_file.stem + suffix
+                output = args.outdir[0] / output
+                spec.plot(output, molecule=molec, xlim=xlim)
 
 def main(args: list):
     &#34;&#34;&#34;Search Splatalogue for line information.
 
     Args:
-      args: command arguments.
+      args: command line arguments.
     &#34;&#34;&#34;
     freq_range_parent, freq_range_fn = query_freqrange(required=True)
-    pipe = [freq_range_fn, _preproc, _proc]
-    args_parents = [freq_range_parent,
-                    parents.logger(&#39;debug_line_info.log&#39;)]
+    pipe = [freq_range_fn, _preproc, _proc, _post]
+    args_parents = [
+        freq_range_parent,
+        parents.logger(&#39;debug_line_info.log&#39;),
+        parents.source_position(),
+        parents.verify_files(&#39;cubes&#39;,
+                             cubes={&#39;help&#39;: &#39;Cube file names&#39;, &#39;nargs&#39;: &#39;*&#39;}),
+        parents.paths(&#39;outdir&#39;,
+                      outdir={&#39;help&#39;: &#39;Plot output directory&#39;,
+                              &#39;nargs&#39;: 1,
+                              &#39;default&#39;: [Path(&#39;./&#39;)]}),
+    ]
     parser = argparse.ArgumentParser(
         add_help=True,
         description=&#39;Display line information upon request.&#39;,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
-    parser.add_argument(&#39;--vlsr&#39;, action=actions.ReadQuantity, default=None,
+    parser.add_argument(&#39;--vlsr&#39;, metavar=(&#39;VEL&#39;, &#39;UNIT&#39;), default=None,
+                        action=actions.ReadQuantity, 
                         help=&#39;Velocity shift for observed frequencies&#39;)
     parser.add_argument(&#39;molecule&#39;, nargs=1,
-                        help=&#39;Molecule name or formula.&#39;)
+                        help=&#39;Molecule name or formula&#39;)
     parser.set_defaults(pipe=pipe, query_name=None, freq_range=None, molec=None)
     args = parser.parse_args(args)
 
@@ -106,7 +156,7 @@ if __name__ == &#39;__main__&#39;:
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>args</code></strong></dt>
-<dd>command arguments.</dd>
+<dd>command line arguments.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -116,21 +166,31 @@ if __name__ == &#39;__main__&#39;:
     &#34;&#34;&#34;Search Splatalogue for line information.
 
     Args:
-      args: command arguments.
+      args: command line arguments.
     &#34;&#34;&#34;
     freq_range_parent, freq_range_fn = query_freqrange(required=True)
-    pipe = [freq_range_fn, _preproc, _proc]
-    args_parents = [freq_range_parent,
-                    parents.logger(&#39;debug_line_info.log&#39;)]
+    pipe = [freq_range_fn, _preproc, _proc, _post]
+    args_parents = [
+        freq_range_parent,
+        parents.logger(&#39;debug_line_info.log&#39;),
+        parents.source_position(),
+        parents.verify_files(&#39;cubes&#39;,
+                             cubes={&#39;help&#39;: &#39;Cube file names&#39;, &#39;nargs&#39;: &#39;*&#39;}),
+        parents.paths(&#39;outdir&#39;,
+                      outdir={&#39;help&#39;: &#39;Plot output directory&#39;,
+                              &#39;nargs&#39;: 1,
+                              &#39;default&#39;: [Path(&#39;./&#39;)]}),
+    ]
     parser = argparse.ArgumentParser(
         add_help=True,
         description=&#39;Display line information upon request.&#39;,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
-    parser.add_argument(&#39;--vlsr&#39;, action=actions.ReadQuantity, default=None,
+    parser.add_argument(&#39;--vlsr&#39;, metavar=(&#39;VEL&#39;, &#39;UNIT&#39;), default=None,
+                        action=actions.ReadQuantity, 
                         help=&#39;Velocity shift for observed frequencies&#39;)
     parser.add_argument(&#39;molecule&#39;, nargs=1,
-                        help=&#39;Molecule name or formula.&#39;)
+                        help=&#39;Molecule name or formula&#39;)
     parser.set_defaults(pipe=pipe, query_name=None, freq_range=None, molec=None)
     args = parser.parse_args(args)
 
