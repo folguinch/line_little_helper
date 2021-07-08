@@ -169,9 +169,11 @@ class Spectrum:
 
         # Plot
         xunit = self.spectral_axis.unit
+        xlim = self.extrema()
         ax.plot(self.spectral_axis, self.intensity, 'b-')
-        ax.set_xlim(*self.extrema())
-        ax.set_ylim(np.min(self.intensity), 1.1 * np.max(self.intensity))
+        ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
+        ax.set_ylim(np.min(self.intensity.value), 
+                    1.1 * np.max(self.intensity.value))
         ax.set_ylabel(f'Intensity ({self.intensity.unit:latex_inline})',
                     color='b')
         ax.set_xlabel(f'Frequency ({self.spectral_axis.unit:latex_inline})')

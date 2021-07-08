@@ -6,6 +6,7 @@ For usage and command line options run:
 python line_info.py --help
 ```
 """
+from pathlib import Path
 import argparse
 import sys
 
@@ -73,14 +74,16 @@ def main(args: list):
         parents.verify_files('cubes',
                              cubes={'help': 'Cube file names', 'nargs': '*'}),
         parents.paths('outdir',
-                      outdir={'help': 'Plot output directory', 'nargs': 1}),
+                      outdir={'help': 'Plot output directory',
+                              'nargs': 1,
+                              'default': [Path('./')]}),
     ]
     parser = argparse.ArgumentParser(
         add_help=True,
         description='Display line information upon request.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
-    parser.add_argument('--vlsr', metavar=('VEL UNIT',), default=None,
+    parser.add_argument('--vlsr', metavar=('VEL', 'UNIT'), default=None,
                         action=actions.ReadQuantity, 
                         help='Velocity shift for observed frequencies')
     parser.add_argument('molecule', nargs=1,
