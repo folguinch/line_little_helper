@@ -204,22 +204,27 @@ class Spectra(list):
 
     @classmethod
     def from_cubes(cls,
-                   cubes: Sequence[SpectralCube],
+                   cubes: Sequence[SpectralCube, Path],
                    coord: Coordinate,
                    spectral_axis_unit: u.Unit = u.GHz,
                    vlsr: Optional[u.Quantity] = None) -> List:
         """Generate an Spectra object from input cubes.
 
         Args:
-          cubes: list of file names.
+          cubes: list of cubes or filenames.
           coord: coordinate where the spectra are extracted.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
         """
         specs = []
         for cube in cubes:
+            if not hasattr(cube, 'spectral_axis'):
+                aux = SpectralCube.read(cube)
+            else:
+                aux = cube
+
             # Observed frequencies shifted during subtraction
-            spec = Spectrum.from_cube(cube, coord,
+            spec = Spectrum.from_cube(aux, coord,
                                       spectral_axis_unit=spectral_axis_unit,
                                       vlsr=vlsr)
             specs.append(spec)
@@ -286,3 +291,63 @@ class Spectra(list):
                 return sp
 
         return None
+
+class IndexedSpectra(dict):
+    """Class to store Spectra objects indexed by key."""
+
+    @classmethod
+    def from_files(cls,
+                   cubenames: Sequence[Path],
+                   coords: Sequence[Coordinate],
+                   index: Union[str, Sequence] = 'cubenames',
+                   spectral_axis_unit: u.Unit = u.GHz,
+                   vlsr: Optional[u.Quantity] = None) -> dict:
+        """Store spectra in a dictionary indexed by `index`.
+        
+        If `index` is a sequence of values, it length is trimmed to the length
+        of cubenames or viceversa by `zip`.
+
+        Args:
+          cubenames: list of file names.
+          coords: positions or coordinates where the spectra are extracted.
+          index: optional; index the dictionary by `cubenames` or `coords` or 
+            list of keys.
+          spectral_axis_unit: optional; units of the spectral axis.
+          vlsr: optional; LSR velocity.
+        """
+        # Dictionary index
+        vals = None
+        if index == 'coords':
+            keys = coords
+
+            # Load spectra
+            vals = []
+            for coord in coords:
+                vals.append(Spectra.from_cubes(cubenames, coord,
+                                               spectral_axis_unit, vlsr))
+        elif index == 'cubenames':
+            keys = cubenames
+        else:
+            keys = index
+
+        # Load spectra for other cases
+        if vals is None:
+            vals = []
+            for cube in cubenames:
+                aux = SpectralCube.read(cube)
+
+                # Iter over coordinates
+                specs = Spectra()
+                for coord in coords:
+                    # Observed frequencies shifted during subtraction
+                    spec = Spectrum.from_cube(
+                        aux, 
+                        coord,
+                        spectral_axis_unit=spectral_axis_unit,
+                        vlsr=vlsr,
+                    )
+                    specs.append(spec)
+
+                vals.append(specs)
+
+        return cls(zip(keys, vals))
