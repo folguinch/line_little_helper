@@ -5,53 +5,70 @@ The script saves the spectra and plot them if requested.
 If vlsr is given observed and rest frequencies are stored, else only observed
 frequency is stored.
 """
+from typing import Sequence, Tuple, Callable, Optional
+from pathlib import Path
+import argparse
+import sys
 
-from toolkit.argparse_tools import functions
+from toolkit.argparse_tools import functions, parents, actions
+import astropy.units as u
+#import spectral_cube
 
-def spectrum_loader(cubes: Sequence[Path],
-                    positions: Sequence[Tuple[int]], 
-                    *,
-                    log: Callable = print) -> dict:
-    specs = {}
-    # Load cubes
-    for cube_file in cubes:
-        # Cube
-        log(f'Loading cube: {cube_file}')
-        cube = spectral_cube.SpectralCube.read(cube_file)
-        wcs = cube.wcs.sub(['longitude', 'latitude'])
-        specs[cube_file] = {}
+from argparse_plugins import query_freqrange
+from spectrum import IndexedSpectra
+
+def spectra_loader(cubes: Sequence[Path],
+                   positions: Sequence[Tuple[int]], 
+                   *,
+                   vlsr: Optional[u.Quantity] = None,
+                   log: Callable = print) -> dict:
+    log('Extracting spectra')
+    specs = IndexedSpectra.from_files(cubes, positions, vlsr=vlsr)
+    log(specs)
+    ## Load cubes
+    #for cube_file in cubes:
+    #    # Cube
+    #    log(f'Loading cube: {cube_file}')
+    #    cube = spectral_cube.SpectralCube.read(cube_file)
+    #    wcs = cube.wcs.sub(['longitude', 'latitude'])
+    #    specs[cube_file] = {}
 
 
-        # Extract spectra
-        for position in args.pos:
-            args.log.info(f'Loading spectra at: {position}')
-        specs[cube_file] = {}
-            spec = Spectrum.from_cube(cube, position, vlsr=args.vlsr)
+    #    # Extract spectra
+    #    specs[cube_file] = {}
+    #    for position in args.pos:
+    #        args.log.info(f'Loading spectra at: {position}')
+    #        spec = Spectrum.from_cube(cube, position, vlsr=args.vlsr)
 
-            # Filter molecules
-            molec = spec.filter(args.molec)
+    #        # Filter molecules
+    #        molec = spec.filter(args.molec)
 
-            # Frequency range
-            if args.freqrange is not None:
-                xlim = args.freqrange
-                suffix = f'{xlim[0].value:.2f}_{xlim[1].value:.2f}_'
-            else:
-                xlim = None
-                suffix = ''
+    #        # Frequency range
+    #        if args.freqrange is not None:
+    #            xlim = args.freqrange
+    #            suffix = f'{xlim[0].value:.2f}_{xlim[1].value:.2f}_'
+    #        else:
+    #            xlim = None
+    #            suffix = ''
 
-            # Plot
-            suffix = (f'_spectrum_{molec.name}_'
-                        f'{suffix}'
-                        f'{position[0]}_{position[1]}.png')
-            output = cube_file.stem + suffix
-            output = args.outdir[0] / output
-            spec.plot(output, molecule=molec, xlim=xlim)
-
+    #        # Plot
+    #        suffix = (f'_spectrum_{molec.name}_'
+    #                    f'{suffix}'
+    #                    f'{position[0]}_{position[1]}.png')
+    #        output = cube_file.stem + suffix
+    #        output = args.outdir[0] / output
+    #        spec.plot(output, molecule=molec, xlim=xlim)
+    return specs
 
 def _proc(args: argparse.ArgumentParser) -> None:
     """Main pipe."""
     # Positions
-    functions.position_to_pixels(args)
+    functions.positions_to_pixels(args)
+    args.log.info(f'Positions:\n{args.position}')
+    
+    # Extract spectra
+    specs = spectra_loader(args.cubes, args.position, vlsr=args.vlsr, 
+                           log=args.log.info)
 
 def main(args: list):
     """Search Splatalogue for line information.
@@ -60,13 +77,15 @@ def main(args: list):
       args: command line arguments.
     """
     freq_range_parent, freq_range_fn = query_freqrange(required=False)
-    pipe = [freq_range_fn, _preproc, _proc]
+    pipe = [freq_range_fn, _proc]
     args_parents = [freq_range_parent,
                     parents.logger('debug_spectrum_extractor.log'),
-                    parents.source_position(),
+                    parents.source_position(required=True),
                     parents.verify_files(
                         'cubes',
-                        cubes={'help': 'Cube file names', 'nargs': '*'}),
+                        cubes={'help': 'Cube file names', 
+                               'nargs': '*',
+                               'required': True}),
                     ]
     parser = argparse.ArgumentParser(
         add_help=True,
