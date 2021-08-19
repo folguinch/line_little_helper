@@ -131,6 +131,11 @@ class Molecule:
             lines.append(str(transition))
         return joint.join(lines)
 
+    @property
+    def qns_list(self):
+        """List of stored molecule QNs."""
+        return [tra.qns for tra in self.transitions]
+
     @classmethod
     def from_config(cls, name: str, config: Config):
         """Create a new molecule instance from a config parser.
@@ -184,6 +189,18 @@ class Molecule:
                            vlsr=vlsr, eup=data[3], logaij=data[4]))
 
         return cls(name.strip(), transitions)
+
+    def reduce_qns(self):
+        """Delete repeated QNs."""
+        qns = self.qns_list
+        qns_set = set(qns)
+        if len(qns) != len(qns_set):
+            new_tra = []
+            for qn, tra in zip(qns, self.transitions):
+                if qn in qns_set:
+                    new_tra.append(tra)
+                    qns_set.remove(qn)
+            self.transitions = new_tra
 
 class Molecules(list):
     """Store molecular information."""

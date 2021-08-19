@@ -1,11 +1,31 @@
 #!/bin/bash
-"""Find line velocity at peak and calculate 1st moment maps incresing the
-number of channels.
+"""Moment 0/1 maps from incresing local window size. The input `winwidth` value
+determines the working window. The input `molecule` determines the central
+channel of the `winwidth` (correcting for the LSR velocity).
+
+The program has two separate modes:
+
+1. Incremental moment 1: if `split` parameters are omitted, the program will
+  calculate the velocity at the peak line emission for each pixel. Then will
+  increase the number of channels around the peak intensity to calculate first
+  moment maps, until the `winwidth` is covered.
+
+2. Split mode: if `split` parameters are given, the program will run two steps:
+  incremental and rolling step. In the incremental step, the program will
+  calculate zeroth order moments in two windows at both sides of the line.
+  The `WIDTH` parameter determines the channels around the line which are
+  ignored (the line frequency is at the center of the `WIDTH` window). The
+  initial size of the windows where the moments are calculated is given by the
+  `WIN` paramter and will be increased by `INCR` until the `winwidth` is
+  covered. In the rolling step, zeroth order moment maps are calculated each
+  side of the line in window with `WIN` channels. The windows then roll further
+  from the central channel by `ROLL` channels until the `winwidth` is covered.
 """
 from pathlib import Path
 from typing import TypeVar, Optional, List, Sequence
 import argparse
 import sys
+import textwrap
 
 from astropy.io import fits
 from toolkit.astro_tools.cube_utils import get_restfreq, get_cube_rms
@@ -21,6 +41,10 @@ from processing_tools import to_rest_freq
 
 Cube = TypeVar('Cube')
 Logger = TypeVar('Logger')
+
+class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                    argparse.RawDescriptionHelpFormatter):
+    pass
 
 def get_header(cube: Cube, bunit: u.Unit = None) -> fits.Header:
     """Extract 2-D header from cube header.
@@ -113,8 +137,6 @@ def full_split_moments(cube: Cube,
                        outdir: Path,
                        basename: str,
                        vlsr: u.Quantity,
-                       rms: Optional[u.Quantity] = None,
-                       nsigma: Optional[int] = 5,
                        incremental_step: Optional[int] = 2,
                        roll_step: Optional[int] = 2,
                        log: Optional[Logger] = None,) -> None:
@@ -146,16 +168,17 @@ def full_split_moments(cube: Cube,
     vel = cube.spectral_axis - vlsr
     vel = vel.to(u.km / u.s)
     ind = np.nanargmin(np.abs(vel))
-    if log is not None:
-        log.info(f'Spectral axis length: {vel.size}')
-        log.info(f'Line central channel: {ind}')
 
     # Half split width
     half_split_width = split_width // 2
+    if log is not None:
+        log.info(f'Spectral axis length: {vel.size}')
+        log.info(f'Line central channel: {ind}')
+        log.info(f'Half split width: {half_split_width}')
 
     # Central limits
-    max_lb = ind - half_split_width + 1
-    min_ub = ind + half_split_width
+    max_lb = ind - half_split_width
+    min_ub = ind + half_split_width + 1
 
     # Colors
     if vel[max_lb] < vel[min_ub]:
@@ -170,42 +193,40 @@ def full_split_moments(cube: Cube,
     range_max_ub = np.arange(min_ub + split_win, len(vel), incremental_step)
     for min_lb, max_ub in zip(range_min_lb, range_max_ub):
         # Subcubes
+        vel_rng_lb = (f'{vel[min_lb].value} -- '
+                      f'{vel[max_lb - 1].value} {vel.unit}')
+        vel_rng_ub = (f'{vel[min_ub].value} -- '
+                      f'{vel[max_ub - 1].value} {vel.unit}')
         if log is not None:
             print('-' * 50)
+            annimate = np.array(['=' if i != ind else '|'
+                                 for i in range(len(vel))])
+            annimate[min_lb:max_lb] = '#'
+            annimate[min_ub:max_ub] = '#'
             log.info('Calculating moments for ranges:')
             log.info(f'Lower band: {min_lb} -- {max_lb - 1}')
-            log.info((f'            {vel[min_lb].value} -- '
-                      f'{vel[max_lb - 1].value} {vel.unit}'))
+            log.info(f'            {vel_rng_lb}')
             log.info(f'Upper band: {min_ub} -- {max_ub - 1}')
-            log.info((f'            {vel[min_ub].value} -- '
-                      f'{vel[max_ub - 1].value} {vel.unit}'))
+            log.info(f'            {vel_rng_ub}')
+            log.info(''.join(annimate))
         aux_lb = cube[min_lb:max_lb, :, :]
         aux_ub = cube[min_ub:max_ub, :, :]
-        nlb = aux_lb.shape[0]
-        nub = aux_ub.shape[0]
 
         # Moment 0
-        aux_lb = aux_lb.moment(order=0)
-        aux_ub = aux_ub.moment(order=0)
+        aux_lb = aux_lb.moment(order=0).hdu
+        aux_ub = aux_ub.moment(order=0).hdu
 
-        # Filter with rms
-        #if rms is not None:
-        #    rmslb = rms / np.sqrt(nlb)
-        #    rmsub = rms / np.sqrt(nub)
-
-        #    if (np.all(aux_lb < nsigma * rmslb) or
-        #        np.all(aux_ub < nsigma * rmsub)):
-        #        if log is not None:
-        #            log.info('Moment did not reach desired S/N')
-        #        continue
+        # Store velocity range in header
+        aux_lb.header['comment'] = f'Velocity range: {vel_rng_lb}'
+        aux_ub.header['comment'] = f'Velocity range: {vel_rng_ub}'
 
         # Save
         filename = (f'{basename}_moment0_incremental_'
                     f'{min_lb}-{max_lb - 1}_{color_lb}.fits')
-        aux_lb.write(outdir / filename, overwrite=True)
+        aux_lb.writeto(outdir / filename, overwrite=True)
         filename = (f'{basename}_moment0_incremental_'
                     f'{min_ub}-{max_ub - 1}_{color_ub}.fits')
-        aux_ub.write(outdir / filename, overwrite=True)
+        aux_ub.writeto(outdir / filename, overwrite=True)
 
     # Rolling windows step
     range_min_lb = np.arange(max_lb - split_win, 0, -roll_step)
@@ -216,28 +237,20 @@ def full_split_moments(cube: Cube,
         min_ub = max_ub - split_win
         if log is not None:
             print('-' * 50)
+            annimate = np.array(['=' if i != ind else '|'
+                                 for i in range(len(vel))])
+            annimate[min_lb:max_lb] = '#'
+            annimate[min_ub:max_ub] = '#'
             log.info('Calculating moments for ranges:')
             log.info(f'Lower band: {min_lb} -- {max_lb - 1}')
             log.info(f'Upper band: {min_ub} -- {max_ub - 1}')
+            log.info(''.join(annimate))
         aux_lb = cube[min_lb:max_lb, :, :]
         aux_ub = cube[min_ub:max_ub, :, :]
-        nlb = aux_lb.shape[0]
-        nub = aux_ub.shape[0]
 
         # Moment 0
         aux_lb = aux_lb.moment(order=0)
         aux_ub = aux_ub.moment(order=0)
-
-        # Filter with rms
-        #if rms is not None:
-        #    rmslb = rms / np.sqrt(nlb)
-        #    rmsub = rms / np.sqrt(nub)
-
-        #    if (np.all(aux_lb < nsigma * rmslb) or
-        #        np.all(aux_ub < nsigma * rmsub)):
-        #        if log is not None:
-        #            log.info('Moment did not reach desired S/N')
-        #        continue
 
         # Save
         filename = (f'{basename}_moment0_rolling_'
@@ -331,10 +344,6 @@ def _preproc(args):
     args.log.info('Loading cube')
     args.cube(args, args.cubename)
 
-    # Load config
-    #args.log.info('Loading configuration')
-    #args.config(args, args.lineconfig)
-
     # Frequency ranges
     args.cube = args.cube.with_spectral_unit(u.GHz)
     spectral_axis = args.cube.spectral_axis
@@ -357,6 +366,7 @@ def _preproc(args):
         filter_out = None
     args.mol = Molecule.from_query(f' {args.molecule[0]} ', rest_freq_range,
                                    vlsr=args.vlsr, filter_out=filter_out)
+    args.mol.reduce_qns()
     args.log.info(f'Number of transitions: {len(args.mol.transitions)}')
 
 def _proc(args):
@@ -409,8 +419,7 @@ def _proc(args):
             args.log.info(f'Split rolling step: {roll_step}')
             full_split_moments(subcube, split_wind_width, split_win,
                                args.outdir[0], transition.generate_name(),
-                               args.vlsr, rms=rms, nsigma=args.nsigma,
-                               incremental_step=incremental_step,
+                               args.vlsr, incremental_step=incremental_step,
                                roll_step=roll_step, log=args.log)
         else:
             # Create cube mask
@@ -439,12 +448,35 @@ def main(args: list) -> None:
       args: arguments for argparse.
     """
     # Parser
+    description = textwrap.dedent("""\
+        Moment 0/1 maps from incresing local window size. The input `winwidth`
+        value determines the working window. The input `molecule` determines
+        the central channel of the `winwidth` (correcting for the LSR velocity).
+
+        The program has two separate modes:
+
+        1. Incremental moment 1: if `split` parameters are omitted, the program
+        will calculate the velocity at the peak line emission for each pixel.
+        Then will increase the number of channels around the peak intensity to
+        calculate first moment maps, until the `winwidth` is covered.
+
+        2. Split mode: if `split` parameters are given, the program will
+        run two steps: incremental and rolling step. In the incremental step,
+        the program will calculate zeroth order moments in two windows at both
+        sides of the line. The `WIDTH` parameter determines the channels around
+        the line which are ignored (the line frequency is at the center of the
+        `WIDTH` window). The initial size of the windows where the moments are
+        calculated is given by the `WIN` paramter and will be increased by
+        `INCR` until the `winwidth` is covered. In the rolling step, zeroth
+        order moment maps are calculated each side of the line in window with
+        `WIN` channels. The windows then roll further from the central channel 
+        by `ROLL` channels until the `winwidth` is covered.""")
     pipe = [_preproc, _proc]
     args_parents = [parents.logger('debug_moving_moments.log')]
     parser = argparse.ArgumentParser(
         add_help=True,
-        description='Moment 0/1 maps from incresing local window size',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=description,
+        formatter_class=HelpFormatter, #argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
     parser.add_argument('--shrink', action='store_true',
                         help='Shrink to minimal cube.')
@@ -452,7 +484,8 @@ def main(args: list) -> None:
                         action=actions.ReadQuantity,
                         help='LSR velocity.')
     group1 = parser.add_mutually_exclusive_group(required=False)
-    group1.add_argument('--rms', action=actions.ReadQuantity, default=None,
+    group1.add_argument('--rms', metavar=('VAL', 'UNIT'), default=None,
+                        action=actions.ReadQuantity,
                         help='Noise level.')
     group1.add_argument('--sampled_rms', action='store_true',
                         help='Calculate the rms from a sample of channels.')
