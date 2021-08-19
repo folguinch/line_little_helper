@@ -189,15 +189,15 @@ def full_split_moments(cube: Cube,
         aux_ub = aux_ub.moment(order=0)
 
         # Filter with rms
-        if rms is not None:
-            rmslb = rms / np.sqrt(nlb)
-            rmsub = rms / np.sqrt(nub)
+        #if rms is not None:
+        #    rmslb = rms / np.sqrt(nlb)
+        #    rmsub = rms / np.sqrt(nub)
 
-            if (np.all(aux_lb < nsigma * rmslb) or
-                np.all(aux_ub < nsigma * rmsub)):
-                if log is not None:
-                    log.info('Moment did not reach desired S/N')
-                continue
+        #    if (np.all(aux_lb < nsigma * rmslb) or
+        #        np.all(aux_ub < nsigma * rmsub)):
+        #        if log is not None:
+        #            log.info('Moment did not reach desired S/N')
+        #        continue
 
         # Save
         filename = (f'{basename}_moment0_incremental_'
@@ -229,15 +229,15 @@ def full_split_moments(cube: Cube,
         aux_ub = aux_ub.moment(order=0)
 
         # Filter with rms
-        if rms is not None:
-            rmslb = rms / np.sqrt(nlb)
-            rmsub = rms / np.sqrt(nub)
+        #if rms is not None:
+        #    rmslb = rms / np.sqrt(nlb)
+        #    rmsub = rms / np.sqrt(nub)
 
-            if (np.all(aux_lb < nsigma * rmslb) or
-                np.all(aux_ub < nsigma * rmsub)):
-                if log is not None:
-                    log.info('Moment did not reach desired S/N')
-                continue
+        #    if (np.all(aux_lb < nsigma * rmslb) or
+        #        np.all(aux_ub < nsigma * rmsub)):
+        #        if log is not None:
+        #            log.info('Moment did not reach desired S/N')
+        #        continue
 
         # Save
         filename = (f'{basename}_moment0_rolling_'
@@ -336,7 +336,8 @@ def _preproc(args):
     #args.config(args, args.lineconfig)
 
     # Frequency ranges
-    spectral_axis = args.cube.spectral_axis.to(u.GHz)
+    args.cube = args.cube.with_spectral_unit(u.GHz)
+    spectral_axis = args.cube.spectral_axis
     obs_freq_range = spectral_axis[[0,-1]]
     args.log.info((f'Observed freq. range: {obs_freq_range[0].value} '
                    f'{obs_freq_range[1].value} {obs_freq_range[1].unit}'))
@@ -459,9 +460,9 @@ def main(args: list) -> None:
                         help='Filter out F, K transitions.')
     parser.add_argument('--savemasks', action='store_true',
                         help='Save masks at each step.')
-    parser.add_argument('--split', metavar=['WIDTH', 'WIN'], nargs=2, type=int,
+    parser.add_argument('--split', metavar=('WIDTH', 'WIN'), nargs=2, type=int,
                         help='Width of split window and moment 0 window.')
-    parser.add_argument('--split_steps', metavar=['INCR', 'ROLL'], nargs=2,
+    parser.add_argument('--split_steps', metavar=('INCR', 'ROLL'), nargs=2,
                         type=int, default=[2, 2],
                         help='Steps for incremental and rolling steps.')
     parser.add_argument('molecule', nargs=1,

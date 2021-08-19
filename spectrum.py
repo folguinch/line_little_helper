@@ -1,6 +1,8 @@
 """Objects for managing spectral data."""
-from typing import List, Optional, Sequence, Tuple, TypeVar
+from pathlib import Path
+from typing import List, Optional, Sequence, Tuple, TypeVar, Union
 
+from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -10,7 +12,6 @@ from processing_tools import observed_to_rest
 from lines import Molecule
 
 Coordinate = TypeVar('Coordinate')
-SpectralCube = TypeVar('SpectralCube')
 
 class Spectrum:
     """Class for storing a single spectrum.
@@ -36,6 +37,18 @@ class Spectrum:
         self.intensity = intensity
         self.restfreq = restfreq
         self.rms = rms
+
+    def __repr__(self):
+        restfreq = self.restfreq.to(self.spectral_axis.unit)
+        lines = [f'Spectrum length: {self.length}',
+                 f'Rest freq.: {restfreq.value:.3f} {restfreq.unit}',
+                 f'Spectrum rms: {self.rms.value:.3f} {self.rms.unit}']
+
+        return '\n'.join(lines)        
+
+    @property
+    def length(self):
+        return len(self.intensity)
 
     @classmethod
     def from_cube(cls,
@@ -151,10 +164,11 @@ class Spectrum:
 
         return Molecule(molecule.name, transitions)
 
-    def plot(self, output: 'Path',
+    def plot(self, output: Optional['Path'] = None,
              ax: Optional['Axis'] = None,
              molecule: Optional[Molecule] = None,
-             xlim: Optional[Sequence[u.Quantity]] = None) -> None:
+             xlim: Optional[Sequence[u.Quantity]] = None
+             ) -> Tuple['Axis','Figure']:
         """Plot spectra and overplot line transitions.
 
         Args:
@@ -162,6 +176,8 @@ class Spectrum:
           ax: optional; axis object.
           molecule: optional; transitions to overplot.
           xlim: optional; x-axis limits.
+        Returns:
+          A tuple with the figure and axis objects.
         """
         # Figure
         if ax is None:
@@ -182,6 +198,26 @@ class Spectrum:
                        f'({self.spectral_axis.unit:latex_inline})'))
 
         # Plot transitions
+        if molecule is not None:
+            self.plot_transitions(ax, molecule)
+
+        # Save
+        try:
+            if output:
+                fig.savefig(output)
+            return fig, ax
+        except NameError:
+            return None, ax
+
+        return fig, ax
+
+    def plot_transitions(self, ax: 'Axis', molecule: Molecule) -> None:
+        """Plot transitions from molecule.
+
+        Args:
+          ax: matplotlib axis.
+          molecule: molecule with transitions.
+        """
         ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
         for i, transition in enumerate(molecule.transitions):
             # Line
@@ -193,18 +229,13 @@ class Spectrum:
             ax.annotate(transition.qns, xy, xytext=xy, verticalalignment='top',
                         horizontalalignment='right')
 
-        # Save
-        try:
-            fig.savefig(output)
-        except NameError:
-            pass
 
 class Spectra(list):
     """Class to store Spectrum objects."""
 
     @classmethod
     def from_cubes(cls,
-                   cubes: Sequence[SpectralCube, Path],
+                   cubes: Sequence[Union[SpectralCube, Path]],
                    coord: Coordinate,
                    spectral_axis_unit: u.Unit = u.GHz,
                    vlsr: Optional[u.Quantity] = None) -> List:
@@ -294,6 +325,14 @@ class Spectra(list):
 
 class IndexedSpectra(dict):
     """Class to store Spectra objects indexed by key."""
+
+    def __repr__(self):
+        strval = []
+        for key, items in self.items():
+            strval.append(f'Cube: {key}')
+            for item in items:
+                strval.append(repr(item))
+        return '\n'.join(strval)
 
     @classmethod
     def from_files(cls,
