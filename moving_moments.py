@@ -221,11 +221,11 @@ def full_split_moments(cube: Cube,
         aux_ub.header['comment'] = f'Velocity range: {vel_rng_ub}'
 
         # Save
-        filename = (f'{basename}_moment0_incremental_'
-                    f'{min_lb}-{max_lb - 1}_{color_lb}.fits')
+        filename = (f'{basename}_moment0_incremental_{color_lb}_'
+                    f'{min_lb:02d}-{max_lb - 1:02d}.fits')
         aux_lb.writeto(outdir / filename, overwrite=True)
-        filename = (f'{basename}_moment0_incremental_'
-                    f'{min_ub}-{max_ub - 1}_{color_ub}.fits')
+        filename = (f'{basename}_moment0_incremental_{color_ub}_'
+                    f'{min_ub:02d}-{max_ub - 1:02d}.fits')
         aux_ub.writeto(outdir / filename, overwrite=True)
 
     # Rolling windows step
@@ -235,6 +235,10 @@ def full_split_moments(cube: Cube,
         # Subcubes
         max_lb = min_lb + split_win
         min_ub = max_ub - split_win
+        vel_rng_lb = (f'{vel[min_lb].value} -- '
+                      f'{vel[max_lb - 1].value} {vel.unit}')
+        vel_rng_ub = (f'{vel[min_ub].value} -- '
+                      f'{vel[max_ub - 1].value} {vel.unit}')
         if log is not None:
             print('-' * 50)
             annimate = np.array(['=' if i != ind else '|'
@@ -249,16 +253,20 @@ def full_split_moments(cube: Cube,
         aux_ub = cube[min_ub:max_ub, :, :]
 
         # Moment 0
-        aux_lb = aux_lb.moment(order=0)
-        aux_ub = aux_ub.moment(order=0)
+        aux_lb = aux_lb.moment(order=0).hdu
+        aux_ub = aux_ub.moment(order=0).hdu
+
+        # Store velocity range in header
+        aux_lb.header['comment'] = f'Velocity range: {vel_rng_lb}'
+        aux_ub.header['comment'] = f'Velocity range: {vel_rng_ub}'
 
         # Save
-        filename = (f'{basename}_moment0_rolling_'
-                    f'{min_lb}-{max_lb - 1}_{color_lb}.fits')
-        aux_lb.write(outdir / filename, overwrite=True)
-        filename = (f'{basename}_moment0_rolling_'
-                    f'{min_ub}-{max_ub - 1}_{color_ub}.fits')
-        aux_ub.write(outdir / filename, overwrite=True)
+        filename = (f'{basename}_moment0_rolling_{color_lb}_'
+                    f'{min_lb:02d}-{max_lb - 1:02d}.fits')
+        aux_lb.writeto(outdir / filename, overwrite=True)
+        filename = (f'{basename}_moment0_rolling_{color_ub}_'
+                    f'{min_ub:02d}-{max_ub - 1:02d}.fits')
+        aux_ub.writeto(outdir / filename, overwrite=True)
 
 def full_incremental_moments(cube: Cube,
                              outdir: Path,
