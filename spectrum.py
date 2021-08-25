@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, TypeVar, Union
 
+from radio_beam import Beam
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
 import astropy.units as u
@@ -25,18 +26,28 @@ class Spectrum:
       intensity: intensity axis.
       restfreq: rest frequency.
       rms: rms value.
+      beam: beam size(s).
+      vlsr: LSR velocity.
+      _frame: spectral axis reference frame.
     """
     restfreq = None
     rms = None
+    beam = None
 
     def __init__(self, spectral_axis: u.Quantity, intensity: u.Quantity,
                  restfreq: Optional[u.Quantity] = None,
-                 rms: Optional[u.Quantity] = None) -> None:
+                 restframe: str = 'observed',
+                 vlsr: Optional[u.Quantity] = None,
+                 rms: Optional[u.Quantity] = None,
+                 beam: Optional[Beam] = None) -> None:
         """Initialize a spectrum object."""
         self.spectral_axis = spectral_axis
         self.intensity = intensity
         self.restfreq = restfreq
         self.rms = rms
+        self.beam = beam
+        self.vlsr = vlsr
+        self._frame = restframe.lower()
 
     def __repr__(self):
         restfreq = self.restfreq.to(self.spectral_axis.unit)
@@ -44,7 +55,7 @@ class Spectrum:
                  f'Rest freq.: {restfreq.value:.3f} {restfreq.unit}',
                  f'Spectrum rms: {self.rms.value:.3f} {self.rms.unit}']
 
-        return '\n'.join(lines)        
+        return '\n'.join(lines)
 
     @property
     def length(self):
@@ -55,7 +66,8 @@ class Spectrum:
                   cube: SpectralCube,
                   coord: Coordinate,
                   spectral_axis_unit: u.Unit = u.GHz,
-                  vlsr: Optional[u.Quantity] = None):
+                  vlsr: Optional[u.Quantity] = None,
+                  restframe: str = 'observed'):
         """Generate a Spectrum from a cube.
 
         Args:
@@ -63,19 +75,102 @@ class Spectrum:
           coord: coordinate where the spectra are extracted.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
+          rest_frame: optional; spectral frame (observed or rest).
         """
+        if restframe == 'rest' and vlsr is None:
+            raise ValueError('Cannot change to rest frame: vlsr is None')
         spec = cube_utils.spectrum_at_position(
             cube,
             coord,
             spectral_axis_unit=spectral_axis_unit,
-            vlsr=vlsr,
+            vlsr=vlsr if restframe == 'rest' else None,
         )
+        try:
+            beam = cube.beam
+        except AttributeError:
+            beam = cube.beams
 
         return cls(spec[0], spec[1].quantity,
                    restfreq=cube_utils.get_restfreq(cube),
-                   rms=cube_utils.get_cube_rms(cube, 
+                   restframe=restframe,
+                   vlsr=vlsr,
+                   rms=cube_utils.get_cube_rms(cube,
                                                use_header=True,
-                                               sampled=True))
+                                               sampled=True),
+                   beam=beam)
+
+    @property
+    def velocity_axis(self):
+        """Obtain spectral axis en velocity units."""
+        if self.spectral_axis.unit.is_equivalent(u.km / u.s):
+            return self.spectral_axis
+        else:
+            equiv = u.doppler_radio(self.restfreq)
+            return self.spectral_axis.to(u.km / u.s, equivalencies=equiv)
+
+    def to_temperature(self,
+                       bmaj: Optional[u.Quantity] = None,
+                       bmin: Optional[u.Quantity] = None) -> u.Quantity:
+        """Obtain the intensity axis in temperature units.
+
+        Args:
+          bmaj: optional; beam major axis.
+          bmin: optional; beam minor axis.
+
+        Returns:
+          The intensity axis in temperature units.
+        """
+        # Beam
+        if bmaj is not None and bmin is not None:
+            beam = Beam(bmaj, bmin)
+        elif self.beam is not None:
+            beam = self.beam
+        else:
+            raise ValueError('Cannot convert to temperature units')
+
+        # Convert
+        equiv = u.brightness_temperature(self.spectral_axis, beam_area=beam)
+        return self.intensity.to(u.K, equivalencies=equiv)
+
+    def _as_cassis(self):
+        """Generate an string with the spectrum in CASSIS format."""
+        fmt_str = ('%10s\t'*7).strip()
+        lines = [f'// number of line : {self.length - 1}\n']
+        if self.vlsr is not None:
+            lines.append(f'// vlsr : {-self.vlsr.value:.1f}\n')
+        lines.append(fmt_str % ('FreqLsb', 'VeloLsb', 'FreqUsb', 'VeloUsb',
+                                'Intensity', 'DeltaF', 'DeltaV'))
+
+        fmt_tab = ('%10.3f\t' + '%10.4f\t'*6).strip()
+        delta_nu = np.abs(np.diff(self.spectral_axis.to(u.MHz).value))
+        delta_vel = np.abs(np.diff(self.velocity_axis.to(u.m/u.s).value))
+        zeros = np.zeros(delta_nu.shape)
+        data = (self.spectral_axis.to(u.MHz).value,
+                self.velocity_axis.to(u.m/u.s).value,
+                zeros,
+                zeros,
+                self.to_temperature().value,
+                delta_nu,
+                delta_vel)
+        lines += [fmt_tab % d for d in zip(*data)]
+
+        return '\n'.join(lines)
+
+    def saveas(self, filename: Path, fmt='cassis') -> None:
+        """Save spectrum to disk.
+
+        Args:
+          filename: output path.
+          fmt: optional; output format.
+        """
+        fmt_avail = {'cassis': self._as_cassis}
+
+        # Check format
+        if fmt not in fmt_avail:
+            raise NotImplementedError('Output format not available')
+
+        # Write data
+        filename.write_text(fmt_avail[fmt]())
 
     def range_mask(self,
                    low: Optional[u.Quantity] = None,
@@ -164,7 +259,7 @@ class Spectrum:
 
         return Molecule(molecule.name, transitions)
 
-    def plot(self, output: Optional['Path'] = None,
+    def plot(self, output: Optional[Path] = None,
              ax: Optional['Axis'] = None,
              molecule: Optional[Molecule] = None,
              xlim: Optional[Sequence[u.Quantity]] = None
@@ -191,11 +286,11 @@ class Spectrum:
             xlim = self.extrema()
         ax.plot(self.spectral_axis, self.intensity, 'b-')
         ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
-        ax.set_ylim(np.min(self.intensity.value), 
+        ax.set_ylim(np.min(self.intensity.value),
                     1.1 * np.max(self.intensity.value))
         ax.set_ylabel(f'Intensity ({self.intensity.unit:latex_inline})')
-        ax.set_xlabel(('Rest frequency'
-                       f'({self.spectral_axis.unit:latex_inline})'))
+        ax.set_xlabel((f'{self._frame.capitalize()} frequency'
+                       f'({xunit:latex_inline})'))
 
         # Plot transitions
         if molecule is not None:
@@ -221,14 +316,16 @@ class Spectrum:
         ylocs = 1.1 * np.max(self.intensity.value) * np.linspace(0.9, 1.0, 6)
         for i, transition in enumerate(molecule.transitions):
             # Line
-            restfreq = transition.restfreq.to(xunit).value
-            ax.axvline(restfreq, color='c', linestyle='--')
+            if self._frame == 'rest':
+                freq = transition.restfreq.to(self.spectral_axis.unit).value
+            else:
+                freq = transition.obsfreq.to(self.spectral_axis.unit).value
+            ax.axvline(freq, color='c', linestyle='--')
 
             # Label
-            xy = restfreq, ylocs[i%6]
+            xy = freq, ylocs[i%6]
             ax.annotate(transition.qns, xy, xytext=xy, verticalalignment='top',
                         horizontalalignment='right')
-
 
 class Spectra(list):
     """Class to store Spectrum objects."""
@@ -342,14 +439,14 @@ class IndexedSpectra(dict):
                    spectral_axis_unit: u.Unit = u.GHz,
                    vlsr: Optional[u.Quantity] = None) -> dict:
         """Store spectra in a dictionary indexed by `index`.
-        
+
         If `index` is a sequence of values, it length is trimmed to the length
         of cubenames or viceversa by `zip`.
 
         Args:
           cubenames: list of file names.
           coords: positions or coordinates where the spectra are extracted.
-          index: optional; index the dictionary by `cubenames` or `coords` or 
+          index: optional; index the dictionary by `cubenames` or `coords` or
             list of keys.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
@@ -380,7 +477,7 @@ class IndexedSpectra(dict):
                 for coord in coords:
                     # Observed frequencies shifted during subtraction
                     spec = Spectrum.from_cube(
-                        aux, 
+                        aux,
                         coord,
                         spectral_axis_unit=spectral_axis_unit,
                         vlsr=vlsr,
@@ -390,3 +487,23 @@ class IndexedSpectra(dict):
                 vals.append(specs)
 
         return cls(zip(keys, vals))
+
+    def write_to(self, directory: Path = Path('./'), fmt: str = 'cassis'):
+        """Write spectra to disk.
+
+        Filename is generated from the key names.
+
+        Args:
+          directory: optional; directory to save the files to.
+          fmt: optional; format of the output files.
+        """
+        # Iterate over values
+        for key, val in self.items():
+            aux = Path(key)
+            for i, spec in enumerate(val):
+                filename = aux.name.replace(aux.suffix, f'_spec{i}.dat')
+                filename = directory / filename
+                spec.saveas(filename, fmt=fmt)
+
+#    def overplot(self, output: Optional['Path'] = None,
+#                 molecule: Optional[Molecule] = None)
