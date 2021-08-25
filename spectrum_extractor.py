@@ -25,39 +25,7 @@ def spectra_loader(cubes: Sequence[Path],
     log('Extracting spectra')
     specs = IndexedSpectra.from_files(cubes, positions, vlsr=vlsr)
     log(specs)
-    ## Load cubes
-    #for cube_file in cubes:
-    #    # Cube
-    #    log(f'Loading cube: {cube_file}')
-    #    cube = spectral_cube.SpectralCube.read(cube_file)
-    #    wcs = cube.wcs.sub(['longitude', 'latitude'])
-    #    specs[cube_file] = {}
 
-
-    #    # Extract spectra
-    #    specs[cube_file] = {}
-    #    for position in args.pos:
-    #        args.log.info(f'Loading spectra at: {position}')
-    #        spec = Spectrum.from_cube(cube, position, vlsr=args.vlsr)
-
-    #        # Filter molecules
-    #        molec = spec.filter(args.molec)
-
-    #        # Frequency range
-    #        if args.freqrange is not None:
-    #            xlim = args.freqrange
-    #            suffix = f'{xlim[0].value:.2f}_{xlim[1].value:.2f}_'
-    #        else:
-    #            xlim = None
-    #            suffix = ''
-
-    #        # Plot
-    #        suffix = (f'_spectrum_{molec.name}_'
-    #                    f'{suffix}'
-    #                    f'{position[0]}_{position[1]}.png')
-    #        output = cube_file.stem + suffix
-    #        output = args.outdir[0] / output
-    #        spec.plot(output, molecule=molec, xlim=xlim)
     return specs
 
 def _proc(args: argparse.ArgumentParser) -> None:
