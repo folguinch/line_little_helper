@@ -3,6 +3,7 @@ from typing import Sequence
 import argparse
 import sys
 
+import astropy.units as u
 import toolkit.argparse_tools.actions as actions
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
@@ -57,11 +58,13 @@ def get_subcube(args: argparse.Namespace) -> None:
                                          xy_ranges=args.xy_ranges,
                                          vlsr=args.vlsr,
                                          linefreq=args.linefreq,
-                                         put_rms=args.put_rms)
+                                         put_rms=args.put_rms,
+                                         log=args.log.info)
 
 def check_line_freq(args: argparse.Namespace) -> None:
     """Copy molecule freq if `linefreq` is None."""
     if args.linefreq is None:
+        args.cube = args.cube.with_spectral_unit(u.GHz)
         molec = get_molecule(args)
         if len(molec.transitions) > 1:
             raise ValueError('Too many transitions')

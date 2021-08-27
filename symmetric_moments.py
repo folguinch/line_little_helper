@@ -24,7 +24,8 @@ def _get_moment(args: argparse.Namespace) -> None:
                                       mom,
                                       linefreq=args.linefreq,
                                       lower_limit=args.fluxlimit,
-                                      auto_rms=True)
+                                      auto_rms=True,
+                                      log=args.log.info)
 
         # Save
         outname = f'{args.output[0]}.subcube.moment{mom}.fits'

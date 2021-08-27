@@ -508,8 +508,6 @@ def main(args: list) -> None:
                         help='Noise level.')
     group1.add_argument('--sampled_rms', action='store_true',
                         help='Calculate the rms from a sample of channels.')
-    parser.add_argument('--onlyj', action='store_true',
-                        help='Filter out F, K transitions.')
     parser.add_argument('--savemasks', action='store_true',
                         help='Save masks at each step.')
     parser.add_argument('--split', metavar=('WIDTH', 'WIN'), nargs=2, type=int,

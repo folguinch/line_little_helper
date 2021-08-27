@@ -38,3 +38,5 @@ def _molecule_args(parser: argparse.ArgumentParser) -> None:
                         help='Molecule name or formula.')
     parser.add_argument('--qns', nargs=1, default=None,
                         help='Molecule qns.')
+    parser.add_argument('--onlyj', action='store_true',
+                        help='Filter out F, K transitions.')
