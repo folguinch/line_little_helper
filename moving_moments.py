@@ -31,12 +31,13 @@ from astropy.io import fits
 from toolkit.astro_tools.cube_utils import get_restfreq, get_cube_rms
 import astropy.units as u
 import toolkit.argparse_tools.actions as actions
-import toolkit.argparse_tools.parents as parents
 import toolkit.argparse_tools.loaders as aploaders
+import toolkit.argparse_tools.parents as apparents
 import numpy as np
 import scipy.ndimage as ndimg
 
 from lines import Molecule
+from parents import line_parents
 from processing_tools import to_rest_freq
 
 Cube = TypeVar('Cube')
@@ -346,14 +347,13 @@ def full_incremental_moments(cube: Cube,
         filename = f'{transition}_moment1_dilate{iterations}.fits'
         aux.write(outdir / filename, overwrite=True)
 
-def _preproc(args):
-    """Generate the necessary objects to process the data."""
-    # Load cube
-    args.log.info('Loading cube')
-    args.cube(args, args.cubename)
+def get_molecule(args: argparse.Namespace) -> Molecule:
+    """Generate a `Molecule` from argparse.
 
+    Requires the argparse to have `cube` and `log` attributes. The `vlsr`
+    attribute is also needed but does not need to be initialized.
+    """
     # Frequency ranges
-    args.cube = args.cube.with_spectral_unit(u.GHz)
     spectral_axis = args.cube.spectral_axis
     obs_freq_range = spectral_axis[[0,-1]]
     args.log.info((f'Observed freq. range: {obs_freq_range[0].value} '
@@ -372,12 +372,25 @@ def _preproc(args):
         filter_out = ['F', 'K']
     else:
         filter_out = None
-    args.mol = Molecule.from_query(f' {args.molecule[0]} ', rest_freq_range,
-                                   vlsr=args.vlsr, filter_out=filter_out)
-    args.mol.reduce_qns()
-    args.log.info(f'Number of transitions: {len(args.mol.transitions)}')
+    mol = Molecule.from_query(f' {args.molecule[0]} ', rest_freq_range,
+                              vlsr=args.vlsr, filter_out=filter_out,
+                              line_lists=args.line_lists, qns=args.qns)
+    mol.reduce_qns()
+    args.log.info(f'Number of transitions: {len(mol.transitions)}')
 
-def _proc(args):
+    return mol
+
+def _preproc(args: argparse.Namespace) -> None:
+    """Generate the necessary objects to process the data."""
+    # Load cube
+    args.log.info('Loading cube')
+    args.cube(args, args.cubename)
+    args.cube = args.cube.with_spectral_unit(u.GHz)
+
+    # Load molecule
+    args.mol = get_molecule(args)
+
+def _proc(args: argparse.Namespace) -> None:
     """Process the cube."""
     # Spectral axis
     spectral_axis = args.cube.spectral_axis.to(u.GHz)
@@ -480,7 +493,8 @@ def main(args: list) -> None:
         `WIN` channels. The windows then roll further from the central channel 
         by `ROLL` channels until the `winwidth` is covered.""")
     pipe = [_preproc, _proc]
-    args_parents = [parents.logger('debug_moving_moments.log')]
+    args_parents = [apparents.logger('debug_moving_moments.log'),
+                    line_parents(['vlsr', 'molecule'])]
     parser = argparse.ArgumentParser(
         add_help=True,
         description=description,
@@ -488,9 +502,6 @@ def main(args: list) -> None:
         parents=args_parents)
     parser.add_argument('--shrink', action='store_true',
                         help='Shrink to minimal cube.')
-    parser.add_argument('--vlsr', metavar=('VEL', 'UNIT'), default=0 * u.km/u.s,
-                        action=actions.ReadQuantity,
-                        help='LSR velocity.')
     group1 = parser.add_mutually_exclusive_group(required=False)
     group1.add_argument('--rms', metavar=('VAL', 'UNIT'), default=None,
                         action=actions.ReadQuantity,
@@ -506,8 +517,6 @@ def main(args: list) -> None:
     parser.add_argument('--split_steps', metavar=('INCR', 'ROLL'), nargs=2,
                         type=int, default=[2, 2],
                         help='Steps for incremental and rolling steps.')
-    parser.add_argument('molecule', nargs=1,
-                        help='Molecule name or formula.')
     parser.add_argument('winwidth', nargs=1, type=int,
                         help='Window width in channels.')
     #group1 = parser.add_mutually_exclusive_group(required=True)

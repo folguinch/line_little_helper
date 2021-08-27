@@ -181,7 +181,7 @@ def combine_columns(table: Table,
     """
     # Check
     if len(cols) != 2:
-        raise IndexError('cols must have 2 values')
+        raise ValueError('cols must have 2 values')
 
     # Initial value
     val = table[cols[0]]

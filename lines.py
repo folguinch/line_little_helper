@@ -155,6 +155,7 @@ class Molecule:
     def from_query(cls, name: str, freq_range: QPair,
                    vlsr: Optional[u.Quantity] = None,
                    filter_out: Optional[list] = None,
+                   qns: Optional[str] = None,
                    **kwargs):
         """Obtain information about molecule from splat.
 
@@ -166,28 +167,9 @@ class Molecule:
           filter_out: optional; filter out transitions with given QNs.
           kwargs: optional additional query constraints.
         """
-        table = query_lines(freq_range, chemical_name=name, **kwargs)
-        table['Freq'] = combine_columns(table, ['Freq', 'MeasFreq'])
-        transitions = []
-        cols = ['Species', 'QNs', 'Freq', 'Eu', 'log10Aij']
-        for data in zip_columns(table, cols):
-            # Filter transitions
-            if filter_out is not None:
-                aux = False
-                for fil in filter_out:
-                    if fil in data[1]:
-                        aux = True
-                        break
-                if aux:
-                    continue
-
-            # Do not use unresolved QNs
-            if str(data[1]) == '--':
-                continue
-            transitions.append(
-                Transition(data[0], data[1], data[2],
-                           vlsr=vlsr, eup=data[3], logaij=data[4]))
-
+        transitions = _query_to_transition(name, freq_range, vlsr=vlsr,
+                                           filter_out=filter_out, qns=qns,
+                                           **kwargs)
         return cls(name.strip(), transitions)
 
     def reduce_qns(self):
@@ -211,3 +193,44 @@ class Molecules(list):
         for molecule, config in configs.items():
             molecules.append(Molecule.from_config(molecule, config))
         return molecules
+
+def _query_to_transition(name: str,
+                         freq_range: QPair,
+                         vlsr: Optional[u.Quantity] = None,
+                         filter_out: Optional[list] = None,
+                         qns: Optional[str] = None,
+                         #interactive: bool = False,
+                         #ntransitions: Optional[int] = None,
+                         **kwargs) -> List[Transition]:
+    """Perform a query, filter results and create transitions."""
+    # Query
+    table = query_lines(freq_range, chemical_name=name, **kwargs)
+    table['Freq'] = combine_columns(table, ['Freq', 'MeasFreq'])
+
+    # Filter QNs
+    if qns is not None:
+        ind = table['QNs'] == qns
+        table = table[ind]
+
+    # Create transitions
+    transitions = []
+    cols = ['Species', 'QNs', 'Freq', 'Eu', 'log10Aij']
+    for data in zip_columns(table, cols):
+        # Filter transitions
+        if filter_out is not None:
+            aux = False
+            for fil in filter_out:
+                if fil in data[1]:
+                    aux = True
+                    break
+            if aux:
+                continue
+
+        # Do not use unresolved QNs
+        if str(data[1]) == '--':
+            continue
+        transitions.append(
+            Transition(data[0], data[1], data[2],
+                       vlsr=vlsr, eup=data[3], logaij=data[4]))
+
+    return transitions
