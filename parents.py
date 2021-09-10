@@ -15,7 +15,8 @@ def line_parents(parents: Sequence) -> argparse.ArgumentParser:
     Args:
       parents: list of parents to return.
     """
-    options = {'vlsr': _attach_vlsr, 'molecule': _molecule_args}
+    options = {'vlsr': _attach_vlsr, 'molecule': _molecule_args,
+               'flux': _flux_parameters}
 
     parser = argparse.ArgumentParser(add_help=False)
     for val in parents:
@@ -40,3 +41,14 @@ def _molecule_args(parser: argparse.ArgumentParser) -> None:
                         help='Molecule qns.')
     parser.add_argument('--onlyj', action='store_true',
                         help='Filter out F, K transitions.')
+
+def _flux_parameters(parser: argparse.ArgumentParser) -> None:
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('--rms', metavar=('VAL', 'UNIT'),
+                       default=None,
+                       action=actions.ReadQuantity,
+                       help='Data rms value')
+    group.add_argument('--flux_limit', metavar=('VAL', 'UNIT'),
+                       default=None,
+                       action=actions.ReadQuantity,
+                       help='Flux lower limit')

@@ -1,7 +1,8 @@
 """Objects for managing spectral data."""
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import List, Optional, Sequence, Tuple, TypeVar, Union, Callable
 
+from astropy.io import fits
 from radio_beam import Beam
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
@@ -57,6 +58,26 @@ class Spectrum:
 
         return '\n'.join(lines)
 
+    def __add__(self, spec):
+        if self._frame != spec._frame:
+            # This should be adapted in the future
+            raise ValueError('Cannot append spectra in different frames')
+        spectral_axis = np.append(self.spectral_axis, spec.spectral_axis)
+        ind = np.argsort(spectral_axis)
+        intensity = np.append(self.intensity, spec.intensity)
+        if self.beam is not None:
+            beam = np.append(self.beam, spec.beam)
+            beam = beam.take(ind)
+        else:
+            beam = None
+        return Spectrum(spectral_axis=spectral_axis[ind],
+                        intensity=intensity[ind],
+                        restfreq=self.restfreq,
+                        restframe=self._frame,
+                        vlsr=self.vlsr,
+                        rms=self.rms,
+                        beam=beam)
+
     @property
     def length(self):
         return len(self.intensity)
@@ -67,6 +88,7 @@ class Spectrum:
                   coord: Coordinate,
                   spectral_axis_unit: u.Unit = u.GHz,
                   vlsr: Optional[u.Quantity] = None,
+                  rms: Optional[u.Quantity] = None,
                   restframe: str = 'observed'):
         """Generate a Spectrum from a cube.
 
@@ -75,6 +97,7 @@ class Spectrum:
           coord: coordinate where the spectra are extracted.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
+          rms: optional; cube rms.
           rest_frame: optional; spectral frame (observed or rest).
         """
         if restframe == 'rest' and vlsr is None:
@@ -90,13 +113,15 @@ class Spectrum:
         except AttributeError:
             beam = cube.beams
 
+        # rms
+        if rms is None:
+            rms = cube_utils.get_cube_rms(cube, use_header=True, sampled=True)
+
         return cls(spec[0], spec[1].quantity,
                    restfreq=cube_utils.get_restfreq(cube),
                    restframe=restframe,
                    vlsr=vlsr,
-                   rms=cube_utils.get_cube_rms(cube,
-                                               use_header=True,
-                                               sampled=True),
+                   rms=rms,
                    beam=beam)
 
     @property
@@ -132,12 +157,14 @@ class Spectrum:
         equiv = u.brightness_temperature(self.spectral_axis, beam_area=beam)
         return self.intensity.to(u.K, equivalencies=equiv)
 
-    def _as_cassis(self):
+    def _as_cassis(self) -> str:
         """Generate an string with the spectrum in CASSIS format."""
         fmt_str = ('%10s\t'*7).strip()
-        lines = [f'// number of line : {self.length - 1}\n']
-        if self.vlsr is not None:
-            lines.append(f'// vlsr : {-self.vlsr.value:.1f}\n')
+        lines = [f'// number of line : {self.length - 1}']
+        if self.vlsr is not None and self._frame == 'observed':
+            lines.append(f'// vlsr : {-self.vlsr.value:.1f}')
+        else:
+            lines.append('// vlsr : 0.0')
         lines.append(fmt_str % ('FreqLsb', 'VeloLsb', 'FreqUsb', 'VeloUsb',
                                 'Intensity', 'DeltaF', 'DeltaV'))
 
@@ -507,3 +534,119 @@ class IndexedSpectra(dict):
 
 #    def overplot(self, output: Optional['Path'] = None,
 #                 molecule: Optional[Molecule] = None)
+
+def on_the_fly_spectra_loader(cubenames: Sequence[Path],
+                              rms: Optional[u.Quantity] = None,
+                              nsigma: int = 5,
+                              flux_limit: Optional[u.Quantity] = None,
+                              spectral_axis_unit: u.Unit = u.GHz,
+                              vlsr: Optional[u.Quantity] = None,
+                              savedir: Optional[Path] = None,
+                              maskname: Optional[Path] = None,
+                              mask: Optional[np.array] = None,
+                              restframe: Optional[str] = 'observed',
+                              fmt: str = 'cassis',
+                              log: Callable = print) -> np.array:
+    """Loads and saves spectra without storing them in memory.
+
+    It creates a mask from the first cube on the list, so it saves the spectra
+    at the same positions from all the cubes.
+
+    Args:
+      cubenames: list of file names.
+      rms: optional; common rms value for all cubes.
+      nsigma: optional; level over rms to filter data out.
+      flux_limit: optional; flux limit to filter data out.
+      spectral_axis_unit: optional; units of the spectral axis.
+      vlsr: optional; LSR velocity.
+      savedir: optional; saving directory. Defaults to cube directory.
+      maskname: optional; mask file name.
+      mask: optional; true where the spectra will be extracted.
+      restframe: optional; wether to use `observed` or `rest` frame.
+      fmt: optional; output format.
+      log: optional; logging function.
+    """
+    # Load 1st cube
+    log(f'Loading 1st cube for initial mask: {cubenames[0].name}')
+    aux = SpectralCube.read(cubenames[0])
+
+    # Saving basic setup
+    if savedir is None:
+        savedir = Path(cubenames[0].parent)
+    filename = cubenames[0].stem
+    log(f'Saving directory: {savedir}')
+
+    # Create mask
+    savemask = None
+    if maskname is not None and mask is None:
+        savemask = savedir / maskname
+        log(f'Mask filename: {savemask}')
+        if savemask.exists():
+            log('Loading mask')
+            mask = fits.open(savemask)[0].data
+            mask = mask.astype(bool)
+    if mask is None:
+        # Flux limit
+        if flux_limit is not None:
+            low_lim = flux_limit
+        elif rms is not None:
+            low_lim = nsigma * rms
+        else:
+            rms = cube_utils.get_cube_rms(aux,
+                                          use_header=True,
+                                          sampled=True)
+            low_lim = nsigma * rms
+        log(f'Flux limit: {low_lim.value} {low_lim.unit}')
+
+        # Create flux limit mask from the first cube
+        low_lim = low_lim.to(aux.unit).value
+        mask = np.any(np.squeeze(aux.unmasked_data[:].value) > low_lim,
+                      axis=0)
+    log(f'Initial number of points: {np.sum(mask)}')
+
+    # Iterate over coordinates
+    rows, cols = np.indices(mask.shape)
+    cubes = {cubenames[0]: aux}
+    log('Extracting spectra')
+    for row, col in zip(rows.flatten(), cols.flatten()):
+        # Load spectrum
+        if not mask[row, col]:
+            continue
+        spec = None
+        for cube in cubenames:
+            # Open cube
+            aux = cubes.get(cube)
+            if aux is None:
+                print('loading')
+                cubes[cube] = SpectralCube.read(cube)
+                aux = cubes[cube]
+            aux2 = Spectrum.from_cube(
+                aux,
+                [col, row],
+                spectral_axis_unit=spectral_axis_unit,
+                vlsr=vlsr,
+                rms=rms.to(aux.unit),
+                restframe=restframe,
+            )
+            if spec is None:
+                spec = aux2
+            else:
+                spec = spec + aux2
+
+        # Save
+        if np.any(np.isnan(spec.intensity)):
+            #log(f'Removing spectrum x={col} y={row}')
+            mask[row, col] = False
+            continue
+        #log(f'Saving spectrum x={col} y={row}')
+        fname = f'{filename}_spec_x{col:04d}_y{row:04d}.dat'
+        spec.saveas(savedir / fname, fmt=fmt)
+
+    # Save mask
+    log(f'Final number of points: {np.sum(mask)}')
+    if savemask is not None:
+        log('Saving mask')
+        header = aux.wcs.sub(['longitude', 'latitude']).to_header()
+        hdu = fits.PrimaryHDU(mask.astype(int), header=header)
+        hdu.update_header()
+        hdu.writeto(savemask, overwrite=True)

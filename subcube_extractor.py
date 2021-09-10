@@ -66,6 +66,7 @@ def check_line_freq(args: argparse.Namespace) -> None:
     if args.linefreq is None:
         args.cube = args.cube.with_spectral_unit(u.GHz)
         molec = get_molecule(args)
+        args.log.info(f'{molec}')
         if len(molec.transitions) > 1:
             raise ValueError('Too many transitions')
         args.linefreq = molec.transitions[0].restfreq
