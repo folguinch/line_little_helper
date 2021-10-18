@@ -69,6 +69,12 @@ def check_line_freq(args: argparse.Namespace) -> None:
         args.log.info(f'{molec}')
         if len(molec.transitions) > 1:
             raise ValueError('Too many transitions')
+        elif len(molec.transitions) == 0:
+            args.qns = None
+            args.log.info('No transition found')
+            molec = get_molecule(args)
+            args.log.info(f'Molecule:\n{molec}')
+            raise ValueError('No transitions')
         args.linefreq = molec.transitions[0].restfreq
 
 def _save_subcube(args: argparse.Namespace) -> None:

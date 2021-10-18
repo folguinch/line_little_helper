@@ -602,6 +602,10 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
         low_lim = low_lim.to(aux.unit).value
         mask = np.any(np.squeeze(aux.unmasked_data[:].value) > low_lim,
                       axis=0)
+    else:
+        if aux.shape[-2:] != mask.shape:
+            raise ValueError((f'mask shape (mask.shape), inconsistent with'
+                              f'cube shape (aux.shape)'))
     log(f'Initial number of points: {np.sum(mask)}')
 
     # Iterate over coordinates
@@ -617,7 +621,6 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
             # Open cube
             aux = cubes.get(cube)
             if aux is None:
-                print('loading')
                 cubes[cube] = SpectralCube.read(cube)
                 aux = cubes[cube]
             aux2 = Spectrum.from_cube(
@@ -639,7 +642,7 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
             mask[row, col] = False
             continue
         #log(f'Saving spectrum x={col} y={row}')
-        fname = f'{filename}_spec_x{col:04d}_y{row:04d}.dat'
+        fname = f'spec_x{col:04d}_y{row:04d}.dat'
         spec.saveas(savedir / fname, fmt=fmt)
 
     # Save mask
