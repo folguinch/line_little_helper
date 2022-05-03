@@ -63,7 +63,7 @@ def get_subcube(args: argparse.Namespace) -> None:
 
 def check_line_freq(args: argparse.Namespace) -> None:
     """Copy molecule freq if `linefreq` is None."""
-    if args.linefreq is None:
+    if args.linefreq is None and args.molecule is not None:
         args.cube = args.cube.with_spectral_unit(u.GHz)
         molec = get_molecule(args)
         args.log.info(f'{molec}')
