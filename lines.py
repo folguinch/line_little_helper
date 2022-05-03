@@ -210,7 +210,13 @@ def _query_to_transition(name: str,
     # Filter QNs
     if qns is not None:
         ind = table['QNs'] == qns
-        table = table[ind]
+        try:
+            table = table[ind]
+        except IndexError:
+            print('Could not find QNs')
+            print('Available QNs:')
+            print(table['QNs'])
+            close()
 
     # Create transitions
     transitions = []
