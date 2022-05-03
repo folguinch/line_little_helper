@@ -3,9 +3,11 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, TypeVar, Union, Callable
 
 from astropy.io import fits
-from radio_beam import Beam
+from astropy.modeling import models, fitting
+from radio_beam import Beam, Beams
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
+from toolkit.logger import LoggedObject
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,7 +17,15 @@ from lines import Molecule
 
 Coordinate = TypeVar('Coordinate')
 
-class Spectrum:
+def _value_from_header(text: str):
+    """Separate value and unit from spectrum header."""
+    value = text.strip().split('=')[1].split()
+    if value[0] == 'none':
+        return None
+    else:
+        return float(value[0]) * u.Unit(value[1], format='cds')
+
+class Spectrum(LoggedObject):
     """Class for storing a single spectrum.
 
     A spectrum has a spectral axis and an intensity axis, and optionaly a rest
@@ -40,7 +50,7 @@ class Spectrum:
                  restframe: str = 'observed',
                  vlsr: Optional[u.Quantity] = None,
                  rms: Optional[u.Quantity] = None,
-                 beam: Optional[Beam] = None) -> None:
+                 beam: Optional[Union[Beam, Beams]] = None) -> None:
         """Initialize a spectrum object."""
         self.spectral_axis = spectral_axis
         self.intensity = intensity
@@ -82,6 +92,24 @@ class Spectrum:
     def length(self):
         return len(self.intensity)
 
+    @property
+    def velocity_axis(self):
+        """Obtain spectral axis in velocity units."""
+        if self.spectral_axis.unit.is_equivalent(u.km / u.s):
+            return self.spectral_axis
+        else:
+            equiv = u.doppler_radio(self.restfreq)
+            return self.spectral_axis.to(u.km / u.s, equivalencies=equiv)
+
+    @property
+    def frequency_axis(self):
+        """Obtain spectral axis in frequency units."""
+        if self.spectral_axis.unit.is_equivalent(u.Hz):
+            return self.spectral_axis
+        else:
+            equiv = u.doppler_radio(self.restfreq)
+            return self.spectral_axis.to(u.MHz, equivalencies=equiv)
+
     @classmethod
     def from_cube(cls,
                   cube: SpectralCube,
@@ -89,6 +117,8 @@ class Spectrum:
                   spectral_axis_unit: u.Unit = u.GHz,
                   vlsr: Optional[u.Quantity] = None,
                   rms: Optional[u.Quantity] = None,
+                  radius: Optional[u.Quantity] = None,
+                  area_pix: Optional[float] = None,
                   restframe: str = 'observed'):
         """Generate a Spectrum from a cube.
 
@@ -98,7 +128,9 @@ class Spectrum:
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
           rms: optional; cube rms.
-          rest_frame: optional; spectral frame (observed or rest).
+          radius: optional; source radius.
+          area_pix: optional; source area in pixels.
+          restframe: optional; spectral frame (observed or rest).
         """
         if restframe == 'rest' and vlsr is None:
             raise ValueError('Cannot change to rest frame: vlsr is None')
@@ -107,6 +139,9 @@ class Spectrum:
             coord,
             spectral_axis_unit=spectral_axis_unit,
             vlsr=vlsr if restframe == 'rest' else None,
+            radius=radius,
+            area_pix=area_pix,
+            log=cls.log.info,
         )
         try:
             beam = cube.beam
@@ -124,14 +159,43 @@ class Spectrum:
                    rms=rms,
                    beam=beam)
 
-    @property
-    def velocity_axis(self):
-        """Obtain spectral axis en velocity units."""
-        if self.spectral_axis.unit.is_equivalent(u.km / u.s):
-            return self.spectral_axis
+    @classmethod
+    def from_file(cls, filename: Path,
+                  spectral_axis_unit: u.Unit = u.GHz) -> None:
+        """Load spectrum from `dat` file."""
+        # Read file
+        text = filename.read_text()
+        text = text.split('#')[1:]
+
+        # Get header values
+        restfreq = _value_from_header(text[0])
+        rms = _value_from_header(text[1])
+        vlsr = _value_from_header(text[2])
+        beam = text[3].split('=')[1]
+
+        # Frequency frame and units
+        restframe = 'rest' if 'Rest' in text[4].split()[0] else 'observed'
+        units = text[5].split()
+        units = tuple(map(lambda x: u.Unit(x, format='cds'), units))
+
+        # Get data
+        data = io.StringIO(text[6])
+        if beam == 'none':
+            spectral_axis, intensity = np.loadtxt(data, usecols=(0,2),
+                                                  unpack=True)
+            beam = None
         else:
-            equiv = u.doppler_radio(self.restfreq)
-            return self.spectral_axis.to(u.km / u.s, equivalencies=equiv)
+            cols = (0, 2, 3, 4, 5)
+            spectral_axis, intensity, bmaj, bmin, pa = np.loadtxt(data,
+                                                                  usecols=cols,
+                                                                  unpack=True)
+
+            # Beam
+            beam = Beams(bmaj*units[3], bmin*units[4], pa*units[5])
+
+        return cls((spectral_axis * units[0]).to(spectral_axis_unit),
+                   intensity * units[2], restfreq = restfreq,
+                   restframe=restframe, vlsr=vlsr, rms=rms, beam=beam)
 
     def to_temperature(self,
                        bmaj: Optional[u.Quantity] = None,
@@ -183,14 +247,65 @@ class Spectrum:
 
         return '\n'.join(lines)
 
-    def saveas(self, filename: Path, fmt='cassis') -> None:
+    def _as_dat(self) -> str:
+        """Generate an string with the spectrum in tab-separated format."""
+        # Header
+        if self.restfreq is None:
+            header = '#restfreq=none\n'
+        else:
+            header = f'#restfreq={self.restfreq.value} {self.restfreq.unit}\n'
+        if self.rms is None:
+            header += '#rms=none\n'
+        else:
+            header += f'#rms={self.rms.value} {self.rms.unit}\n'
+        if self.vlsr is None:
+            header += '#vlsr=none\n'
+        else:
+            header += f'#vlsr={self.vlsr.value} {self.vlsr.unit}\n'
+        freq = 'RestFreq' if self._frame == 'rest' else 'ObsFreq'
+
+        # Data and units
+        data = (self.frequency_axis.value,
+                self.velocity_axis.value,
+                self.intensity.value)
+        units = (f'#{self.frequency_axis.unit:cds}'
+                 f' {self.velocity_axis.unit:cds}'
+                 f' {self.intensity.unit:cds}')
+        if self.beam is None:
+            header += '#beam=none\n'
+            header += f'#{freq} Vel Flux'
+        else:
+            header += '#beam=true\n'
+            header += f'#{freq} Vel Flux bmaj bmin pa'
+            try:
+                if len(self.beam) == self.length:
+                    data += (self.beam.major.value,
+                             self.beam.minor.value,
+                             self.beam.pa.value)
+                else:
+                    raise ValueError('Beam array with wrong size')
+            except TypeError:
+                data += (np.repeat(self.beam.major.value, self.length),
+                         np.repeat(self.beam.minor.value, self.length),
+                         np.repeat(self.beam.pa.value, self.length))
+            units += (f' {self.beam.major.unit:cds}'
+                      f' {self.beam.minor.unit:cds}'
+                      f' {self.beam.pa.unit:cds}')
+        fmt_tab = '%f\t' * len(data)
+        fmt_tab = fmt_tab.strip()
+        units += '#'
+        lines = [fmt_tab % d for d in zip(*data)]
+
+        return '\n'.join([header, units] + lines)
+
+    def saveas(self, filename: Path, fmt='dat') -> None:
         """Save spectrum to disk.
 
         Args:
           filename: output path.
           fmt: optional; output format.
         """
-        fmt_avail = {'cassis': self._as_cassis}
+        fmt_avail = {'cassis': self._as_cassis, 'dat': self._as_dat}
 
         # Check format
         if fmt not in fmt_avail:
@@ -229,6 +344,118 @@ class Spectrum:
         mask = mask & self.intensity_mask(nsigma=nsigma)
 
         return mask
+
+    def has_lines(self, min_width: int = 5, 
+                  dilate: Optional[int] = None) -> list:
+        """Find ranges with likely line emission.
+        
+        Args:
+          min_width: optional; minimum number of channels to be considered a
+            line.
+          dilate: optional; number of channels to add around the lines.
+
+        Returns:
+          A list of slices.
+        """
+        # No lines
+        if np.sum(mask) == 0:
+            return []
+
+        # Generate mask
+        mask = self.intensity_mask()
+        
+        # First pass
+        # Labels and objects
+        labs, nlabs = ndimage.label(mask)
+        objs = ndimage.find_objects(labs)
+        # Filter slices
+        for obj in objs:
+            slc = obj[0]
+            delta = slc.stop - slc.start
+            if delta > min_width:
+                continue
+            else:
+                mask[slc] = False
+
+        # Erode mask
+        if dilate is not None:
+            mask = ndimage.binary_dilation(mask, iterations=dilate)
+
+        # Final objects
+        labs, nlabs = ndimage.label(mask)
+        objs = ndimage.find_objects(labs)
+
+        return objs
+
+    def fit_line(self, spec_range: Optional[Sequence[u.Quantity]] = None,
+                 slice_range: Optional[slice] = None) -> models.Gaussian1D:
+        """Fit the spectrum with a Gaussian funtion.
+        
+        Args:
+          spec_range: optional; upper and lower limits of the spectral axis.
+          slice_range: optional; slice object of the data to fit.
+
+        Returns:
+          A Gaussian model with the fitted parameters.
+        """
+        # Select data
+        if spec_range is not None:
+            mask = self.range_mask(*spec_range)
+            x = self.spectral_axis[mask]
+            y = self.intensity[mask]
+        elif slice_range is not None:
+            x = self.spectral_axis[slice_range]
+            y = self.intensity[slice_range]
+        else:
+            x = self.spectral_axis
+            y = self.intensity
+
+        # Initial conditions
+        aux = x[y > np.max(y)/2]
+        stddev = np.abs(aux[-1] - aux[0]) / 2
+        model = models.Gaussian1D(amplitude=np.max(y), mean=x[len(x)//2],
+                                  stddev=stddev)
+
+        # Fitter
+        fitter = fitting.LevMarLSQFitter()
+        model_fit = fitter(model, x, y)
+
+        return model_fit
+
+    def fit_lines(self, min_width: int = 5,
+                  dilate: Optional[int] = None,
+                  slice_as_freq: bool = False,
+                  ) -> Tuple[List[slice], List[models.Gaussian1D]]:
+        """Fit all the potential lines.
+
+        Args:
+          min_width: optional; minimum number of channels to be considered a
+            line.
+          dilate: optional; number of channels to add around the lines.
+          slice_as_frequency: optional; convert the index slices to frequency
+            range?
+
+        Returns:
+          The slices where the lines are fit.
+          The model results.
+        """
+        # Find slices with lines
+        slices = self.has_lines(min_width=min_width, dilate=dilate)
+
+        # Fit each slice
+        results = []
+        final_slices = []
+        for slc in slices:
+            results.append(self.fit_line(slice_range=slc))
+            if slice_as_freq:
+                final_slices = [(self.frequency_axis[slc.start],
+                                 self.frequency_axis[slc.stop-1])]
+
+        # Check slices
+        if len(final_slices) == 0:
+            final_slices = slices
+
+        return final_slices, results
 
     def peak_frequency(self,
                        low: Optional[u.Quantity] = None,
@@ -362,7 +589,8 @@ class Spectra(list):
                    cubes: Sequence[Union[SpectralCube, Path]],
                    coord: Coordinate,
                    spectral_axis_unit: u.Unit = u.GHz,
-                   vlsr: Optional[u.Quantity] = None) -> List:
+                   vlsr: Optional[u.Quantity] = None,
+                   radius: Optional[u.Quantity] = None) -> List:
         """Generate an Spectra object from input cubes.
 
         Args:
@@ -370,6 +598,7 @@ class Spectra(list):
           coord: coordinate where the spectra are extracted.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
+          radius: optional; average pixels inside this radius.
         """
         specs = []
         for cube in cubes:
@@ -381,7 +610,8 @@ class Spectra(list):
             # Observed frequencies shifted during subtraction
             spec = Spectrum.from_cube(aux, coord,
                                       spectral_axis_unit=spectral_axis_unit,
-                                      vlsr=vlsr)
+                                      vlsr=vlsr,
+                                      radius=radius)
             specs.append(spec)
 
         return cls(specs)
@@ -453,84 +683,178 @@ class IndexedSpectra(dict):
     def __repr__(self):
         strval = []
         for key, items in self.items():
-            strval.append(f'Cube: {key}')
+            strval.append(f'Spectrum from: {key}')
             for item in items:
                 strval.append(repr(item))
         return '\n'.join(strval)
 
     @classmethod
     def from_files(cls,
-                   cubenames: Sequence[Path],
-                   coords: Sequence[Coordinate],
-                   index: Union[str, Sequence] = 'cubenames',
+                   filenames: Sequence[Path],
+                   coords: Optional[Sequence[Coordinate]] = None,
+                   index: Union[str, Sequence] = 'filenames',
                    spectral_axis_unit: u.Unit = u.GHz,
-                   vlsr: Optional[u.Quantity] = None) -> dict:
+                   vlsr: Optional[u.Quantity] = None,
+                   radius: Optional[u.Quantity] = None) -> dict:
         """Store spectra in a dictionary indexed by `index`.
+
+        If `filenames` are from previously saved spectra, all other keywords
+        are ignored (except for `coords` when `index=coords`, and
+        `spectral_axis_unit`).
 
         If `index` is a sequence of values, it length is trimmed to the length
         of cubenames or viceversa by `zip`.
 
         Args:
-          cubenames: list of file names.
+          filenames: list of file names (FITS or `Spectrum` generated `dat`).
           coords: positions or coordinates where the spectra are extracted.
-          index: optional; index the dictionary by `cubenames` or `coords` or
+          index: optional; index the dictionary by `filenames` or `coords` or
             list of keys.
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
+          radius: optional; average pixels inside this radius.
         """
+        # Determine the extension of the data
+        filetype = filenames[0].suffix.lower()
+        if filetype not in ['.fits', '.dat']:
+            raise TypeError(f'File type {filetype} not recognized')
+
         # Dictionary index
         vals = None
         if index == 'coords':
+            # Keys
             keys = coords
 
             # Load spectra
             vals = []
             for coord in coords:
-                vals.append(Spectra.from_cubes(cubenames, coord,
-                                               spectral_axis_unit, vlsr))
-        elif index == 'cubenames':
-            keys = cubenames
+                if filetype == '.dat':
+                    raise NotImplementedError('dat file loader not implemented')
+                else:
+                    vals.append(Spectra.from_cubes(filenames, coord,
+                                                   spectral_axis_unit, vlsr,
+                                                   radius=radius))
+        elif index == 'filenames':
+            keys = filenames
         else:
             keys = index
 
         # Load spectra for other cases
         if vals is None:
             vals = []
-            for cube in cubenames:
-                aux = SpectralCube.read(cube)
-
-                # Iter over coordinates
-                specs = Spectra()
-                for coord in coords:
-                    # Observed frequencies shifted during subtraction
-                    spec = Spectrum.from_cube(
-                        aux,
-                        coord,
+            for filename in filenames:
+                if filetype == '.dat':
+                    # Load spectrum
+                    spec = Spectrum.from_file(
+                        filename,
                         spectral_axis_unit=spectral_axis_unit,
-                        vlsr=vlsr,
                     )
-                    specs.append(spec)
+                else:
+                    aux = SpectralCube.read(filename)
+
+                    # Iter over coordinates
+                    specs = Spectra()
+                    for coord in coords:
+                        # Extract spectra
+                        spec = Spectrum.from_cube(
+                            aux,
+                            coord,
+                            spectral_axis_unit=spectral_axis_unit,
+                            vlsr=vlsr,
+                            radius=radius,
+                        )
+                        specs.append(spec)
 
                 vals.append(specs)
 
         return cls(zip(keys, vals))
 
-    def write_to(self, directory: Path = Path('./'), fmt: str = 'cassis'):
+    @property
+    def nspecs(self) -> List[int]:
+        """The number of spectra per key."""
+        nspec = []
+        for key in self:
+            nspec.append(len(self[key]))
+
+        return nspec
+
+    def generate_filename(self, key: str,
+                          index: int = 0,
+                          base_name: str = None,
+                          directory: Path = Path('./')) -> Path:
+        """Generate a standard file name to store indexed spectra.
+        
+        Args:
+          key: the key of the spectra indexed.
+          index: optional; spectrum within the given name.
+          base_name: optional; a base file name without extension.
+          directory: optional; directory of the final filename.
+        
+        Returns:
+          A filename `Path`:
+
+            - if the number of stored spectra in `key` is 1:
+                ```{directory}/{base_name or key.name}.dat```
+            - else:
+                ```{directory}/{base_name or key.name}_spec{index}.dat```
+        """
+        # Parameters
+        nspecs = len(self[key])
+        name = Path(key)
+        
+        if nspecs == 1:
+            return directory / f'{base_name or name.stem}.dat'
+        else:
+            return directory / f'{base_name or name.stem}_spec{index}.dat'
+
+    def write_to(self, base_name: str = None, directory: Path = Path('./'),
+                 fmt: str = 'cassis') -> None:
         """Write spectra to disk.
 
         Filename is generated from the key names.
 
         Args:
+          base_name: optional; a base file name without extension.
           directory: optional; directory to save the files to.
           fmt: optional; format of the output files.
         """
         # Iterate over values
         for key, val in self.items():
-            aux = Path(key)
+            #aux = Path(key)
             for i, spec in enumerate(val):
-                filename = aux.name.replace(aux.suffix, f'_spec{i}.dat')
-                filename = directory / filename
+                #filename = aux.name.replace(aux.suffix, f'_spec{i}.dat')
+                #filename = directory / filename
+                filename = self.generate_filename(key, index=i,
+                                                  base_name=base_name,
+                                                  directory=directory)
                 spec.saveas(filename, fmt=fmt)
+
+    def have_lines(self, min_width: int = 5, dilate: Optional[int] = None,
+                   slice_as_frequency: bool = False):
+        """Check if spectra have emission lines.
+        
+        Args:
+          min_width: optional; minimum number of channels to be considered a
+            line.
+          dilate: optional; number of channels to add around the lines.
+          slice_as_frequency: optional; convert the index slices to frequency
+            range?
+
+        Returns:
+          A dictionary with the results for each spectrum.
+        """
+        results = {}
+        for key, specs in self.items():
+            result = []
+            for spec in specs:
+                result.append(
+                    spec.fit_lines(min_width=min_width,
+                                   dilate=dilate,
+                                   slice_as_frequency=slice_as_frequency)
+                )
+            results[key] = result
+
+        return results
 
 #    def overplot(self, output: Optional['Path'] = None,
 #                 molecule: Optional[Molecule] = None)
@@ -544,13 +868,17 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
                               savedir: Optional[Path] = None,
                               maskname: Optional[Path] = None,
                               mask: Optional[np.array] = None,
-                              restframe: Optional[str] = 'observed',
+                              restframe: str = 'observed',
                               fmt: str = 'cassis',
+                              radius: Optional[u.Quantity] = None,
+                              area_pix: Optional[float] = None,
                               log: Callable = print) -> np.array:
     """Loads and saves spectra without storing them in memory.
 
     It creates a mask from the first cube on the list, so it saves the spectra
     at the same positions from all the cubes.
+
+    An average spectrum can be created if `radius` or `area_pix` are given.
 
     Args:
       cubenames: list of file names.
@@ -564,6 +892,8 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
       mask: optional; true where the spectra will be extracted.
       restframe: optional; wether to use `observed` or `rest` frame.
       fmt: optional; output format.
+      radius: optional; source radius.
+      area_pix: optional; source area in pixels.
       log: optional; logging function.
     """
     # Load 1st cube
@@ -573,7 +903,6 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
     # Saving basic setup
     if savedir is None:
         savedir = Path(cubenames[0].parent)
-    filename = cubenames[0].stem
     log(f'Saving directory: {savedir}')
 
     # Create mask
@@ -604,8 +933,8 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
                       axis=0)
     else:
         if aux.shape[-2:] != mask.shape:
-            raise ValueError((f'mask shape (mask.shape), inconsistent with'
-                              f'cube shape (aux.shape)'))
+            raise ValueError((f'mask shape {mask.shape}, inconsistent with'
+                              f'cube shape {aux.shape}'))
     log(f'Initial number of points: {np.sum(mask)}')
 
     # Iterate over coordinates
@@ -630,6 +959,8 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
                 vlsr=vlsr,
                 rms=rms.to(aux.unit),
                 restframe=restframe,
+                radius=radius,
+                area_pix=area_pix,
             )
             if spec is None:
                 spec = aux2
