@@ -58,9 +58,12 @@ class CassisResult():
                 elif key.strip() == 'inputFile':
                     obs_spec = Path(val.strip())
                 elif key.strip() == 'chi2Min':
-                    stats['chi2'] = [float(val.strip()), 0, 0]
+                    chi2 = float(val.strip())
+                    if chi2 == float('nan'):
+                        print(f'WARNING: file {filename} has no data')
+                    stats['chi2'] = [chi2*u.Unit(1), 0, 0]
                 elif key.strip() == 'Chi2MinReduced':
-                    stats['redchi2'] = [float(val.strip()), 0, 0]
+                    stats['redchi2'] = [float(val.strip())*u.Unit(1), 0, 0]
                 else:
                     pass
             else:
@@ -165,9 +168,18 @@ def _proc(args: argparse.ArgumentParser) -> None:
     model = CassisResults.with_mask(args.maskfile[0], args.indir[0])
     for key in args.keys:
         key_comp = f'{key}_{args.component[0]}'
-        filename = args.indir[0] / f'{key_comp}_map.fits'
+        if args.error:
+            filename = args.indir[0] / f'{key_comp}_map_error.fits'
+        else:
+            filename = args.indir[0] / f'{key_comp}_map.fits'
         print(filename)
-        model.generate_map(key_comp, filename=filename)
+        model.generate_map(key_comp, filename=filename, error_map=args.error)
+
+    # Chi2 does not have errors
+    if args.chi:
+        for key in ['chi2', 'redchi2']:
+            filename = args.indir[0] / f'{key}_map.fits'
+            model.generate_map(key, filename=filename)
 
 def main(args: list) -> None:
     """Build the maps from Cassis results.
@@ -185,6 +197,10 @@ def main(args: list) -> None:
                         help='Model component number')
     parser.add_argument('-k', '--keys', nargs='+', default=CassisResult.PROPS,
                         help='Physical quantities')
+    parser.add_argument('-e', '--error', action='store_true',
+                        help='Save error maps only?')
+    parser.add_argument('-x', '--chi', action='store_true',
+                        help='Save chi2 and reduced chi2 map?')
     parser.add_argument('maskfile', action=actions.CheckFile, nargs=1,
                         help='Mask file name')
     parser.add_argument('indir', action=actions.NormalizePath, nargs=1,
