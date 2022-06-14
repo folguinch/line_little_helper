@@ -1,16 +1,17 @@
+#!/bin/python3
 """Script to extract a subcube."""
 from typing import Sequence
 import argparse
 import sys
 
+from toolkit.argparse_tools import actions
 import astropy.units as u
-import toolkit.argparse_tools.actions as actions
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
 import toolkit.astro_tools.cube_utils as cubeutils
 
-from moving_moments import HelpFormatter, get_molecule
-from parents import line_parents
+from line_little_helper.moving_moments import HelpFormatter, get_molecule
+from line_little_helper.parents import line_parents
 
 def parent_parser() -> argparse.ArgumentParser:
     """Define the parent parser."""

@@ -5,9 +5,9 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 
-from common_types import Plot, Table
-from processing_tools import combine_columns
-from spectrum import Spectrum
+from .common_types import Plot, Table
+from .processing_tools import combine_columns
+from .spectrum import Spectrum
 
 def get_freq_lim(freq_range: Tuple[u.Quantity, u.Quantity],
                  ratio: float = 1/2) -> Tuple[float, float]:

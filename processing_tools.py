@@ -5,7 +5,7 @@ import astropy.units as u
 import astroquery.splatalogue as splat
 import numpy as np
 
-from common_types import QPair, Table
+from .common_types import QPair, Table
 
 Equivalency = TypeVar('Equivalency')
 

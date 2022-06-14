@@ -5,14 +5,13 @@ import pathlib
 import sys
 
 from toolkit.argparse_tools import actions, parents
-from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import numpy as np
 
-from analysis_tools import simple_analysis, advanced_analysis
-from data_handler import ResultsHandler
-from processing_tools import observed_to_rest, get_spectral_equivalencies
-from spectrum import Spectrum, Spectra
+from line_little_helper.analysis_tools import simple_analysis, advanced_analysis
+from line_little_helper.data_handler import ResultsHandler
+from line_little_helper.processing_tools import observed_to_rest, get_spectral_equivalencies
+from line_little_helper.spectrum import Spectra
 
 FREQ_COLS = ['freq_low', 'freq_up']
 
@@ -80,7 +79,7 @@ def _proc2(args):
             return
         # Extract spectra
         args.log.info('Extracting spectra from cubes')
-        args.spectra = Spectra.from_cubes(args.cubes, args.coord[0], 
+        args.spectra = Spectra.from_cubes(args.cubes, args.coord[0],
                                           vlsr=args.vlsr)
     elif args.spec is not None:
         args.log.info('Reading input spectra')

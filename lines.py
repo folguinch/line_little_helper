@@ -4,8 +4,8 @@ from typing import List, Optional, TypeVar, Sequence
 
 import astropy.units as u
 
-from processing_tools import to_rest_freq, query_lines, zip_columns, combine_columns
-from common_types import QPair
+from .processing_tools import to_rest_freq, query_lines, zip_columns, combine_columns
+from .common_types import QPair
 
 # Addtitonal types
 Config = TypeVar('ConfigParser')
@@ -212,11 +212,11 @@ def _query_to_transition(name: str,
         ind = table['QNs'] == qns
         try:
             table = table[ind]
-        except IndexError:
+        except IndexError as exc:
             print('Could not find QNs')
             print('Available QNs:')
             print(table['QNs'])
-            close()
+            raise ValueError('No QNs detected') from exc
 
     # Create transitions
     transitions = []

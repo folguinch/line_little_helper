@@ -1,7 +1,9 @@
 #!/bin/bash
-"""Moment 0/1 maps from incresing local window size. The input `winwidth` value
-determines the working window. The input `molecule` determines the central
-channel of the `winwidth` (correcting for the LSR velocity).
+"""Moment 0/1 maps from incresing local window size.
+
+The input `winwidth` value determines the working window. The input `molecule`
+determines the central channel of the `winwidth` (correcting for the LSR
+velocity).
 
 The program has two separate modes:
 
@@ -28,17 +30,17 @@ import sys
 import textwrap
 
 from astropy.io import fits
+from toolkit.argparse_tools import actions
 from toolkit.astro_tools.cube_utils import get_restfreq, get_cube_rms
 import astropy.units as u
-import toolkit.argparse_tools.actions as actions
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
 import numpy as np
 import scipy.ndimage as ndimg
 
-from lines import Molecule
-from parents import line_parents
-from processing_tools import to_rest_freq
+from line_little_helper.lines import Molecule
+from line_little_helper.parents import line_parents
+from line_little_helper.processing_tools import to_rest_freq
 
 Cube = TypeVar('Cube')
 Logger = TypeVar('Logger')
@@ -62,7 +64,7 @@ def get_header(cube: Cube, bunit: u.Unit = None) -> fits.Header:
 
     # Unit
     if bunit is not None:
-        header['BUNIT'] = '{0:FITS}'.format(bunit)
+        header['BUNIT'] = f'{bunit:FITS}'
 
     # Copy other cards
     cards = ['BMIN', 'BMAJ', 'BPA']
@@ -125,10 +127,12 @@ def max_vel_ind(data: np.array, headers: List[fits.Header],
     out = str(output) + '_%s.fits'
     hdu = fits.PrimaryHDU(maxind)
     hdu.header = headers[0]
-    hdu.writeto(out % 'spec_peak_index', overwrite=True, output_verify='fix')
+    hdu.writeto(f'{output}_spec_peak_index.fits', overwrite=True,
+                output_verify='fix')
     hdu = fits.PrimaryHDU(maxvel.value)
     hdu.header = headers[1]
-    hdu.writeto(out % 'spec_peak_vel', overwrite=True, output_verify='fix')
+    hdu.writeto(f'{output}_spec_peak_vel.its', overwrite=True,
+                output_verify='fix')
 
     return maxind
 
@@ -416,10 +420,8 @@ def _proc(args: argparse.Namespace) -> None:
         diff = np.abs(spectral_axis - transition.obsfreq)
         ind = np.nanargmin(diff)
         chan1, chan2 = ind - args.winwidth[0]//2, ind + args.winwidth[0]//2
-        if chan1 < 0:
-            chan1 = 0
-        if chan2 > len(spectral_axis):
-            chan2 = len(spectral_axis) - 1
+        chan1 = max(chan1, 0)
+        chan2 = min(chan2, len(spectral_axis) - 1)
         args.log.info(f'Closest channel to line transition: {ind}')
         args.log.info(f'Channel range: {chan1} -- {chan2}')
 

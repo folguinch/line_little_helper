@@ -3,7 +3,7 @@ from typing import Sequence
 import argparse
 
 #import astropy.units as u
-import toolkit.argparse_tools.actions as actions
+from toolkit.argparse_tools import actions
 
 def line_parents(parents: Sequence) -> argparse.ArgumentParser:
     """Return an `arparse` parent with the resquested parents.

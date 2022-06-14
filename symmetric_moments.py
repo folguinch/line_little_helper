@@ -1,15 +1,16 @@
+#!/bin/python3
 """Compute moments in a window centered in a line."""
 from typing import Sequence
 import argparse
 import sys
 
-import toolkit.argparse_tools.actions as actions
+from toolkit.argparse_tools import actions
+from toolkit.argparse_tools import parents
 import toolkit.argparse_tools.loaders as aploaders
-import toolkit.argparse_tools.parents as parents
 import toolkit.astro_tools.cube_utils as cubeutils
 
-from moving_moments import HelpFormatter
-import subcube_extractor as extractor
+from line_little_helper.moving_moments import HelpFormatter
+import line_little_helper.subcube_extractor as extractor
 
 def _save_subcube(args: argparse.Namespace) -> None:
     """Save the subcube to disk."""

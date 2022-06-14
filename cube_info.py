@@ -1,3 +1,4 @@
+#!/bin/python3
 """List basic cube information.
 
 Data that will be printed:
@@ -15,13 +16,13 @@ from typing import Optional, Sequence, TypeVar
 import argparse
 import sys
 
+from toolkit.argparse_tools import actions
 import astropy.units as u
-import toolkit.argparse_tools.actions as actions
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cbutils
 
-from moving_moments import HelpFormatter
-from parents import line_parents
+from line_little_helper.moving_moments import HelpFormatter
+from line_little_helper.parents import line_parents
 
 SpectralCube = TypeVar('SpectralCube')
 

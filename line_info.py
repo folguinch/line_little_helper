@@ -13,9 +13,9 @@ import sys
 from toolkit.argparse_tools import actions, parents
 import spectral_cube
 
-from lines import Molecule
-from spectrum import Spectrum
-from argparse_plugins import query_freqrange
+from line_little_helper.lines import Molecule
+from line_little_helper.spectrum import Spectrum
+from line_little_helper.argparse_plugins import query_freqrange
 
 def _preproc(args: argparse.ArgumentParser) -> None:
     """Pre-process the command arguments."""
@@ -94,7 +94,7 @@ def main(args: list):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
     parser.add_argument('--vlsr', metavar=('VEL', 'UNIT'), default=None,
-                        action=actions.ReadQuantity, 
+                        action=actions.ReadQuantity,
                         help='Velocity shift for observed frequencies')
     parser.add_argument('molecule', nargs=1,
                         help='Molecule name or formula')

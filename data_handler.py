@@ -1,13 +1,13 @@
 """Data handler classes for result and statistics tables."""
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import astropy.units as u
 import numpy as np
 
-from common_types import QPair, Table, Path
-from plot_tools import Plot, plot_spectrum
-from processing_tools import query_lines, combine_columns
-from spectrum import Spectra, Spectrum
+from .common_types import QPair, Table, Path
+from .plot_tools import Plot, plot_spectrum
+from .processing_tools import query_lines, combine_columns
+from .spectrum import Spectra, Spectrum
 
 class ResultHandler:
     """Class for handling the results from queries and postprocessing.
@@ -147,7 +147,7 @@ class ResultHandler:
         return (self.freq_low + self.freq_up) / 2
 
     def distance_to(self, freq: u.Quantity, name: str, sort: bool = False,
-                    extra_sort_keys: list = []) -> None:
+                    extra_sort_keys: Sequence = ()) -> None:
         """Calculate a new column with the distance to the input frequency.
 
         Args:
@@ -166,7 +166,7 @@ class ResultHandler:
 
         # Sort
         if sort:
-            self.table.sort([name] + extra_sort_keys)
+            self.table.sort([name].append(list(extra_sort_keys)))
 
     def plot(self, filename: Path, spectra: Optional[Spectra] = None,
              top: Optional[int] = None) -> Plot:
@@ -201,9 +201,9 @@ class ResultsHandler(dict):
     def from_struct_array(cls,
                           array: np.array,
                           units: dict,
-                          freq_cols: List[str] = ['freq_low', 'freq_up'],
+                          freq_cols: Sequence[str] = ('freq_low', 'freq_up'),
                           name_cols: Optional[List[str]] = None,
-                          info_keys: List[str] = ['spw'],
+                          info_keys: Sequence[str] = ('spw',),
                           index_key: str = 'n') -> dict:
         """Create a results handler from structured array data.
 

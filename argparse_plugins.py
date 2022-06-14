@@ -1,14 +1,14 @@
 """Parents and actions for argparse objects."""
 import argparse
 
-from toolkit.argparse_tools import actions, parents
+from toolkit.argparse_tools import actions
 
-from global_vars import ALMA_BANDS
+from .global_vars import ALMA_BANDS
 
 # Args processing functions
 def get_freqrange(args):
     """Process the arguments for freq. range.
-    
+
     Args:
       args: argument parser.
     """

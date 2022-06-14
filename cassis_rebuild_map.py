@@ -1,4 +1,5 @@
-"""Use the results from Cassis to construct maps.
+#!/bin/python3
+"""Use the results from Cassis to construct quantity maps.
 
 It uses the file name default structure of `spectrum_extractor.py` to obtain
 the coordinates and build the maps.
@@ -6,6 +7,7 @@ the coordinates and build the maps.
 from pathlib import Path
 from typing import Optional, Dict, Sequence, Tuple
 import argparse
+import math
 import sys
 
 from astropy.io import fits
@@ -23,7 +25,7 @@ class CassisResult():
       stats: dictionary with the results.
     """
     PROPS = ['nmol', 'tex', 'fwhm', 'size', 'vlsr']
-    UNITS = {'nmol': 1/u.cm**2, 'tex': u.K, 'fwhm': u.km/u.s, 
+    UNITS = {'nmol': 1/u.cm**2, 'tex': u.K, 'fwhm': u.km/u.s,
              'size': u.sr, 'vlsr': u.km/u.s}
 
     def __init__(self,
@@ -59,7 +61,7 @@ class CassisResult():
                     obs_spec = Path(val.strip())
                 elif key.strip() == 'chi2Min':
                     chi2 = float(val.strip())
-                    if chi2 == float('nan'):
+                    if math.isnan(chi2):
                         print(f'WARNING: file {filename} has no data')
                     stats['chi2'] = [chi2*u.Unit(1), 0, 0]
                 elif key.strip() == 'Chi2MinReduced':
@@ -69,8 +71,8 @@ class CassisResult():
             else:
                 key, *vals = field.split()
                 if key in stats:
-                    stats[key] = list(map(lambda x: float(x)*cls.UNITS[key[:-2]],
-                                          vals))
+                    stats[key] = list(float(x)*cls.UNITS[key[:-2]]
+                                      for x in vals)
 
         return cls(species, obs_spec=obs_spec, mod_spec=mod_spec, **stats)
 

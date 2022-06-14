@@ -1,10 +1,7 @@
+#!/bin/python3
 """Spectra extractor and analyzer.
 
 The script loads and saves the spectra and plot them if requested.
-This tool has 2 modules:
-
-  - `extractor`: only extract and plot spectra
-  - `analyzer`: in addition to extract the spectra it also anlyzes them.
 
 If vlsr is given, then observed and rest frequencies are stored, else only
 observed frequency is stored.
@@ -18,15 +15,15 @@ import argparse
 import sys
 
 from astropy.io import fits
-from astropy.table import QTable
+from astropy.table import QTable, vstack
 from toolkit.argparse_tools import functions, actions
 from toolkit.maths import quick_rms
 import astropy.units as u
 import toolkit.argparse_tools.parents as apparents
 
-from argparse_plugins import query_freqrange
-from parents import line_parents
-from spectrum import IndexedSpectra, on_the_fly_spectra_loader
+from line_little_helper.argparse_plugins import query_freqrange
+from line_little_helper.parents import line_parents
+from line_little_helper.spectrum import IndexedSpectra, on_the_fly_spectra_loader
 
 def spectra_loader(filenames: Sequence[Path],
                    *,
@@ -50,7 +47,7 @@ def spectra_loader(filenames: Sequence[Path],
 
     return specs
 
-def _build_table(results: dict, coords: Sequence, filename: Path, 
+def _build_table(results: dict, coords: Sequence, filename: Path,
                 log: Callable = print):
     """Stores fitting results in Table."""
     table = []
@@ -60,9 +57,9 @@ def _build_table(results: dict, coords: Sequence, filename: Path,
         # Iterate over results for each coordinate
         for coord, result in zip(coords, val):
             log(f'Storing results for coordinate: {coord}')
-            
+
             # Iterate over model results
-            for slcs, models in result:
+            for _, models in result:
                 for slc, model in models:
                     table.append([coord,
                                   slc[0],
@@ -90,7 +87,7 @@ def _extractor(args: argparse.ArgumentParser) -> None:
     # Extract spectra
     functions.positions_to_pixels(args)
     args.specs = extractor(args.filenames,
-                           position=args.position, 
+                           position=args.position,
                            vlsr=args.vlsr,
                            rest=args.rest,
                            rms=args.rms,
@@ -202,10 +199,10 @@ def _plotter(args):
     """Plot data and store figs/axes if analysis is requested."""
     if args.plot_separated:
         # Only for indexed spectra
-        figs, axs = None, None
+        #figs, axs = None, None
         for key, specs in args.specs:
             for i, spec in enumerate(specs):
-                fig, ax = sp.plot(ax=ax)
+                fig, ax = spec.plot(ax=ax)
 
                 if not args.analyze:
                     plotname = args.specs.generate_filename(
@@ -234,7 +231,7 @@ def main(args: list):
             '--mask_from',
             filenames={'help': 'File names (cubes or spectra)', 'nargs': '*'},
             mask_from={'help': 'Image file name to build the mask from',
-                       'nargs': 1, 
+                       'nargs': 1,
                        'default':[None]},
         ),
     ]
@@ -244,7 +241,7 @@ def main(args: list):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
     group1 = parser.add_mutually_exclusive_group(required=False)
-    group1.add_argument('--radius', metavar=('RADIUS', 'UNIT'), 
+    group1.add_argument('--radius', metavar=('RADIUS', 'UNIT'),
                        action=actions.ReadQuantity, nargs=2,
                        help='Average pixels within radius')
     group1.add_argument('--size', metavar=('MAJ', 'MIN', 'UNIT'),

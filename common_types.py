@@ -2,8 +2,8 @@
 from typing import Tuple, TypeVar, NewType
 import pathlib
 
+from astropy import table
 import astropy.units as u
-import astropy.table as table
 import matplotlib.pyplot as plt
 
 Path = TypeVar('Path', pathlib.Path, str)

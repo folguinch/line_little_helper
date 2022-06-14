@@ -3,9 +3,9 @@ from typing import Optional
 
 import numpy as np
 
-from common_types import Path
-from data_handler import ResultHandler, ResultsHandler, StatsHandler
-from spectrum import Spectra
+from .common_types import Path
+from .data_handler import ResultHandler, ResultsHandler, StatsHandler
+from .spectrum import Spectra
 
 def _single_analysis(result: ResultHandler):
     """Perform simple analysis of a single set of results."""

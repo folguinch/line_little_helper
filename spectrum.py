@@ -1,10 +1,12 @@
 """Objects for managing spectral data."""
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, TypeVar, Union, Callable
+import io
 
 from astropy.io import fits
 from astropy.modeling import models, fitting
 from radio_beam import Beam, Beams
+from scipy import ndimage
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
 from toolkit.logger import LoggedObject
@@ -12,8 +14,8 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 
-from processing_tools import observed_to_rest
-from lines import Molecule
+from .processing_tools import observed_to_rest
+from .lines import Molecule
 
 Coordinate = TypeVar('Coordinate')
 
@@ -52,6 +54,7 @@ class Spectrum(LoggedObject):
                  rms: Optional[u.Quantity] = None,
                  beam: Optional[Union[Beam, Beams]] = None) -> None:
         """Initialize a spectrum object."""
+        super().__init__(__name__)
         self.spectral_axis = spectral_axis
         self.intensity = intensity
         self.restfreq = restfreq
@@ -345,10 +348,10 @@ class Spectrum(LoggedObject):
 
         return mask
 
-    def has_lines(self, min_width: int = 5, 
+    def has_lines(self, min_width: int = 5,
                   dilate: Optional[int] = None) -> list:
         """Find ranges with likely line emission.
-        
+
         Args:
           min_width: optional; minimum number of channels to be considered a
             line.
@@ -357,13 +360,13 @@ class Spectrum(LoggedObject):
         Returns:
           A list of slices.
         """
+        # Generate mask
+        mask = self.intensity_mask()
+
         # No lines
         if np.sum(mask) == 0:
             return []
 
-        # Generate mask
-        mask = self.intensity_mask()
-        
         # First pass
         # Labels and objects
         labs, nlabs = ndimage.label(mask)
@@ -390,7 +393,7 @@ class Spectrum(LoggedObject):
     def fit_line(self, spec_range: Optional[Sequence[u.Quantity]] = None,
                  slice_range: Optional[slice] = None) -> models.Gaussian1D:
         """Fit the spectrum with a Gaussian funtion.
-        
+
         Args:
           spec_range: optional; upper and lower limits of the spectral axis.
           slice_range: optional; slice object of the data to fit.
@@ -783,13 +786,13 @@ class IndexedSpectra(dict):
                           base_name: str = None,
                           directory: Path = Path('./')) -> Path:
         """Generate a standard file name to store indexed spectra.
-        
+
         Args:
           key: the key of the spectra indexed.
           index: optional; spectrum within the given name.
           base_name: optional; a base file name without extension.
           directory: optional; directory of the final filename.
-        
+
         Returns:
           A filename `Path`:
 
@@ -801,7 +804,7 @@ class IndexedSpectra(dict):
         # Parameters
         nspecs = len(self[key])
         name = Path(key)
-        
+
         if nspecs == 1:
             return directory / f'{base_name or name.stem}.dat'
         else:
@@ -832,7 +835,7 @@ class IndexedSpectra(dict):
     def have_lines(self, min_width: int = 5, dilate: Optional[int] = None,
                    slice_as_frequency: bool = False):
         """Check if spectra have emission lines.
-        
+
         Args:
           min_width: optional; minimum number of channels to be considered a
             line.

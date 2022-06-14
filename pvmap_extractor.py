@@ -1,7 +1,5 @@
-"""Calculate the position-velocity (pv) map.
-
-
-"""
+#!/bin/python3
+"""Calculate a position-velocity (pv) map."""
 from typing import Callable, Optional, Sequence
 from pathlib import Path
 import argparse
@@ -60,7 +58,7 @@ def get_pvmap(cube: 'SpectralCube',
     # Define slit path
     path = PathFromCenter(center=position, length=length, angle=angle,
                           width=width)
-    
+
     # PV map
     pv_map = extract_pv_slice(cube, path)
 
@@ -106,7 +104,7 @@ def get_parent_parser() -> argparse.ArgumentParser:
         help='Line (or slab center) frequency')
     parent_parser.add_argument(
         '--dfreq',
-        action=actions.ReadQuantity, 
+        action=actions.ReadQuantity,
         help='Frequency slab width')
     parent_parser.add_argument(
         '--vlsr',
@@ -132,22 +130,22 @@ def get_parent_parser() -> argparse.ArgumentParser:
 
     return parent_parser
 
-def save_stats(stats, file_fmt):
-    # Save fit
-    text = 'Linear velocity gradient regression:\n'
-    labels = ['Slope', 'Slope error', 'Intercept']
-    for pair in zip(labels, stats):
-        text += '%s = %s\n' % pair
-    write_txt(text.strip(), file_fmt % '_lin_vel_fit.txt')
-
-    # Save distribution
-    fmt = lambda x: '%10.4f\t%10.4f' % x
-    text = '#%10s\t%10s\n' % ('v', 'offset')
-    text += '#%10s\t%10s\n' % (stats[-2].to(u.km/u.s).unit, 
-            stats[-1].to(u.arcsec).unit)
-    text += '\n'.join(map(fmt, zip(stats[-2].to(u.km/u.s).value, 
-        stats[-1].to(u.arcsec).value)))
-    write_txt(text, file_fmt % '_lin_vel.dat')
+#def save_stats(stats, file_fmt):
+#    # Save fit
+#    text = 'Linear velocity gradient regression:\n'
+#    labels = ['Slope', 'Slope error', 'Intercept']
+#    for pair in zip(labels, stats):
+#        text += f'{pair[0]} = {pair[1]}\n'
+#    write_txt(text.strip(), file_fmt % '_lin_vel_fit.txt')
+#
+#    # Save distribution
+#    fmt = lambda x: '%10.4f\t%10.4f' % x
+#    text = '#%10s\t%10s\n' % ('v', 'offset')
+#    text += '#%10s\t%10s\n' % (stats[-2].to(u.km/u.s).unit,
+#            stats[-1].to(u.arcsec).unit)
+#    text += '\n'.join(map(fmt, zip(stats[-2].to(u.km/u.s).value,
+#        stats[-1].to(u.arcsec).value)))
+#    write_txt(text, file_fmt % '_lin_vel.dat')
 
 def get_spectral_slab(cube: 'SpectralCube',
                       line_freq: u.Quantity,
@@ -194,7 +192,6 @@ def _minimal_set(args: argparse.Namespace) -> None:
 def _iter_sections(args: argparse.Namespace) -> None:
     """Iterate over the sections in configuration."""
     # Compute pv maps
-    source_data = None
     for section in args.sections:
         args.log.info('PV map for: %s', section)
 
@@ -269,7 +266,8 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 cdelt = np.abs(subcube.spectral_axis[0] - \
                                subcube.spectral_axis[1])
                 args.log.info('New cube shape: %r', subcube.shape)
-                args.log.info('New cube spectral axis step: %s', cdelt.to(u.MHz))
+                args.log.info('New cube spectral axis step: %s',
+                              cdelt.to(u.MHz))
         else:
             pass
 
@@ -278,7 +276,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
         subcube = subcube.with_spectral_unit(u.km/u.s,
                                              velocity_convention='radio',
                                              rest_value=args.line_freq)
-        
+
         # PA
         if args.pa is not None:
             pass
@@ -295,16 +293,16 @@ def _iter_sections(args: argparse.Namespace) -> None:
             args.length = args.pvconfig.getquantity(section, 'length')
         else:
             raise ValueError('No slit length given')
-        args.log.info('Slit length: {0.value} {0.unit}'.format(args.length))
+        args.log.info(f'Slit length: {args.length.value} {args.length.unit}')
         if args.width:
             pass
         elif args.pvconfig and 'width' in args.pvconfig[section]:
             args.width = args.pvconfig.getquantity(section, 'width')
         else:
             raise ValueError('No slit width given')
-        args.log.info('Slit width: {0.value} {0.unit}'.format(args.width))
+        args.log.info('Slit width: {args.width.value} {args.width.unit}')
 
-        
+        # Iterate position angles
         for pa in args.pa:
             args.log.info('Computing pv map for PA=%s', pa)
             for i, position in enumerate(args.position):
@@ -340,7 +338,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 # Get pv map
                 pv_map = get_pvmap(subcube, position, args.length, args.width,
                                    pa, filename=filename, log=args.log.info)
-    
+
                 ## Statistics
                 #if args.stats and args.pvconfig:
                 #    # Linear velocity gradient
@@ -349,7 +347,8 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 #    if 'xpixsize' in args.pvconfig[section] and \
                 #            'ypixsize' in args.pvconfig[section]:
                 #        logger.info('Using configuration file pixsizes:')
-                #        pixsizes = (args.pvconfig.getquantity(section, 'xpixsize'),
+                #        pixsizes = (args.pvconfig.getquantity(section,
+                #                    'xpixsize'),
                 #                args.pvconfig.getquantity(section, 'ypixsize'))
                 #        logger.info('\tx-axis pixel size: %s', pixsizes[0])
                 #        logger.info('\ty-axis pixel size: %s', pixsizes[1])
@@ -357,11 +356,12 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 #        pixsizes = (None, None)
                 #    if 'xlim%i' % pa.value in args.pvconfig[section]:
                 #        logger.info('Filtering x-axis pixels')
-                #        filterx = args.pvconfig.getfloatlist(section, 
+                #        filterx = args.pvconfig.getfloatlist(section,
                 #                'xlim%i' % pa.value)
                 #    else:
                 #        filterx=None
-                #    stats = lin_vel_gradient(pv_map, sigma=rms.value, nsigma=nsigma,
+                #    stats = lin_vel_gradient(pv_map, sigma=rms.value,
+                #                             nsigma=nsigma,
                 #            pixsizes=pixsizes, filterx=filterx)
                 #
                 #    # Save stats
