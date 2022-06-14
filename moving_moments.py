@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/python3
 """Moment 0/1 maps from incresing local window size.
 
 The input `winwidth` value determines the working window. The input `molecule`
