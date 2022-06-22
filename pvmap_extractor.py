@@ -1,6 +1,6 @@
 #!/bin/python3
 """Calculate a position-velocity (pv) map."""
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Sequence, Iterable, List
 from pathlib import Path
 import argparse
 import sys
@@ -9,10 +9,10 @@ from astro_source.source import LoadSources
 from astropy.io import fits
 from astropy.units.equivalencies import doppler_radio
 from pvextractor import PathFromCenter, extract_pv_slice
+from pvextractor import Path as pvPath
+from regions import Regions
 from toolkit.argparse_tools import actions, parents, functions
 from toolkit.astro_tools import cube_utils
-#from myutils.image_utils import lin_vel_gradient
-#from myutils.file_utils import write_txt
 import astropy.units as u
 import numpy as np
 
@@ -33,15 +33,15 @@ def swap_axes(hdu: 'PrimaryHDU'):
 
     return fits.PrimaryHDU(aux, header=header)
 
-def get_pvmap(cube: 'SpectralCube',
-              position: 'SkyCoord',
-              length: u.Quantity,
-              width: u.Quantity,
-              angle: u.Quantity,
-              invert: bool = False,
-              filename: Optional[Path] = None,
-              log: Callable = print) -> 'PrimaryHDU':
-    """Calculate a position velocity map.
+def get_pvmap_from_slit(cube: 'SpectralCube',
+                        position: 'SkyCoord',
+                        length: u.Quantity,
+                        width: u.Quantity,
+                        angle: u.Quantity,
+                        invert: bool = False,
+                        filename: Optional[Path] = None,
+                        log: Callable = print) -> 'PrimaryHDU':
+    """Calculate a position velocity map from a slit.
 
     Args:
       cube: spectral cube.
@@ -78,13 +78,52 @@ def get_pvmap(cube: 'SpectralCube',
 
     return pv_map
 
+def get_pvmap_from_region(cube: 'SpectralCube',
+                          region: Path,
+                          width: u.Quantity,
+                          invert: bool = False,
+                          filename: Optional[Path] = None,
+                          log: Callable = print) -> 'PrimaryHDU':
+    """Calculate a position velocity map from a CASA poly region.
+
+    Args:
+      cube: spectral cube.
+      region: the `crtf` region filename.
+      width: width of the slit.
+      invert: optional; invert the velocity/position axes
+      filename: optional; output file name.
+      log: optional; logging function.
+    Returns:
+      A `PrimaryHDU` containing the pv map.
+    """
+    # Read region
+    reg = Regions.read(region, format='crtf').pop()
+
+    # Path
+    pv_path = pvPath(reg.vertices, width=width)
+
+    # PV map
+    pv_map = extract_pv_slice(cube, pv_path)
+
+    # Invert velocity/position axes
+    if invert:
+        pv_map = swap_axes(pv_map)
+
+    # Copy BUNIT
+    try:
+        pv_map.header['BUNIT'] = cube.header['BUNIT']
+    except KeyError:
+        log('Could not find BUNIT')
+
+    if filename is not None:
+        log(f'Saving file: {filename}')
+        pv_map.writeto(filename, overwrite=False)
+
+    return pv_map
+
 def get_parent_parser() -> argparse.ArgumentParser:
     """Base parent parser for pv maps."""
     parent_parser = argparse.ArgumentParser(add_help=False)
-    parent_parser.add_argument(
-        '--stats',
-        action='store_true',
-        help='Compute statistics (e.g. linear velocity gradient)')
     parent_parser.add_argument(
         '--invert',
         action='store_true',
@@ -124,28 +163,16 @@ def get_parent_parser() -> argparse.ArgumentParser:
         action=actions.ReadQuantity,
         help='Width of the slit in arcsec')
     parent_parser.add_argument(
+        '--paths',
+        nargs='*',
+        action=actions.NormalizePath,
+        help='Read a casa poly region as pv path')
+    parent_parser.add_argument(
         '--output',
         action=actions.NormalizePath,
         help='File output')
 
     return parent_parser
-
-#def save_stats(stats, file_fmt):
-#    # Save fit
-#    text = 'Linear velocity gradient regression:\n'
-#    labels = ['Slope', 'Slope error', 'Intercept']
-#    for pair in zip(labels, stats):
-#        text += f'{pair[0]} = {pair[1]}\n'
-#    write_txt(text.strip(), file_fmt % '_lin_vel_fit.txt')
-#
-#    # Save distribution
-#    fmt = lambda x: '%10.4f\t%10.4f' % x
-#    text = '#%10s\t%10s\n' % ('v', 'offset')
-#    text += '#%10s\t%10s\n' % (stats[-2].to(u.km/u.s).unit,
-#            stats[-1].to(u.arcsec).unit)
-#    text += '\n'.join(map(fmt, zip(stats[-2].to(u.km/u.s).value,
-#        stats[-1].to(u.arcsec).value)))
-#    write_txt(text, file_fmt % '_lin_vel.dat')
 
 def get_spectral_slab(cube: 'SpectralCube',
                       line_freq: u.Quantity,
@@ -185,6 +212,8 @@ def _minimal_set(args: argparse.Namespace) -> None:
                                       wcs=args.cube.wcs.sub(['longitude',
                                                              'latitude']))
         args.sections = [args.cube]
+    elif args.cube and args.width and args.path and args.pvconfig is None:
+        args.sections = [args.cube]
     else:
         args.sections = args.sections or args.pvconfig.sections()
         args.log.info('PV config file selected sections: %r', args.sections)
@@ -223,7 +252,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
             args.line_freq = args.pvconfig.getquantity(section, 'line_freq')
             args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
         else:
-            args.log.warn('No line frequency given, using whole range')
+            args.log.warning('No line frequency given, using whole range')
             args.line_freq = None
 
         # vlsr
@@ -234,7 +263,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
             args.log.info('LSR velocity from config: %s', args.vlsr)
         else:
             vlsr = 0. * u.km / u.s
-            args.log.warn('LSR velocity: %s', vlsr)
+            args.log.warning('LSR velocity: %s', vlsr)
 
         # Get frequency/velocity slab
         subcube = args.cube.with_spectral_unit(u.GHz,
@@ -255,7 +284,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 subcube = subcube.data[chan0:chan1+1]
                 args.log.info('New cube shape: %r', subcube.shape)
             else:
-                args.log.warn('No frequency slab width, using whole range')
+                args.log.warning('No frequency slab width, using whole range')
                 dfreq2 = None
 
             # Get the spectral slab
@@ -277,96 +306,205 @@ def _iter_sections(args: argparse.Namespace) -> None:
                                              velocity_convention='radio',
                                              rest_value=args.line_freq)
 
-        # PA
-        if args.pa is not None:
-            pass
-        elif args.pvconfig and 'PAs' in args.pvconfig[section]:
-            args.pa = args.pvconfig.getquantity(section, 'PAs')
+        # PV map options
+        pvmap_kwargs = {'output': args.output,
+                        'file_fmt': args.pvconfig.get(section, 'file_fmt',
+                                                      fallback=None),
+                        'sources': args.source,
+                        'source_section': source_section,
+                        'section': section,
+                        }
+        if args.paths or (args.pvconfig and 'paths' in args.pvconfig[section]):
+            pvmap_kwargs['paths'] = args.path
+            if args.path is None:
+                aux = args.pvconfig.get(section, 'paths').split(',')
+                pvmap_kwargs['paths'] = (Path(path) for path in aux)
         else:
-            args.log.warn('No PAs given, skipping %s', section)
-            continue
+            # Positions and other options
+            pvmap_kwargs['positions'] = args.position
 
-        # Path
-        if args.length:
-            pass
-        elif args.pvconfig and 'length' in args.pvconfig[section]:
-            args.length = args.pvconfig.getquantity(section, 'length')
-        else:
-            raise ValueError('No slit length given')
-        args.log.info(f'Slit length: {args.length.value} {args.length.unit}')
+            # PA
+            if args.pa is not None:
+                pvmap_kwargs['pas'] = args.pa
+            elif args.pvconfig and 'PAs' in args.pvconfig[section]:
+                pvmap_kwargs['pas'] = args.pvconfig.getquantity(section, 'PAs')
+            else:
+                args.log.warning('No PAs given, skipping %s', section)
+                continue
+
+            # Length
+            if args.length:
+                pvmap_kwargs['length'] = args.length
+            elif args.pvconfig and 'length' in args.pvconfig[section]:
+                pvmap_kwargs['length'] = args.pvconfig.getquantity(section,
+                                                                   'length')
+            else:
+                raise ValueError('No slit length given')
+            args.log.info(
+                f'Slit length: {args.length.value} {args.length.unit}')
+
+        # Width is common
         if args.width:
-            pass
+            pvmap_kwargs['width'] = args.width
         elif args.pvconfig and 'width' in args.pvconfig[section]:
-            args.width = args.pvconfig.getquantity(section, 'width')
+            pvmap_kwargs['width'] = args.pvconfig.getquantity(section, 'width')
         else:
             raise ValueError('No slit width given')
         args.log.info('Slit width: {args.width.value} {args.width.unit}')
 
-        # Iterate position angles
-        for pa in args.pa:
-            args.log.info('Computing pv map for PA=%s', pa)
-            for i, position in enumerate(args.position):
-                args.log.info('Position = %s', position)
+        # Get pv maps:
+        _calculate_pv_maps(subcube, invert=args.invert, log=args.log.warning,
+                           **pvmap_kwargs)
 
-                # Get filename
-                if args.output is not None:
-                    suffix = args.output.suffix
-                    suffix = (f'.ra{position.ra.deg:.3f}'
-                              f'_dec{position.ra.deg:.3f}'
-                              f'.PA{int(pa.value)}'
-                              f'{suffix}')
-                    filename = args.output.with_suffix(suffix)
-                elif args.pvconfig and 'file_fmt' in args.pvconfig[section]:
-                    filename = args.pvconfig.get(section, 'file_fmt')
-                    filename = filename.format(pa=pa.value,
-                                               ra=position.ra.deg,
-                                               dec=position.dec.deg)
-                    filename = Path(filename).expanduser()
-                elif args.pvconfig and source_section is not None:
-                    cubename = args.source[i].config.getpath(source_section,
-                                                             'file')
-                    suffix = cubename.suffix
-                    suffix = (f'.pvmap.{section}'
-                              f'.ra{position.ra.deg}_dec{position.ra.deg}'
-                              f'.PA{pa.value:d}'
-                              f'{suffix}')
-                    filename = cubename.with_suffix(suffix)
-                else:
-                    args.log.warn('No output file')
-                    filename = None
+def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
+                       **kwargs):
+    """Calculate pv maps based on input.
 
-                # Get pv map
-                pv_map = get_pvmap(subcube, position, args.length, args.width,
-                                   pa, filename=filename, log=args.log.info)
+    Args:
+      cube: data cube.
+      invert: optional; invert the velocity/position axes.
+      log: optional; logging function.
+      kwargs: pv map input parameters.
+    """
+    width = kwargs.pop('width')
+    if kwargs.get('paths') is not None:
+        paths = kwargs.pop('paths')
+        _pv_maps_from_region(cube, paths, width, invert=invert, log=log,
+                             **kwargs)
+    else:
+        pas = kwargs.pop('pas')
+        positions = kwargs.pop('positions')
+        length = kwargs.pop('length')
+        _pv_maps_from_region(cube, pas, positions, length, width,
+                             invert=invert, log=log, **kwargs)
 
-                ## Statistics
-                #if args.stats and args.pvconfig:
-                #    # Linear velocity gradient
-                #    rms = args.pvconfig.getquantity(section, 'rms')
-                #    nsigma = args.pvconfig.getfloat(section, 'nsigma')
-                #    if 'xpixsize' in args.pvconfig[section] and \
-                #            'ypixsize' in args.pvconfig[section]:
-                #        logger.info('Using configuration file pixsizes:')
-                #        pixsizes = (args.pvconfig.getquantity(section,
-                #                    'xpixsize'),
-                #                args.pvconfig.getquantity(section, 'ypixsize'))
-                #        logger.info('\tx-axis pixel size: %s', pixsizes[0])
-                #        logger.info('\ty-axis pixel size: %s', pixsizes[1])
-                #    else:
-                #        pixsizes = (None, None)
-                #    if 'xlim%i' % pa.value in args.pvconfig[section]:
-                #        logger.info('Filtering x-axis pixels')
-                #        filterx = args.pvconfig.getfloatlist(section,
-                #                'xlim%i' % pa.value)
-                #    else:
-                #        filterx=None
-                #    stats = lin_vel_gradient(pv_map, sigma=rms.value,
-                #                             nsigma=nsigma,
-                #            pixsizes=pixsizes, filterx=filterx)
-                #
-                #    # Save stats
-                #    if file_name:
-                #        save_stats(stats, file_name % (pa.value, '%s'))
+def _pv_maps_from_region(cube: 'SpectralCube',
+                         paths: Iterable[Path],
+                         width: u.Quantity,
+                         invert: bool = False,
+                         output: Optional[Path] = None,
+                         file_fmt: Optional[str] = None,
+                         log: Callable = print,
+                         **kwargs):
+    """Iterate over paths to get pv maps.
+
+    Args:
+      cube: data cube.
+      paths: `crtf` region files.
+      width: slit width.
+      invert: optional; invert the velocity/position axes.
+      output: optional; output filename.
+      file_fmt: optional; filename format.
+      log: optional; logging function.
+      kwargs: ignored keyword parameters.
+    """
+    # Iterate paths
+    for i, path in enumerate(paths):
+        log(f'Path = {path}')
+        suffix_fmt = '.path{ind}'
+        filename = _generate_filename(suffix_fmt, output=output,
+                                      file_fmt=file_fmt,
+                                      log=log, ind=i)
+        get_pvmap_from_region(cube, path, width, filename=filename,
+                              invert=invert)
+
+def _pv_maps_from_slit(cube: 'SpectralCube',
+                       pas: Iterable[u.Quantity],
+                       positions: Iterable['SkyCoord'],
+                       length: u.Quantity,
+                       width: u.Quantity,
+                       invert: bool = False,
+                       output: Optional[Path] = None,
+                       file_fmt: Optional[str] = None,
+                       sources: Optional[List['AstroSource']] = None,
+                       source_section: Optional[str] = None,
+                       section: Optional[str] = None,
+                       log: Callable = print):
+    """Iterate over PAs and sources to get pv maps.
+
+    Args:
+      cube: data cube.
+      pas: position angles.
+      positions: slit central positions.
+      length: slit length.
+      width: slit width.
+      invert: optional; invert the velocity/position axes.
+      output: optional; output filename.
+      file_fmt: optional; filename format.
+      sources: optional; astro sources.
+      source_section: optional; data section of the source.
+      section: optional; pv map section.
+      log: optional; logging function.
+    """
+    # Iterate position angles
+    for pa in pas:
+        log(f'Computing pv map for PA={pa}')
+        for i, position in enumerate(positions):
+            log(f'Position = {position}')
+            suffix_fmt = '.ra{ra:.3f}_dec{dec:.3f}.PA{pa}'
+            filename = _generate_filename(suffix_fmt, output=output,
+                                          file_fmt=file_fmt, source=sources[i],
+                                          source_section=source_section,
+                                          log=log,
+                                          ra=position.ra.deg,
+                                          dec=position.dec.deg,
+                                          pa=int(pa.value), section=section)
+
+            # Get pv map
+            get_pvmap_from_slit(cube, position, length, width, pa,
+                                invert=invert, filename=filename, log=log)
+
+def _generate_filename(suffix_fmt: str,
+                       output: Optional[Path] = None,
+                       file_fmt: Optional[Path] = None,
+                       source: Optional['AstroSource'] = None,
+                       source_section: Optional[str] = None,
+                       log: Callable = print,
+                       **kwargs):
+    """Generate the pv map file name.
+
+    At leas one of the following input need to be specified to generate the
+    file name (in order of priority): `output`, `file_fmt` or
+    (`source`, `source_section`)
+
+    Args:
+      suffix_fmt: format of the suffix.
+      output: optional; output filename.
+      file_fmt: optional; filename format.
+      sources: optional; astro sources.
+      source_section: optional; data section of the source.
+      kwargs: keyword arguments for the suffix format.
+    """
+    # Get filename
+    if output is not None:
+        suffix = suffix_fmt.format(**kwargs) + output.suffix
+        #suffix = output.suffix
+        #suffix = (f'.ra{position.ra.deg:.3f}'
+        #          f'_dec{position.ra.deg:.3f}'
+        #          f'.PA{int(pa.value)}'
+        #          f'{suffix}')
+        filename = output.with_suffix(suffix)
+    elif file_fmt is not None:
+        filename = file_fmt.format(**kwargs)
+        filename = Path(filename).expanduser()
+    elif (source is not None and source_section is not None):
+        cubename = source.config.getpath(source_section, 'file')
+        if 'section' in kwargs:
+            suffix = f".pvmap.{kwargs['section']}"
+        else:
+            suffix = '.pvmap'
+        suffix = suffix + suffix_fmt.format(**kwargs) + cubename.suffix
+        #suffix = cubename.suffix
+        #suffix = (f'.pvmap.{section}'
+        #          f'.ra{position.ra.deg}_dec{position.ra.deg}'
+        #          f'.PA{pa.value:d}'
+        #          f'{suffix}')
+        filename = cubename.with_suffix(suffix)
+    else:
+        log('No output file!')
+        filename = None
+
+    return filename
 
 def main(args: Sequence):
     """Extract the pv maps based on command line input.
