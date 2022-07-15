@@ -8,7 +8,7 @@ from .processing_tools import to_rest_freq, query_lines, zip_columns, combine_co
 from .common_types import QPair
 
 # Addtitonal types
-Config = TypeVar('ConfigParser')
+ConfigParser = TypeVar('ConfigParser')
 
 class Transition:
     """Class to store line information.
@@ -64,7 +64,7 @@ class Transition:
         return '\n'.join(lines)
 
     @classmethod
-    def from_config(cls, config:Config,
+    def from_config(cls, config:ConfigParser,
                     vlsr: Optional[u.Quantity] = None):
         """Create a new transition from config parser proxy.
 
@@ -137,7 +137,7 @@ class Molecule:
         return [tra.qns for tra in self.transitions]
 
     @classmethod
-    def from_config(cls, name: str, config: Config):
+    def from_config(cls, name: str, config: ConfigParser):
         """Create a new molecule instance from a config parser.
 
         The section titles are ignored at the moment.
