@@ -63,7 +63,6 @@ def main(args: Sequence[str]):
                         help='Moments to calculate')
     parser.set_defaults(subcube=None)
     args = parser.parse_args(args)
-    args.put_rms = True
     for step in pipe:
         step(args)
 
