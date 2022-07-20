@@ -37,6 +37,7 @@ def _proc(args: argparse.Namespace) -> None:
                                           linefreq=args.linefreq,
                                           rms=rms,
                                           lower_limit=args.fluxlimit,
+                                          skip_beam_error=True,
                                           log=args.log.info)
 
             # Save
