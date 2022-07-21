@@ -41,9 +41,10 @@ def _proc(args: argparse.Namespace) -> None:
                                           log=args.log.info)
 
             # Save
-            outname = f'{args.output[0]}.{trans_name}.moment{nmoment}.fits'
-            args.log.info(f'Writing: {outname}')
-            moment.write(outname, overwrite=True)
+            if moment is not None:
+                outname = f'{args.output[0]}.{trans_name}.moment{nmoment}.fits'
+                args.log.info(f'Writing: {outname}')
+                moment.write(outname, overwrite=True)
 
 def main(args: Sequence[str]):
     """Main program."""
