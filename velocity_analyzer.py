@@ -124,20 +124,27 @@ def _proc(args: argparse.Namespace):
 def main(args: List):
     """Main program."""
     pipe = [_proc]
-    args_parents = [parents.logger('debug_velocity_analyzer.log')]
+    args_parents = [parents.logger('debug_velocity_analyzer.log'),
+                    parents.astro_source()]
     parser = argparse.ArgumentParser(
         add_help=True,
         #description=description,
         #formatter_class=HelpFormatter,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=args_parents)
+    parser.add_argument('--nsigma', type=float, default=5,
+                        help='Consider data over nsigma rms level.')
+    parser.add_argument('--moment_zero', nargs=1, action=actions.CheckFile,
+                        help='Zeroth moment file name.')
+    parser.add_argument('--continuum', nargs=1, action=actions.CheckFile,
+                        help='Continuum file name.')
     parser.add_argument('moment', nargs=1, action=actions.CheckFile,
                         help='First moment file name.')
     parser.add_argument('outdir', nargs=1, action=actions.MakePath,
                         help='Output directory.')
     parser.add_argument('table', nargs=1, action=actions.NormalizePath,
                         help='Output directory.')
-    parser.set_defaults(nsigma=5.)
+    #parser.set_defaults(nsigma=5.)
     args = parser.parse_args(args)
     for step in pipe:
         step(args)
