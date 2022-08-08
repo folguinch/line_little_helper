@@ -14,12 +14,11 @@ import sys
 from astropy.io import fits
 from astropy.table import QTable, vstack
 from toolkit.argparse_tools import actions, parents
-from toolkit.astro_tools.masking import (emission_mask, mask_to_hdu,
-                                         position_in_mask)
+from toolkit.astro_tools.masking import emission_mask, position_in_mask
 from toolkit.astro_tools.images import (minimal_radius, emission_peaks,
                                         stats_in_beam, image_cutout,
                                         intensity_gradient)
-from toolkit.converters import quantity_from_hdu
+from toolkit.converters import quantity_from_hdu, array_to_hdu
 import numpy as np
 
 def _proc(args: argparse.Namespace):
@@ -44,7 +43,7 @@ def _proc(args: argparse.Namespace):
         mask = emission_mask(moment_zero, nsigma=args.nsigma,
                              initial_mask=mask, log=args.log.info)
     else:
-        mask = mask_to_hdu(mask, moment1)
+        mask = array_to_hdu(mask, moment1)
 
     # Get positions
     if args.source:
