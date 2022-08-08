@@ -13,6 +13,7 @@ A set of tools and scripts to work with cube images and molecular line emission.
 - `cube_info.py`: List basic cube information.
 - `line_info.py`: Script to display line information upon request.
 - `line_id_helper.py`: Program to help in the identification of lines.
+- `velocity_analyzer.py`: Analyze velocity gradients in first moment maps.
 
 
 [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
