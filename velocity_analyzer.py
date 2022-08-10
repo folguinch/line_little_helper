@@ -29,11 +29,11 @@ def _proc(args: argparse.Namespace):
         args.log.warning('No valid moment 1 data')
         sys.exit()
     if args.continuum:
-        continuum = args.continuum[0]
+        continuum = fits.open(args.continuum[0])[0]
     else:
         continuum = None
     if args.moment_zero:
-        moment_zero = args.moment_zero[0]
+        moment_zero = fits.open(args.moment_zero[0])[0]
     else:
         moment_zero = None
 
