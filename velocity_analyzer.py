@@ -29,7 +29,7 @@ def _proc(args: argparse.Namespace):
     if np.all(moment1.data == np.nan):
         args.log.warning('No valid moment 1 data')
         sys.exit()
-    wcs = wcs.WCS(moment1)
+    wcs = WCS(moment1)
     if args.continuum:
         continuum = fits.open(args.continuum[0])[0]
     else:
