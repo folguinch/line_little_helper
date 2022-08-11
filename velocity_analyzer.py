@@ -13,6 +13,7 @@ import sys
 
 from astropy.io import fits
 from astropy.table import QTable, vstack
+from astropy.wcs import WCS
 from toolkit.argparse_tools import actions, parents
 from toolkit.astro_tools.masking import emission_mask, position_in_mask
 from toolkit.astro_tools.images import (minimal_radius, emission_peaks,
@@ -28,6 +29,7 @@ def _proc(args: argparse.Namespace):
     if np.all(moment1.data == np.nan):
         args.log.warning('No valid moment 1 data')
         sys.exit()
+    wcs = wcs.WCS(moment1)
     if args.continuum:
         continuum = fits.open(args.continuum[0])[0]
     else:
@@ -42,8 +44,6 @@ def _proc(args: argparse.Namespace):
     if moment_zero is not None:
         mask = emission_mask(moment_zero, nsigma=args.nsigma,
                              initial_mask=mask, log=args.log.info)
-    else:
-        mask = array_to_hdu(mask, moment1)
 
     # Get positions
     if args.source:
@@ -67,7 +67,7 @@ def _proc(args: argparse.Namespace):
                   'mean_direction_beam_std']
     for i, position in enumerate(positions):
         # Check there is a velocity gradient at position
-        if not position_in_mask(position, mask):
+        if not position_in_mask(position, mask, wcs):
             args.log.info('No molecular emission at %s', position)
             table.append({
                 'image': args.moment[0],
