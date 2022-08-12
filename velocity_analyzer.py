@@ -42,8 +42,10 @@ def _proc(args: argparse.Namespace):
 
     # Identify regions with valid moment 1 data
     mask = ~np.isnan(moment1.data)
+    figname = args.moment[0].with_suffix(f'.structures.png').name
+    figname = args.outdir[0] / figname
     centroids, lengths = identify_structures(moment1, mask=mask, min_area=1.5,
-                                             log=args.log.info)
+                                             plot=figname, log=args.log.info)
 
     # Molecular emission mask
     if moment_zero is not None:
