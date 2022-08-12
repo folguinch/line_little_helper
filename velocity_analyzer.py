@@ -16,10 +16,11 @@ from astropy.table import QTable, vstack
 from astropy.wcs import WCS
 from toolkit.argparse_tools import actions, parents
 from toolkit.astro_tools.masking import emission_mask, position_in_mask
-from toolkit.astro_tools.images import (minimal_radius, emission_peaks,
+from toolkit.astro_tools.images import (minimal_radius, identify_structures,
                                         stats_in_beam, image_cutout,
-                                        intensity_gradient)
-from toolkit.converters import quantity_from_hdu, array_to_hdu
+                                        intensity_gradient, get_peak,
+                                        positions_in_image)
+from toolkit.converters import quantity_from_hdu
 import numpy as np
 
 def _proc(args: argparse.Namespace):
@@ -29,7 +30,7 @@ def _proc(args: argparse.Namespace):
     if np.all(moment1.data == np.nan):
         args.log.warning('No valid moment 1 data')
         sys.exit()
-    wcs = WCS(moment1)
+    wcs = WCS(moment1, naxis=['longitude', 'latitude'])
     if args.continuum:
         continuum = fits.open(args.continuum[0])[0]
     else:
@@ -39,79 +40,127 @@ def _proc(args: argparse.Namespace):
     else:
         moment_zero = None
 
-    # Mask
+    # Identify regions with valid moment 1 data
     mask = ~np.isnan(moment1.data)
+    centroids, lengths = identify_structures(moment1, mask=mask, min_area=1.5,
+                                             log=args.log.info)
+
+    # Molecular emission mask
     if moment_zero is not None:
         mask = emission_mask(moment_zero, nsigma=args.nsigma,
                              initial_mask=mask, log=args.log.info)
 
+    # Continuum emission
+    if continuum is not None:
+        mask_cont = emission_mask(continuum, nsigma=args.nsigma,
+                                  log=args.log.info)
+        wcs_cont = WCS(continuum, naxis=['longitude', 'latitude'])
+    else:
+        mask_cont = None
+        wcs_cont =  None
+
     # Get positions
     if args.source:
         positions = [args.source.position]
-        radii = [minimal_radius(moment1, positions[0])]
-    elif continuum is not None:
-        positions, radii = emission_peaks(continuum, min_area=1.5,
-                                          log=args.log.info)
-    elif moment_zero is not None:
-        positions, radii = emission_peaks(moment_zero, min_area=1.5,
-                                          log=args.log.info)
     else:
-        raise ValueError('Could not identify any sources')
+        positions = None
+    #elif continuum is not None:
+    #    positions, radii = emission_peaks(continuum, min_area=1.5,
+    #                                      log=args.log.info)
+    #elif moment_zero is not None:
+    #    positions, radii = emission_peaks(moment_zero, min_area=1.5,
+    #                                      log=args.log.info)
+    #else:
+    #    raise ValueError('Could not identify any sources')
 
     # Iterate around positions
     table = []
-    table_head = ['image', 'position', 'velocity', 'vel_std', 'radius',
-                  'mean_gradient', 'mean_gradient_std', 'mean_gradient_beam',
-                  'mean_gradient_beam_std', 'mean_direction',
-                  'mean_direction_std', 'mean_direction_beam',
+    table_head = ['image', 'centroid', 'lenx', 'leny', 'position', 'velocity',
+                  'vel_std', 'mean_gradient', 'mean_gradient_std',
+                  'mean_gradient_beam', 'mean_gradient_beam_std',
+                  'mean_direction', 'mean_direction_std', 'mean_direction_beam',
                   'mean_direction_beam_std']
-    for i, position in enumerate(positions):
-        # Check there is a velocity gradient at position
-        if not position_in_mask(position, mask, wcs):
+    for i, (centroid, length) in enumerate(zip(centroids, lengths)):
+        # Check there is molecular line emission at centroid
+        if not position_in_mask(centroid, mask, wcs):
             args.log.info('No molecular emission at %s', position)
             table.append({
                 'image': args.moment[0],
-                'position': position,
+                'centroid': centroid,
+                'lenx': length[1],
+                'leny': length[0],
             })
             continue
 
-        # Estimate vlsr
-        stats_mom1 = stats_in_beam(moment1, position, beam_radius_factor=1.5)
-        args.log.info('Velocity at position: %s +/- %s', *tuple(stats_mom1))
+        # Check if there is continuum emission at centroid
+        if (mask_cont is not None and
+            not position_in_mask(centroid, mask_cont, wcs_cont)):
+            args.log.info('No continuum emission at %s', position)
+            table.append({
+                'image': args.moment[0],
+                'centroid': centroid,
+                'lenx': length[1],
+                'leny': length[0],
+            })
+            continue
 
-        # Cutout around position
-        args.log.info('Cutting map at %s (radius=%s)', position, radii[i])
+        # Get true position
+        args.log.info('Cutting map at %s (%s x %s)', centroid, *length)
         filename = args.moment[0].with_suffix(f'.cutout{i}.fits').name
         filename = args.outdir[0] / filename
-        cutout = image_cutout(moment1, position, radii[i]*2,
-                              filename=filename)
-        args.log.info('Saving cutout at: %s', filename)
+        cutout = image_cutout(moment1, centroid, length, filename=filename)
+        args.log.info('Cutout saved at: %s', filename)
+        if continuum is not None:
+            cutout_cont = image_cutout(continuum, centroid, length)
+            position, _ = get_peak(cutout_cont)
+            args.log.info('Continuum peak position: %s', position)
+            pos_list = [position]
+        elif positions is not None:
+            pos_list = positions_in_image(positions, cutout)
+            args.log.info('Input positions in cutout: %r', pos_list)
+        elif moment_zero is not None:
+            cutout_mol = image_cutout(moment_zero, centroid, length)
+            position, _ = get_peak(cutout_mol)
+            args.log.info('Zeroth moment peak position: %s', position)
+            pos_list = [position]
+        else:
+            args.log.info('Using centroid as position')
+            pos_list = [centroid]
 
-        # Velocity gradient
-        grad, dirc = intensity_gradient(cutout)
-        mean_grad = np.mean(quantity_from_hdu(grad))
-        std_grad = np.std(quantity_from_hdu(grad))
-        mean_dirc = np.mean(quantity_from_hdu(dirc))
-        std_dirc = np.std(quantity_from_hdu(dirc))
-        stats_grad = stats_in_beam(grad, position, beam_radius_factor=1.5)
-        stats_dirc = stats_in_beam(dirc, position, beam_radius_factor=1.5)
+        # Stats at each position
+        for position in pos_list:
+            # Estimate vlsr
+            stats_mom1 = stats_in_beam(moment1, position,
+                                       beam_radius_factor=1.5)
+            args.log.info('Velocity at position: %s +/- %s', *tuple(stats_mom1))
 
-        # Store in table
-        table.append({
-            'image': args.moment[0],
-            'position': position,
-            'velocity': stats_mom1[0],
-            'vel_std': stats_mom1[1],
-            'radius': radii[i],
-            'mean_gradient': mean_grad,
-            'mean_gradient_std': std_grad,
-            'mean_gradient_beam': stats_grad[0],
-            'mean_gradient_beam_std': stats_grad[1],
-            'mean_direction': mean_dirc,
-            'mean_direction_std': std_dirc,
-            'mean_direction_beam': stats_dirc[0],
-            'mean_direction_beam_std': stats_dirc[1],
-        })
+            # Velocity gradient
+            grad, dirc = intensity_gradient(cutout)
+            mean_grad = np.mean(quantity_from_hdu(grad))
+            std_grad = np.std(quantity_from_hdu(grad))
+            mean_dirc = np.mean(quantity_from_hdu(dirc))
+            std_dirc = np.std(quantity_from_hdu(dirc))
+            stats_grad = stats_in_beam(grad, position, beam_radius_factor=1.5)
+            stats_dirc = stats_in_beam(dirc, position, beam_radius_factor=1.5)
+
+            # Store in table
+            table.append({
+                'image': args.moment[0],
+                'centroid': centroid,
+                'lenx': length[1],
+                'leny': length[0],
+                'position': position,
+                'velocity': stats_mom1[0],
+                'vel_std': stats_mom1[1],
+                'mean_gradient': mean_grad,
+                'mean_gradient_std': std_grad,
+                'mean_gradient_beam': stats_grad[0],
+                'mean_gradient_beam_std': stats_grad[1],
+                'mean_direction': mean_dirc,
+                'mean_direction_std': std_dirc,
+                'mean_direction_beam': stats_dirc[0],
+                'mean_direction_beam_std': stats_dirc[1],
+            })
 
     # Save table
     table = QTable(rows=table, names=table_head)
