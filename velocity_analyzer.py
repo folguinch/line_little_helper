@@ -83,7 +83,7 @@ def _proc(args: argparse.Namespace):
     for i, (centroid, length) in enumerate(zip(centroids, lengths)):
         # Check there is molecular line emission at centroid
         if not position_in_mask(centroid, mask, wcs):
-            args.log.info('No molecular emission at %s', position)
+            args.log.info('No molecular emission at %s', centroid)
             table.append({
                 'image': args.moment[0],
                 'centroid': centroid,
@@ -95,7 +95,7 @@ def _proc(args: argparse.Namespace):
         # Check if there is continuum emission at centroid
         if (mask_cont is not None and
             not position_in_mask(centroid, mask_cont, wcs_cont)):
-            args.log.info('No continuum emission at %s', position)
+            args.log.info('No continuum emission at %s', centroid)
             table.append({
                 'image': args.moment[0],
                 'centroid': centroid,
