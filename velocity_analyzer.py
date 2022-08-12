@@ -51,12 +51,21 @@ def _proc(args: argparse.Namespace):
     if moment_zero is not None:
         mask = emission_mask(moment_zero, nsigma=args.nsigma,
                              initial_mask=mask, log=args.log.info)
+        #wcs_mom0 = WCS(moment_zero, naxis=['longitude', 'latitude'])
+        figname = args.moment[0].with_suffix(f'.mom0.mask.png').name
+        figname = args.outdir[0] / figname
+        fig, _ = plot_mask(mask, scatter=centroids, wcs=wcs)
+        fig.savefig(figname)
 
     # Continuum emission
     if continuum is not None:
         mask_cont = emission_mask(continuum, nsigma=args.nsigma,
                                   log=args.log.info)
         wcs_cont = WCS(continuum, naxis=['longitude', 'latitude'])
+        figname = args.moment[0].with_suffix(f'.cont.mask.png').name
+        figname = args.outdir[0] / figname
+        fig, _ = plot_mask(mask_cont, scatter=centroids, wcs=wcs_cont)
+        fig.savefig(figname)
     else:
         mask_cont = None
         wcs_cont =  None
