@@ -15,7 +15,8 @@ from astropy.io import fits
 from astropy.table import QTable, vstack
 from astropy.wcs import WCS
 from toolkit.argparse_tools import actions, parents
-from toolkit.astro_tools.masking import emission_mask, position_in_mask
+from toolkit.astro_tools.masking import (emission_mask, position_in_mask,
+                                         plot_mask)
 from toolkit.astro_tools.images import (minimal_radius, identify_structures,
                                         stats_in_beam, image_cutout,
                                         intensity_gradient, get_peak,
