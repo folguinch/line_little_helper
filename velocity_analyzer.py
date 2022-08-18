@@ -22,6 +22,7 @@ from toolkit.astro_tools.images import (minimal_radius, identify_structures,
                                         intensity_gradient, get_peak,
                                         positions_in_image)
 from toolkit.converters import quantity_from_hdu
+from toolkit.maths import quick_rms
 import numpy as np
 
 def _proc(args: argparse.Namespace):
@@ -60,16 +61,18 @@ def _proc(args: argparse.Namespace):
 
     # Continuum emission
     if continuum is not None:
-        mask_cont = emission_mask(continuum, nsigma=args.nsigma,
-                                  log=args.log.info)
-        wcs_cont = WCS(continuum, naxis=['longitude', 'latitude'])
-        figname = args.moment[0].with_suffix(f'.cont.mask.png').name
-        figname = args.outdir[0] / figname
-        fig, _ = plot_mask(mask_cont, scatter=centroids, wcs=wcs_cont)
-        fig.savefig(figname)
+        sigma_cont = quick_rms(continuum.data)
+    #    mask_cont = emission_mask(continuum, nsigma=3,
+    #                              log=args.log.info)
+    #    wcs_cont = WCS(continuum, naxis=['longitude', 'latitude'])
+    #    figname = args.moment[0].with_suffix(f'.cont.mask.png').name
+    #    figname = args.outdir[0] / figname
+    #    fig, _ = plot_mask(mask_cont, scatter=centroids, wcs=wcs_cont)
+    #    fig.savefig(figname)
     else:
-        mask_cont = None
-        wcs_cont =  None
+        sigma_cont = None
+    #    mask_cont = None
+    #    wcs_cont =  None
 
     # Get positions
     if args.source:
@@ -105,16 +108,16 @@ def _proc(args: argparse.Namespace):
             continue
 
         # Check if there is continuum emission at centroid
-        if (mask_cont is not None and
-            not position_in_mask(centroid, mask_cont, wcs_cont)):
-            args.log.info('No continuum emission at %s', centroid)
-            table.append({
-                'image': args.moment[0],
-                'centroid': centroid,
-                'lenx': length[1],
-                'leny': length[0],
-            })
-            continue
+        #if (mask_cont is not None and
+        #    not position_in_mask(centroid, mask_cont, wcs_cont)):
+        #    args.log.info('No continuum emission at %s', centroid)
+        #    table.append({
+        #        'image': args.moment[0],
+        #        'centroid': centroid,
+        #        'lenx': length[1],
+        #        'leny': length[0],
+        #    })
+        #    continue
 
         # Get true position
         args.log.info('Cutting map at %s (%s x %s)', centroid, *length)
@@ -124,6 +127,10 @@ def _proc(args: argparse.Namespace):
         args.log.info('Cutout saved at: %s', filename)
         if continuum is not None:
             cutout_cont = image_cutout(continuum, centroid, length)
+            # Check if there is continuum emission at centroid
+            if not np.any(cutout_cont.data > args.nsigma * sigma_cont):
+                args.log.info('No continuum emission at %s', centroid)
+                continue
             position, _ = get_peak(cutout_cont)
             args.log.info('Continuum peak position: %s', position)
             pos_list = [position]
