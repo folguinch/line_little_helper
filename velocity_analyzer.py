@@ -184,9 +184,9 @@ def _proc(args: argparse.Namespace):
             })
 
             # Plot cutout
-            figname = args.moment[0].with_suffix(f'.cutout{i}.pos{j}.fits').name
+            figname = args.moment[0].with_suffix(f'.cutout{i}.pos{j}.png').name
             filename = args.outdir[0] / filename
-            plot_map(cutout, figname, stats=table[-1])
+            plot_map(cutout, figname, stats=table[-1], styles=['bwr'])
 
     # Save table
     table = QTable(rows=table, names=table_head)
