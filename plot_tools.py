@@ -156,8 +156,19 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
     wcs = WCS(image, naxis=['longitude', 'latitude'])
 
     # Plot
+    loc = (0, 0)
     plotter = MultiPlotter(**kwargs)
     plotter.insert_section('map_plot', config, switch=True)
-    handler = plotter.init_axis((0, 0), projection=wcs)
+    handler = plotter.init_axis(loc, projection=wcs)
     handler.auto_plot(image, 'image', plotter.config)
+
+    # Color bar
+    if plotter.has_cbar(loc):
+        handler.plot_cbar(plotter.fig,
+                          orientation=plotter.axes[loc].cborientation)
+
+    # Config plot
+    plotter.apply_config(loc, handler, 'image')
+
+    # Save
     plotter.savefig(figname)
