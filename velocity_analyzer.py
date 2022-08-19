@@ -188,7 +188,8 @@ def _proc(args: argparse.Namespace):
             filename = args.outdir[0] / filename
             plot_map(cutout, figname, stats=table[-1], styles='bwr',
                      xformat='hh:mm:ss.ss', yformat='dd:mm:ss.s',
-                     ticks_color='k', right='0.34', label_xpad='1.')
+                     ticks_color='k', right='1.0', label_xpad='1.',
+                     label_ypad='-0.7', bname='Velocity')
 
     # Save table
     table = QTable(rows=table, names=table_head)
