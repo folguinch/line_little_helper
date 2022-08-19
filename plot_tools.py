@@ -171,7 +171,7 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
     plotter.apply_config(loc, handler, 'image')
 
     # Save
-    if figname is not None
+    if figname is not None:
         plotter.savefig(figname)
 
     return plotter, handler

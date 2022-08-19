@@ -23,6 +23,7 @@ from toolkit.astro_tools.images import (minimal_radius, identify_structures,
                                         positions_in_image)
 from toolkit.converters import quantity_from_hdu
 from toolkit.maths import quick_rms
+import astropy.units as u
 import numpy as np
 
 from line_little_helper.plot_tools import plot_map
