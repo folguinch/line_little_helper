@@ -140,9 +140,9 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
     kwargs.setdefault('vertical_cbar', 'true')
     kwargs.setdefault('vcbarpos', '0')
     kwargs.setdefault('hcbarpos', '0')
-    config = {'plot_beam': 'true'}
+    config = {'loc': '0 0', 'plot_beam': 'true'}
     if stats is not None:
-        config['scatters'] = (f"stats['position'].to_string('hmsdms')"
+        config['scatters'] = (f"{stats['position'].to_string('hmsdms')}"
                               f" {stats['position'].frame.name}")
         config['scatters_marker'] = 'o'
         config['scatters_mec'] = 'c'
