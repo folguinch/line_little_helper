@@ -143,7 +143,7 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
     config = {'plot_beam': 'true'}
     if stats is not None:
         config['scatters'] = (stats['position'].to_string('hmsdms')
-                              f" {stats['position'].frame.name")
+                              f" {stats['position'].frame.name}")
         config['scatters_marker'] = 'o'
         config['scatters_mec'] = 'c'
 
