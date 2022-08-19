@@ -135,11 +135,11 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
       **kwargs: any additional configuration option for `MultiPlotter`.
     """
     # Configuration
-    kwargs.set_default('nrows', '1')
-    kwargs.set_default('ncols', '1')
-    kwargs.set_default('vertical_cbar', 'true')
-    kwargs.set_default('vcbarpos', '0')
-    kwargs.set_default('hcbarpos', '0')
+    kwargs.setdefault('nrows', '1')
+    kwargs.setdefault('ncols', '1')
+    kwargs.setdefault('vertical_cbar', 'true')
+    kwargs.setdefault('vcbarpos', '0')
+    kwargs.setdefault('hcbarpos', '0')
     config = {'plot_beam': 'true'}
     if stats is not None:
         config['scatters'] = (f"stats['position'].to_string('hmsdms')"
