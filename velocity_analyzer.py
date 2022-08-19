@@ -186,10 +186,16 @@ def _proc(args: argparse.Namespace):
             # Plot cutout
             figname = args.moment[0].with_suffix(f'.cutout{i}.pos{j}.png').name
             filename = args.outdir[0] / filename
-            plot_map(cutout, figname, stats=table[-1], styles='bwr',
-                     xformat='hh:mm:ss.ss', yformat='dd:mm:ss.s',
-                     ticks_color='k', right='1.0', label_xpad='1.',
-                     label_ypad='-0.7', bname='Velocity')
+            plotter, handler = plot_map(cutout, stats=table[-1],
+                                        styles='bwr', xformat='hh:mm:ss.ss',
+                                        yformat='dd:mm:ss.s', ticks_color='k',
+                                        right='1.0', label_xpad='1.',
+                                        label_ypad='-0.7', bname='Velocity')
+            if continuum is not None:
+                cont_unit = u.Unit(continuum.header['BUNIT'])
+                handler.plot_contours(cutout_cont, rms=sigma_cont*cont_unit,
+                                      ignore_units=True, colors='g')
+            plotter.savefig(figname)
 
     # Save table
     table = QTable(rows=table, names=table_head)
