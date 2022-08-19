@@ -25,6 +25,8 @@ from toolkit.converters import quantity_from_hdu
 from toolkit.maths import quick_rms
 import numpy as np
 
+from line_little_helper.plot_tools import plot_map
+
 def _proc(args: argparse.Namespace):
     """Process data."""
     # Load data
@@ -99,12 +101,12 @@ def _proc(args: argparse.Namespace):
         # Check there is molecular line emission at centroid
         if not position_in_mask(centroid, mask, wcs):
             args.log.info('No molecular emission at %s', centroid)
-            table.append({
-                'image': args.moment[0],
-                'centroid': centroid,
-                'lenx': length[1],
-                'leny': length[0],
-            })
+            #table.append({
+            #    'image': args.moment[0],
+            #    'centroid': centroid,
+            #    'lenx': length[1],
+            #    'leny': length[0],
+            #})
             continue
 
         # Check if there is continuum emission at centroid
@@ -147,7 +149,7 @@ def _proc(args: argparse.Namespace):
             pos_list = [centroid]
 
         # Stats at each position
-        for position in pos_list:
+        for j, position in enumerate(pos_list):
             # Estimate vlsr
             stats_mom1 = stats_in_beam(moment1, position,
                                        beam_radius_factor=1.5)
@@ -155,10 +157,10 @@ def _proc(args: argparse.Namespace):
 
             # Velocity gradient
             grad, dirc = intensity_gradient(cutout)
-            mean_grad = np.mean(quantity_from_hdu(grad))
-            std_grad = np.std(quantity_from_hdu(grad))
-            mean_dirc = np.mean(quantity_from_hdu(dirc))
-            std_dirc = np.std(quantity_from_hdu(dirc))
+            mean_grad = np.nanmean(quantity_from_hdu(grad))
+            std_grad = np.nanstd(quantity_from_hdu(grad))
+            mean_dirc = np.nanmean(quantity_from_hdu(dirc))
+            std_dirc = np.nanstd(quantity_from_hdu(dirc))
             stats_grad = stats_in_beam(grad, position, beam_radius_factor=1.5)
             stats_dirc = stats_in_beam(dirc, position, beam_radius_factor=1.5)
 
@@ -180,6 +182,11 @@ def _proc(args: argparse.Namespace):
                 'mean_direction_beam': stats_dirc[0],
                 'mean_direction_beam_std': stats_dirc[1],
             })
+
+            # Plot cutout
+            figname = args.moment[0].with_suffix(f'.cutout{i}.pos{j}.fits').name
+            filename = args.outdir[0] / filename
+            plot_cutout(cutout, figname, stats=table[-1])
 
     # Save table
     table = QTable(rows=table, names=table_head)

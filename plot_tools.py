@@ -1,6 +1,8 @@
 """Plotting tools for results."""
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 
+from astropy.wcs import WCS
+from tile_plotter.multi_plotter import MultiPlotter
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -112,3 +114,45 @@ def plot_spectrum(spec: Spectrum,
 
     return fig, ax1, ax2
 
+def plot_map(image: 'astropy.io.fits.PrimaryHDU',
+             figname: 'pathlib.Path',
+             stats: Optional[Dict] = None,
+             **kwargs) -> None:
+    """Plot a map and statistics.
+
+    The following `stats` keys are available for plotting:
+
+    - `position`: plot a marker at position.
+    - `mean_direction` + `position`: draw an arrow pointing in this direction
+      and centered in `position`.
+    - `mean_direction_beam` + `position`: draw an arrow pointing in this
+      direction and centered in `position`.
+
+    Args:
+      image: map to plot.
+      figname: where to save the figure.
+      stats: optional; plot additional artists.
+      **kwargs: any additional configuration option for `MultiPlotter`.
+    """
+    # Configuration
+    kwargs.set_default('nrows', '1')
+    kwargs.set_default('ncols', '1')
+    kwargs.set_default('vertical_cbar', 'true')
+    kwargs.set_default('vcbarpos', '0')
+    kwargs.set_default('hcbarpos', '0')
+    config = {'plot_beam': 'true'}
+    if stats is not None:
+        config['scatters'] = (stats['position'].to_string('hmsdms')
+                              f" {stats['position'].frame.name")
+        config['scatters_marker'] = 'o'
+        config['scatters_mec'] = 'c'
+
+    # Projection
+    wcs = WCS(image, naxis=['longitude', 'latitude'])
+
+    # Plot
+    plotter = MultiPlotter(**kwargs)
+    plotter.insert_section('map_plot', config, switch=True)
+    handler = plotter.init_axis((0, 0), projection=wcs)
+    handler.auto_plot(image, 'image', plotter.config)
+    plotter.savefig(figname)
