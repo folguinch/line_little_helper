@@ -143,7 +143,7 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
     config = {
         'loc': '0 0',
         'handler': 'image',
-        'bunit': image.header['BUNIT']
+        'bunit': image.header['BUNIT'],
         'plot_beam': 'true',
     }
     if stats is not None:
