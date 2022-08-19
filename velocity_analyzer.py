@@ -195,7 +195,7 @@ def _proc(args: argparse.Namespace):
             if continuum is not None:
                 cont_unit = u.Unit(continuum.header['BUNIT'])
                 handler.plot_contours(cutout_cont, rms=sigma_cont*cont_unit,
-                                      ignore_units=True, colors='g')
+                                      ignore_units=True, colors='g', zorder=2)
             plotter.savefig(figname)
 
     # Save table
