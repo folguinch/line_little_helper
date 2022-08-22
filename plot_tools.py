@@ -153,6 +153,9 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
         config['scatters_marker'] = 'o'
         config['scatters_mec'] = 'c'
         config['arrows'] = position
+        direction = stats['mean_direction'] - 90*u.deg
+        if direction < 0*u.deg:
+            direction = 360.*u.deg + direction
         config['arrows_pa'] = (f"{stats['mean_direction'].value} "
                                f"{stats['mean_direction'].unit}")
         config['arrows_length'] = '0.4'
