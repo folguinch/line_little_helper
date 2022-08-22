@@ -156,8 +156,8 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
         direction = stats['mean_direction'] - 90*u.deg
         if direction < 0*u.deg:
             direction = 360.*u.deg + direction
-        config['arrows_pa'] = (f"{stats['mean_direction'].value} "
-                               f"{stats['mean_direction'].unit}")
+        #direction = direction + 90*u.deg
+        config['arrows_pa'] = f"{direction.value} {direction.unit}"
         config['arrows_length'] = '0.4'
 
     # Projection
