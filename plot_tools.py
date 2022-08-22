@@ -117,7 +117,7 @@ def plot_spectrum(spec: Spectrum,
 def plot_map(image: 'astropy.io.fits.PrimaryHDU',
              figname: Optional['pathlib.Path'] = None,
              stats: Optional[Dict] = None,
-             **kwargs) -> Tuple[MultiPlotter,'Handler']:
+             **kwargs) -> Tuple[MultiPlotter]:
     """Plot a map and statistics.
 
     The following `stats` keys are available for plotting:
