@@ -165,6 +165,12 @@ def _proc(args: argparse.Namespace):
             stats_grad = stats_in_beam(grad, position, beam_radius_factor=1.5)
             stats_dirc = stats_in_beam(dirc, position, beam_radius_factor=1.5)
 
+            # Sve cutouts
+            aux = filename.with_suffix(f'.pos{j}.gradient.png')
+            grad.writeto(aux, overwrite=True)
+            aux = filename.with_suffix(f'.pos{j}.direction.png')
+            dirc.writeto(aux, overwrite=True)
+
             # Store in table
             table.append({
                 'image': args.moment[0],
