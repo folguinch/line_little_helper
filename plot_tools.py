@@ -147,10 +147,15 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
         'plot_beam': 'true',
     }
     if stats is not None:
-        config['scatters'] = (f"{stats['position'].to_string('hmsdms')}"
-                              f" {stats['position'].frame.name}")
+        position = (f"{stats['position'].to_string('hmsdms')} "
+                    f"{stats['position'].frame.name}")
+        config['scatters'] = position
         config['scatters_marker'] = 'o'
         config['scatters_mec'] = 'c'
+        config['arrows'] = position
+        config['arrows_pa'] = (f"stats['mean_direction'].value "
+                               f"stats['mean_direction'].unit")
+        config['arrows_length'] = '0.4'
 
     # Projection
     wcs = WCS(image, naxis=['longitude', 'latitude'])
