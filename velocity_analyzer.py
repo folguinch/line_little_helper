@@ -166,9 +166,9 @@ def _proc(args: argparse.Namespace):
             stats_dirc = stats_in_beam(dirc, position, beam_radius_factor=1.5)
 
             # Sve cutouts
-            aux = filename.with_suffix(f'.pos{j}.gradient.png')
+            aux = filename.with_suffix(f'.pos{j}.gradient.fits')
             grad.writeto(aux, overwrite=True)
-            aux = filename.with_suffix(f'.pos{j}.direction.png')
+            aux = filename.with_suffix(f'.pos{j}.direction.fits')
             dirc.writeto(aux, overwrite=True)
 
             # Store in table
