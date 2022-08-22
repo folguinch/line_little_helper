@@ -17,10 +17,9 @@ from astropy.wcs import WCS
 from toolkit.argparse_tools import actions, parents
 from toolkit.astro_tools.masking import (emission_mask, position_in_mask,
                                          plot_mask)
-from toolkit.astro_tools.images import (minimal_radius, identify_structures,
-                                        stats_in_beam, image_cutout,
-                                        intensity_gradient, get_peak,
-                                        positions_in_image)
+from toolkit.astro_tools.images import (identify_structures, stats_in_beam,
+                                        image_cutout, intensity_gradient,
+                                        get_peak, positions_in_image)
 from toolkit.converters import quantity_from_hdu
 from toolkit.maths import quick_rms
 import astropy.units as u
@@ -47,7 +46,7 @@ def _proc(args: argparse.Namespace):
 
     # Identify regions with valid moment 1 data
     mask = ~np.isnan(moment1.data)
-    figname = args.moment[0].with_suffix(f'.structures.png').name
+    figname = args.moment[0].with_suffix('.structures.png').name
     figname = args.outdir[0] / figname
     centroids, lengths = identify_structures(moment1, mask=mask, min_area=1.5,
                                              plot=figname, log=args.log.info)
@@ -56,8 +55,7 @@ def _proc(args: argparse.Namespace):
     if moment_zero is not None:
         mask = emission_mask(moment_zero, nsigma=args.nsigma,
                              initial_mask=mask, log=args.log.info)
-        #wcs_mom0 = WCS(moment_zero, naxis=['longitude', 'latitude'])
-        figname = args.moment[0].with_suffix(f'.mom0.mask.png').name
+        figname = args.moment[0].with_suffix('.mom0.mask.png').name
         figname = args.outdir[0] / figname
         fig, _ = plot_mask(mask, scatter=centroids, wcs=wcs)
         fig.savefig(figname)
@@ -65,31 +63,14 @@ def _proc(args: argparse.Namespace):
     # Continuum emission
     if continuum is not None:
         sigma_cont = quick_rms(continuum.data)
-    #    mask_cont = emission_mask(continuum, nsigma=3,
-    #                              log=args.log.info)
-    #    wcs_cont = WCS(continuum, naxis=['longitude', 'latitude'])
-    #    figname = args.moment[0].with_suffix(f'.cont.mask.png').name
-    #    figname = args.outdir[0] / figname
-    #    fig, _ = plot_mask(mask_cont, scatter=centroids, wcs=wcs_cont)
-    #    fig.savefig(figname)
     else:
         sigma_cont = None
-    #    mask_cont = None
-    #    wcs_cont =  None
 
     # Get positions
     if args.source:
         positions = [args.source.position]
     else:
         positions = None
-    #elif continuum is not None:
-    #    positions, radii = emission_peaks(continuum, min_area=1.5,
-    #                                      log=args.log.info)
-    #elif moment_zero is not None:
-    #    positions, radii = emission_peaks(moment_zero, min_area=1.5,
-    #                                      log=args.log.info)
-    #else:
-    #    raise ValueError('Could not identify any sources')
 
     # Iterate around positions
     table = []
@@ -102,25 +83,7 @@ def _proc(args: argparse.Namespace):
         # Check there is molecular line emission at centroid
         if not position_in_mask(centroid, mask, wcs):
             args.log.info('No molecular emission at %s', centroid)
-            #table.append({
-            #    'image': args.moment[0],
-            #    'centroid': centroid,
-            #    'lenx': length[1],
-            #    'leny': length[0],
-            #})
             continue
-
-        # Check if there is continuum emission at centroid
-        #if (mask_cont is not None and
-        #    not position_in_mask(centroid, mask_cont, wcs_cont)):
-        #    args.log.info('No continuum emission at %s', centroid)
-        #    table.append({
-        #        'image': args.moment[0],
-        #        'centroid': centroid,
-        #        'lenx': length[1],
-        #        'leny': length[0],
-        #    })
-        #    continue
 
         # Get true position
         args.log.info('Cutting map at %s (%s x %s)', centroid, *length)
