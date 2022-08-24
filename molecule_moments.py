@@ -3,6 +3,7 @@ from typing import Sequence
 import argparse
 import sys
 
+from astropy.table import QTable, vstack
 from toolkit.argparse_tools import actions
 from toolkit.argparse_tools import parents
 import numpy as np
