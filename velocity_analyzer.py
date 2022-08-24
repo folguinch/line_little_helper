@@ -196,7 +196,7 @@ def main(args: List):
     parser.add_argument('outdir', nargs=1, action=actions.MakePath,
                         help='Output directory.')
     parser.add_argument('table', nargs=1, action=actions.NormalizePath,
-                        help='Output directory.')
+                        help='Output table ecsv file.')
     #parser.set_defaults(nsigma=5.)
     args = parser.parse_args(args)
     for step in pipe:
