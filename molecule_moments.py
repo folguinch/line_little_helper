@@ -5,6 +5,7 @@ import sys
 
 from toolkit.argparse_tools import actions
 from toolkit.argparse_tools import parents
+import numpy as np
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cubeutils
 
