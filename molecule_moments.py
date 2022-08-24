@@ -21,6 +21,9 @@ def _proc(args: argparse.Namespace) -> None:
     args.log.info(f'Cube rms: {rms}')
 
     # Iterate over transitions
+    table = []
+    table_head = ['cube', 'moment0', 'moment1', 'cube_rms', 'molecule',
+                  'qns', 'rest_freq', 'list']
     for transition in molec.transitions:
         args.log.info(f'Working ontransition:\n{transition}')
         # Get subcube
@@ -29,6 +32,16 @@ def _proc(args: argparse.Namespace) -> None:
 
         # Transition name
         trans_name = transition.generate_name()
+
+        # Table entry
+        table_entry = {
+            'cube': str(args.cubename[0]),
+            'cube_rms': rms,
+            'molecule': molec.name,
+            'qns': transition.qns,
+            'rest_freq': transition.restfreq,
+            'list': f'{args.line_lists}',
+        }
 
         # Calculate moments
         for nmoment in args.moments:
@@ -40,11 +53,29 @@ def _proc(args: argparse.Namespace) -> None:
                                           skip_beam_error=True,
                                           log=args.log.info)
 
+            # Check it has data
+            if moment is not None and np.all(moment.data == np.nan):
+                args.log.warn('No valid data for moment')
+                continue
+
             # Save
             if moment is not None:
                 outname = f'{args.output[0]}.{trans_name}.moment{nmoment}.fits'
                 args.log.info(f'Writing: {outname}')
                 moment.write(outname, overwrite=True)
+                if nmoment in [0, 1]:
+                    table_entry[f'moment{nmoment}'] = outname
+
+        # Append to table
+        table.append(table_entry)
+
+    # Save table
+    if args.table is not None:
+        table = QTable(rows=table, names=table_head)
+        if args.table[0].exists():
+            table_old = QTable.read(args.table[0], format='ascii.ecsv')
+            table = vstack([table_old, table])
+        table.write(args.table[0], format='ascii.ecsv')
 
 def main(args: Sequence[str]):
     """Main program."""
@@ -59,6 +90,9 @@ def main(args: Sequence[str]):
         conflict_handler='resolve')
     parser.add_argument('--fluxlimit', nargs=2, action=actions.ReadQuantity,
                         help='Flux lower limit with units')
+    parser.add_argument('--table', nargs=1, action=actions.NormalizePath,
+                        default=None,
+                        help='Output table ecsv file.')
     parser.add_argument('output', nargs=1, action=actions.NormalizePath,
                         help='The output basename')
     parser.add_argument('moments', nargs='*', type=int,
