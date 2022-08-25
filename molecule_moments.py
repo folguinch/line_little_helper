@@ -72,6 +72,9 @@ def _proc(args: argparse.Namespace) -> None:
         table.append(table_entry)
 
     # Save table
+    if len(table) == 0:
+        args.log.warn('No moment maps')
+        sys.exit()
     if args.table is not None:
         table = QTable(rows=table, names=table_head)
         if args.table[0].exists():
