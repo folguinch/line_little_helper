@@ -168,6 +168,9 @@ def _proc(args: argparse.Namespace):
             plotter.savefig(figname)
 
     # Save table
+    if len(table) == 0:
+        args.log.warn('No structure detected')
+        sys.exit()
     table = QTable(rows=table, names=table_head)
     if args.table[0].exists():
         table_old = QTable.read(args.table[0], format='ascii.ecsv')
