@@ -93,7 +93,7 @@ def _proc(args: argparse.Namespace):
         args.log.info('Cutout saved at: %s', filename)
         if continuum is not None:
             cutout_cont = image_cutout(continuum, centroid, length)
-            # Check if there is continuum emission at centroid
+            # Check if there is continuum emission in cutout
             if not np.any(cutout_cont.data > args.nsigma * sigma_cont):
                 args.log.info('No continuum emission at %s', centroid)
                 continue
@@ -155,7 +155,7 @@ def _proc(args: argparse.Namespace):
 
             # Plot cutout
             figname = args.moment[0].with_suffix(f'.cutout{i}.pos{j}.png').name
-            filename = args.outdir[0] / filename
+            figname = args.outdir[0] / filename
             plotter, handler = plot_map(cutout, stats=table[-1],
                                         styles='bwr', xformat='hh:mm:ss.ss',
                                         yformat='dd:mm:ss.s', ticks_color='k',

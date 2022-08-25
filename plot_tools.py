@@ -152,12 +152,20 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
         config['scatters'] = position
         config['scatters_marker'] = 'o'
         config['scatters_mec'] = 'c'
-        config['arrows'] = position
-        direction = stats['mean_direction']
-        if direction < 0*u.deg:
-            direction = 360.*u.deg + direction
-        config['arrows_pa'] = f'{direction.value} {direction.unit}'
-        config['arrows_length'] = '0.4'
+        direction = stats['mean_direction_beam']
+        if not np.isnan(direction):
+            config['arrows'] = position
+            if direction < 0*u.deg:
+                direction = 360.*u.deg + direction
+            config['arrows_pa'] = f'{direction.value} {direction.unit}'
+            config['arrows_length'] = '0.4'
+        elif not np.isnan(stats['mean_direction']):
+            direction = stats['mean_direction']
+            config['arrows'] = position
+            if direction < 0*u.deg:
+                direction = 360.*u.deg + direction
+            config['arrows_pa'] = f'{direction.value} {direction.unit}'
+            config['arrows_length'] = '0.4'
 
     # Projection
     wcs = WCS(image, naxis=['longitude', 'latitude'])
