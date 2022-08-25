@@ -17,6 +17,9 @@ def _proc(args: argparse.Namespace) -> None:
     """Process the data."""
     # Get molecule
     molec = mov_moments.get_molecule(args)
+    if len(molec.transitions) == 0:
+        args.log.warn('No transitions on spectral cube')
+        sys.exit()
 
     # Compute cube rms
     rms = cubeutils.get_cube_rms(args.cube)
