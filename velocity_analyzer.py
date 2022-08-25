@@ -155,7 +155,7 @@ def _proc(args: argparse.Namespace):
 
             # Plot cutout
             figname = args.moment[0].with_suffix(f'.cutout{i}.pos{j}.png').name
-            figname = args.outdir[0] / filename
+            figname = args.outdir[0] / figname
             plotter, handler = plot_map(cutout, stats=table[-1],
                                         styles='bwr', xformat='hh:mm:ss.ss',
                                         yformat='dd:mm:ss.s', ticks_color='k',
