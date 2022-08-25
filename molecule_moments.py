@@ -19,7 +19,7 @@ def _proc(args: argparse.Namespace) -> None:
     molec = mov_moments.get_molecule(args)
     if len(molec.transitions) == 0:
         args.log.warn('No transitions on spectral cube')
-        sys.exit()
+        return
 
     # Compute cube rms
     rms = cubeutils.get_cube_rms(args.cube)
@@ -75,10 +75,7 @@ def _proc(args: argparse.Namespace) -> None:
         table.append(table_entry)
 
     # Save table
-    if len(table) == 0:
-        args.log.warn('No moment maps')
-        sys.exit()
-    if args.table is not None:
+    if args.table is not None and len(table) != 0:
         table = QTable(rows=table, names=table_head)
         if args.table[0].exists():
             table_old = QTable.read(args.table[0], format='ascii.ecsv')

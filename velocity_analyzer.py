@@ -170,7 +170,7 @@ def _proc(args: argparse.Namespace):
     # Save table
     if len(table) == 0:
         args.log.warn('No structure detected')
-        sys.exit()
+        return
     table = QTable(rows=table, names=table_head)
     if args.table[0].exists():
         table_old = QTable.read(args.table[0], format='ascii.ecsv')
