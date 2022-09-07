@@ -27,7 +27,8 @@ def _proc(args: argparse.ArgumentParser) -> None:
     # Query
     args.log.info(f'Quering molecule: {args.query_name}')
     args.molec = Molecule.from_query(args.query_name, args.freq_range,
-                                     vlsr=args.vlsr)
+                                     vlsr=args.vlsr,
+                                     line_lists=args.line_lists)
 
     # Print result
     args.log.info(f'Molecule information: {args.molec}')
@@ -96,6 +97,8 @@ def main(args: list):
     parser.add_argument('--vlsr', metavar=('VEL', 'UNIT'), default=None,
                         action=actions.ReadQuantity,
                         help='Velocity shift for observed frequencies')
+    parser.add_argument('--line_lists', nargs='*', default=('CDMS', 'JPL'),
+                        help='Filter line lists for online queries.')
     parser.add_argument('molecule', nargs=1,
                         help='Molecule name or formula')
     parser.set_defaults(pipe=pipe, query_name=None, freq_range=None, molec=None)

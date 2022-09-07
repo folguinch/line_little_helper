@@ -10,7 +10,9 @@ def line_parents(parents: Sequence) -> argparse.ArgumentParser:
 
     Available parents:
 
-    - vlsr
+    - `vlsr`
+    - `molecule`
+    - `flux`
 
     Args:
       parents: list of parents to return.

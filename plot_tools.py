@@ -145,6 +145,8 @@ def plot_map(image: 'astropy.io.fits.PrimaryHDU',
         'handler': 'image',
         'bunit': image.header['BUNIT'],
         'plot_beam': 'true',
+        'xformat': 'hh:mm:ss.ssss',
+        'yformat': 'dd:mm:ss.ssss',
     }
     if stats is not None:
         position = (f"{stats['position'].to_string('hmsdms')} "
