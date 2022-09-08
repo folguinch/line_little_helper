@@ -50,7 +50,7 @@ def main(args: Sequence[str]):
                         help='The output basename')
     parser.add_argument('moments', nargs='*', type=int,
                         help='Moments to calculate')
-    parser.set_defaults(subcube=None)
+    parser.set_defaults(subcube=None, common_beam=True, put_rms=True)
     args = parser.parse_args(args)
     args.put_rms = True
     for step in pipe:

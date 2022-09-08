@@ -194,6 +194,36 @@ class Molecules(list):
             molecules.append(Molecule.from_config(molecule, config))
         return molecules
 
+class NoTransitionError(Exception):
+    """Exception for `Molecule` without transitions.
+
+    Attributes:
+      message: output message.
+    """
+
+    def __init__(self,
+                 molecule: str,
+                 qns: Optional[str] = None,
+                 spectral_range: Optional[str] = None,
+                 message: Optional[str] = None):
+        # Message
+        if qns is not None and spectral_range is None:
+            if message is None:
+                message = 'Transition not found'
+            self.message = f'{molecule} ({qns}): {message}'
+        elif qns is not None and spectral_range is not None:
+            if message is None:
+                message = 'Transition not found'
+            self.message = (f'{molecule} ({qns} in {spectral_range[0].value}-'
+                            f'{spectral_range[0].value} {spectral_range.unit})'
+                            f': {message}')
+        else:
+            if message is None:
+                message = 'No transition found'
+            self.message = f'{molecule} -> {message}'
+
+        super().__init__(self.message)
+
 def _query_to_transition(name: str,
                          freq_range: QPair,
                          vlsr: Optional[u.Quantity] = None,

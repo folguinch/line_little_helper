@@ -10,6 +10,7 @@ import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
 import toolkit.astro_tools.cube_utils as cubeutils
 
+from line_little_helper.lines import NoTransitionError
 from line_little_helper.moving_moments import HelpFormatter, get_molecule
 from line_little_helper.parents import line_parents
 
@@ -50,6 +51,10 @@ def parent_parser() -> argparse.ArgumentParser:
 def get_subcube(args: argparse.Namespace) -> None:
     """Extract the subcube."""
     args.log.info('Calculating subcube')
+    try:
+        common_beam = args.common_beam
+    except AttributeError:
+        common_beam = False
     args.subcube = cubeutils.get_subcube(args.cube,
                                          freq_range=args.freq_range,
                                          vel_range=args.vel_range,
@@ -60,6 +65,7 @@ def get_subcube(args: argparse.Namespace) -> None:
                                          vlsr=args.vlsr,
                                          linefreq=args.linefreq,
                                          put_rms=args.put_rms,
+                                         common_beam=common_beam,
                                          log=args.log.info)
 
 def check_line_freq(args: argparse.Namespace) -> None:
@@ -71,11 +77,12 @@ def check_line_freq(args: argparse.Namespace) -> None:
         if len(molec.transitions) > 1:
             raise ValueError('Too many transitions')
         elif len(molec.transitions) == 0:
-            args.qns = None
-            args.log.info('No transition found')
-            molec = get_molecule(args)
-            args.log.info(f'Molecule:\n{molec}')
-            raise ValueError('No transitions')
+            #args.qns = None
+            #args.log.info('No transition found')
+            #molec = get_molecule(args)
+            #args.log.info(f'Molecule:\n{molec}')
+            #raise ValueError('No transitions')
+            raise NoTransitionError(args.molecule, qns=args.qns)
         args.linefreq = molec.transitions[0].restfreq
 
 def _save_subcube(args: argparse.Namespace) -> None:
