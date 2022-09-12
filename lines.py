@@ -243,10 +243,11 @@ def _query_to_transition(name: str,
         try:
             table = table[ind]
         except IndexError as exc:
-            print('Could not find QNs')
-            print('Available QNs:')
-            print(table['QNs'])
-            raise ValueError('No QNs detected') from exc
+            #print('Could not find QNs')
+            #print('Available QNs:')
+            #print(table['QNs'])
+            #raise ValueError('No QNs detected') from exc
+            raise NoTransitionError(name, qns=qns) from exc
 
     # Create transitions
     transitions = []
