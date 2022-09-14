@@ -26,6 +26,7 @@ def _get_moment(args: argparse.Namespace) -> None:
                                       linefreq=args.linefreq,
                                       lower_limit=args.fluxlimit,
                                       auto_rms=True,
+                                      nsigma=args.nsigma[0],
                                       log=args.log.info)
 
         # Save
@@ -46,6 +47,8 @@ def main(args: Sequence[str]):
         conflict_handler='resolve')
     parser.add_argument('--fluxlimit', nargs=2, action=actions.ReadQuantity,
                         help='Flux lower limit with units')
+    parser.add_argument('--nsigma', nargs=1, type=int, default=[5],
+                        help='Number of rms levels for flux limit')
     parser.add_argument('output', nargs=1, action=actions.NormalizePath,
                         help='The output basename')
     parser.add_argument('moments', nargs='*', type=int,
