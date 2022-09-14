@@ -448,7 +448,7 @@ def _proc(args: argparse.Namespace) -> None:
         cb_min = common_beam.minor.to(u.arcsec).value
         args.log.info(f"Common beam: {cb_maj:.4f}'' x {cb_min:.4f}''")
         subcube.allow_huge_operations = True
-        subcube = subcube.convolve_to(common_beam)
+        subcube = subcube.convolve_to(common_beam, allow_huge=True)
 
         # Calculate results
         if args.split is not None:
