@@ -431,6 +431,25 @@ def _proc(args: argparse.Namespace) -> None:
                                              velocity_convention='radio',
                                              rest_value=transition.restfreq)
 
+        # Common beam
+        args.log.info(f'Convolving to common beam:')
+        smallest = subcube.beams.smallest_beam()
+        sm_maj = smallest.major.to(u.arcsec).value
+        sm_min = smallest.minor.to(u.arcsec).value
+        largest = subcube.beams.largest_beam()
+        la_maj = largest.major.to(u.arcsec).value
+        la_min = largest.minor.to(u.arcsec).value
+        args.log.info(('Beam extrema: '
+                       f"{sm_maj:.4f}'' x {sm_min:.4f}'' -- "
+                       f"{la_maj:.4f}'' x {la_min:.4f}''"))
+        common_beam = subcube.beams.common_beam(auto_increase_epsilon=True,
+                                                tolerance=5e-5)
+        cb_maj = common_beam.major.to(u.arcsec).value
+        cb_min = common_beam.minor.to(u.arcsec).value
+        args.log.info(f"Common beam: {cb_maj:.4f}'' x {cb_min:.4f}''")
+        subcube.allow_huge_operations = True
+        subcube = subcube.convolve_to(common_beam)
+
         # Calculate results
         if args.split is not None:
             args.log.info('Split window set:')
