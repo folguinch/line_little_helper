@@ -17,8 +17,9 @@ def _save_subcube(args: argparse.Namespace) -> None:
     outname = f'{args.output[0]}.subcube.fits'
     args.subcube.write(outname, overwrite=True)
 
-def _get_moment(args: argparse.Namespace) -> None:
+def _get_moment(args: argparse.Namespace) -> Sequence[str]:
     """Calculate the moments and save."""
+    filenames = []
     for mom in args.moments:
         # Calculate moment
         moment = cubeutils.get_moment(args.subcube,
@@ -32,9 +33,19 @@ def _get_moment(args: argparse.Namespace) -> None:
         # Save
         outname = f'{args.output[0]}.subcube.moment{mom}.fits'
         moment.write(outname, overwrite=True)
+        filenames.append(outname)
 
-def main(args: Sequence[str]):
-    """Main program."""
+    return filenames
+
+def symmetric_moments(args: Sequence[str]) -> Sequence[str]:
+    """Calculate symmetric moments from commad line arguments.
+    
+    Args:
+      args: command line arguments.
+
+    Returns:
+      A list with the moment file names.
+    """
     # Argument parser
     pipe = [aploaders.load_spectral_cube, extractor.check_line_freq,
             extractor.get_subcube, _save_subcube, _get_moment]
@@ -56,8 +67,13 @@ def main(args: Sequence[str]):
     parser.set_defaults(subcube=None, common_beam=True, put_rms=True)
     args = parser.parse_args(args)
     args.put_rms = True
-    for step in pipe:
-        step(args)
+    for i, step in enumerate(pipe):
+        if i < len(pipe)-1:
+            step(args)
+        else:
+            filenames = step(args)
+
+    return filenames
 
 if __name__=='__main__':
-    main(sys.argv[1:])
+    symmetric_moments(sys.argv[1:])
