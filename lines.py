@@ -1,6 +1,6 @@
 """Store information of molecular lines.
 """
-from typing import List, Optional, TypeVar, Sequence
+from typing import Callable, List, Optional, TypeVar, Sequence
 
 import astropy.units as u
 
