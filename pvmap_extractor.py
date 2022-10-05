@@ -18,6 +18,7 @@ import astropy.units as u
 import numpy as np
 
 from line_little_helper.parents import line_parents
+from line_little_helper.lines import get_molecule
 
 def swap_axes(hdu: 'PrimaryHDU'):
     """Swap the axis of an HDU."""
