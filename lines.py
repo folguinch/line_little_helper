@@ -3,6 +3,7 @@
 from typing import Callable, List, Optional, TypeVar, Sequence
 
 import astropy.units as u
+from toolkit.astro_tools import cube_utils
 
 from .processing_tools import to_rest_freq, query_lines, zip_columns, combine_columns
 from .common_types import QPair
@@ -296,7 +297,7 @@ def get_molecule(molecule: str,
     log((f'Observed freq. range: {obs_freq_range[0].value} '
          f'{obs_freq_range[1].value} {obs_freq_range[1].unit}'))
     if vlsr is not None:
-        equiv = u.doppler_radio(get_restfreq(cube))
+        equiv = u.doppler_radio(cube_utils.get_restfreq(cube))
         rest_freq_range = to_rest_freq(obs_freq_range, vlsr, equiv)
         log((f'Rest freq. range: {rest_freq_range[0].value} '
              f'{rest_freq_range[1].value} {rest_freq_range[1].unit}'))
