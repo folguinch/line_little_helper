@@ -231,7 +231,7 @@ def _load_cube(args, section):
         if args.source is not None:
             source_section = args.pvconfig.get(section, 'source_section',
                                                fallback=section)
-            args.cube = args.source[0][source_section]
+            args.cube = args.source[source_section]
             return source_section
         elif 'cube' in args.pvconfig[section]:
             args.cube = SpectralCube.read(args.pvconfig[section]['cube'])
