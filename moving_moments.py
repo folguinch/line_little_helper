@@ -38,7 +38,7 @@ import toolkit.argparse_tools.parents as apparents
 import numpy as np
 import scipy.ndimage as ndimg
 
-from line_little_helper.lines import Molecule
+from line_little_helper.lines import get_molecule
 from line_little_helper.parents import line_parents
 from line_little_helper.processing_tools import to_rest_freq
 
@@ -351,38 +351,15 @@ def full_incremental_moments(cube: Cube,
         filename = f'{transition}_moment1_dilate{iterations}.fits'
         aux.write(outdir / filename, overwrite=True)
 
-def get_molecule(args: argparse.Namespace) -> Molecule:
+def _get_molecule(args: argparse.Namespace) -> 'Molecule':
     """Generate a `Molecule` from argparse.
 
     Requires the argparse to have `cube` and `log` attributes. The `vlsr`
     attribute is also needed but does not need to be initialized.
     """
-    # Frequency ranges
-    spectral_axis = args.cube.spectral_axis
-    obs_freq_range = spectral_axis[[0,-1]]
-    args.log.info((f'Observed freq. range: {obs_freq_range[0].value} '
-                   f'{obs_freq_range[1].value} {obs_freq_range[1].unit}'))
-    if args.vlsr is not None:
-        equiv = u.doppler_radio(get_restfreq(args.cube))
-        rest_freq_range = to_rest_freq(obs_freq_range, args.vlsr, equiv)
-        args.log.info((f'Rest freq. range: {rest_freq_range[0].value} '
-                       f'{rest_freq_range[1].value} {rest_freq_range[1].unit}'))
-    else:
-        args.log.warn('Could not determine rest frequency, using observed')
-        rest_freq_range = obs_freq_range
-
-    # Create molecule
-    if args.onlyj:
-        filter_out = ['F', 'K']
-    else:
-        filter_out = None
-    mol = Molecule.from_query(f' {args.molecule[0]} ', rest_freq_range,
-                              vlsr=args.vlsr, filter_out=filter_out,
-                              line_lists=args.line_lists, qns=args.qns)
-    mol.reduce_qns()
-    args.log.info(f'Number of transitions: {len(mol.transitions)}')
-
-    return mol
+    return get_molecule(args.molecule[0], args.cube, qns=args.qns,
+                        onlyj=args.onlyj, line_lists=args.line_lists,
+                        vlsr=args.vlsr, log=args.log.info)
 
 def _preproc(args: argparse.Namespace) -> None:
     """Generate the necessary objects to process the data."""
@@ -392,7 +369,7 @@ def _preproc(args: argparse.Namespace) -> None:
     args.cube = args.cube.with_spectral_unit(u.GHz)
 
     # Load molecule
-    args.mol = get_molecule(args)
+    args.mol = _get_molecule(args)
 
 def _proc(args: argparse.Namespace) -> None:
     """Process the cube."""

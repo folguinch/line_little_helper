@@ -11,10 +11,13 @@ from astropy.units.equivalencies import doppler_radio
 from pvextractor import PathFromCenter, extract_pv_slice
 from pvextractor import Path as pvPath
 from regions import Regions
+from spectral_cube import SpectralCube
 from toolkit.argparse_tools import actions, parents, functions
 from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import numpy as np
+
+from line_little_helper.parents import line_parents
 
 def swap_axes(hdu: 'PrimaryHDU'):
     """Swap the axis of an HDU."""
@@ -123,7 +126,8 @@ def get_pvmap_from_region(cube: 'SpectralCube',
 
 def get_parent_parser() -> argparse.ArgumentParser:
     """Base parent parser for pv maps."""
-    parent_parser = argparse.ArgumentParser(add_help=False)
+    parents = [line_parents(['vlsr', 'molecule'])]
+    parent_parser = argparse.ArgumentParser(add_help=False, parents=parents)
     parent_parser.add_argument(
         '--invert',
         action='store_true',
@@ -146,10 +150,6 @@ def get_parent_parser() -> argparse.ArgumentParser:
         action=actions.ReadQuantity,
         help='Frequency slab width')
     parent_parser.add_argument(
-        '--vlsr',
-        action=actions.ReadQuantity,
-        help='LSR velocity in km/s')
-    parent_parser.add_argument(
         '--pa',
         nargs='*',
         action=actions.ReadQuantity,
@@ -166,7 +166,7 @@ def get_parent_parser() -> argparse.ArgumentParser:
         '--paths',
         nargs='*',
         action=actions.NormalizePath,
-        help='Read a casa poly region as pv path')
+        help='Read a CASA poly region as pv path')
     parent_parser.add_argument(
         '--output',
         action=actions.NormalizePath,
@@ -211,12 +211,35 @@ def _minimal_set(args: argparse.Namespace) -> None:
         functions.pixels_to_positions(args,
                                       wcs=args.cube.wcs.sub(['longitude',
                                                              'latitude']))
-        args.sections = [args.cube]
+        args.sections = ['cube']
+        args.pvtype = 'cube_slit'
     elif args.cube and args.width and args.path and args.pvconfig is None:
-        args.sections = [args.cube]
-    else:
+        args.sections = ['cube']
+        args.pvtype = 'cube_region'
+    elif args.pvconfig is not None:
         args.sections = args.sections or args.pvconfig.sections()
+        args.pvtype = 'pvconfig'
         args.log.info('PV config file selected sections: %r', args.sections)
+    else:
+        raise ValueError('Not enough information for pv map')
+
+def _load_cube(args, section):
+    """Load the cube depending on the input data."""
+    if args.cube is not None:
+        return None
+    elif args.pvconfig is not None:
+        if args.source is not None:
+            source_section = args.pvconfig.get(section, 'source_section',
+                                               fallback=section)
+            args.cube = args.source[0][source_section]
+            return source_section
+        elif 'cube' in args.pvconfig[section]:
+            args.cube = SpectralCube.read(args.pvconfig[section]['cube'])
+            return None
+        else:
+            raise ValueError('Cannot load the input cube')
+    else:
+        raise ValueError('Cannot load the input cube')
 
 def _iter_sections(args: argparse.Namespace) -> None:
     """Iterate over the sections in configuration."""
@@ -224,36 +247,51 @@ def _iter_sections(args: argparse.Namespace) -> None:
     for section in args.sections:
         args.log.info('PV map for: %s', section)
 
-        # Load moment 0 map or use source position
-        source_section = None
+        # PV map options
+        has_paths = (args.paths or
+                     (args.pvconfig and 'paths' in args.pvconfig[section]))
+        pvmap_kwargs = {'output': args.output,
+                        'file_fmt': args.pvconfig.get(section, 'file_fmt',
+                                                      fallback=None),
+                        'sources': args.source,
+                        'section': section,
+                        }
+        if args.pvconfig:
+            pvmap_kwargs['file_fmt'] = args.pvconfig.get(section, 'file_fmt',
+                                                         fallback=None)
+
+        # Load data
+        source_section = _load_cube(args, section)
+        pvmap_kwargs['source_section'] = source_section
+        rest_freq = cube_utils.get_restfreq(args.cube)
+
+        # Load position or path
         if args.pvconfig and 'moment0' in args.pvconfig[section]:
             raise NotImplementedError
             #moment0 = Image(args.pvconfig.get(section, 'moment0'))
             #xmax, ymax = moment0.max_pix()
             #rest_freq = moment0.header['RESTFRQ'] * u.Hz
-        elif args.pvconfig and args.source is not None:
-            source_section = args.pvconfig.get(section,
-                                               'source_section',
-                                               fallback=section)
-            # This assumes the cubes are the same for all sources
-            args.cube = args.source[0][source_section]
-            functions.pixels_to_positions(args,
-                                          wcs=args.cube.wcs.sub(['longitude',
-                                                                 'latitude']))
+        elif args.paths is not None or args.pvconfig is not None:
+            if args.paths is not None:
+                pvmap_kwargs['paths'] = args.path
+                args.log.info('Using input paths')
+            elif args.pvconfig and 'paths' in args.pvconfig[section]:
+                aux = args.pvconfig.get(section, 'paths').split(',')
+                pvmap_kwargs['paths'] = (Path(path.strip()) for path in aux)
+                args.log.info('Using config paths')
+            elif args.pvconfig and 'positions':
+                raise NotImplementedError
+            elif args.source is not None:
+                # This assumes the cubes are the same for all sources
+                functions.pixels_to_positions(args,
+                                              wcs=args.cube.wcs.sub(['longitude',
+                                                                     'latitude']))
+                pvmap_kwargs['positions'] = args.position
+                args.log.info('Using source positions for slit')
+            else:
+                raise ValueError('Cannot determine the slit or region')
         else:
             raise NotImplementedError('Only pvconfig for now')
-        rest_freq = cube_utils.get_restfreq(args.cube)
-
-        # Line frequency
-        args.log.info('Rest frequency: %s', rest_freq.to(u.GHz))
-        if args.line_freq:
-            args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
-        elif args.pvconfig and 'line_freq' in args.pvconfig[section]:
-            args.line_freq = args.pvconfig.getquantity(section, 'line_freq')
-            args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
-        else:
-            args.log.warning('No line frequency given, using whole range')
-            args.line_freq = None
 
         # vlsr
         if args.vlsr is not None:
@@ -261,9 +299,49 @@ def _iter_sections(args: argparse.Namespace) -> None:
         elif args.pvconfig and 'v_lsr' in args.pvconfig[section]:
             args.vlsr = args.pvconfig.getquantity(section, 'v_lsr')
             args.log.info('LSR velocity from config: %s', args.vlsr)
+        elif args.source is not None and args.source.vlsr is not None:
+            args.vlsr = args.source.vlsr
+            args.log.info('LSR velocity from source: %s', args.vlsr)
         else:
             vlsr = 0. * u.km / u.s
             args.log.warning('LSR velocity: %s', vlsr)
+
+        # Line frequency
+        args.log.info('Rest frequency: %s', rest_freq.to(u.GHz))
+        if args.line_freq:
+            args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
+        elif args.molecule and args.qns:
+            mol = get_molecule(args.molecule[0], args.cube, qns=args.qns,
+                               onlyj=args.onlyj, line_lists=args.line_lists,
+                               vlsr=args.vlsr)
+            if len(mol.transitions) != 1:
+                raise ValueError(('Number of transitions: '
+                                  f'{len(mol.transitions)}'))
+            args.line_freq = mol.transitions[0].restfreq
+        elif args.pvconfig is not None:
+            if 'line_freq' in args.pvconfig[section]:
+                args.line_freq = args.pvconfig.getquantity(section, 'line_freq')
+                args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
+            elif ('molecule' in args.pvconfig[section] and
+                  'qns' in args.pvconfig[section]):
+                molecule = args.pvconfig[section]['molecule']
+                qns = args.pvconfig[section]['qns']
+                line_lists = args.line_lists
+                if (line_lists is None and
+                    'line_lists' in args.pvconfig[section]):
+                    line_lists = args.pvconfig[section]['line_lists'].split(',')
+                    line_lists = [x.strip() for x in line_lists]
+                mol = get_molecule(molecule, args.cube, qns=qns,
+                                   onlyj=args.onlyj,
+                                   line_lists=line_lists,
+                                   vlsr=args.vlsr)
+                if len(mol.transitions) != 1:
+                    raise ValueError(('Number of transitions: '
+                                      f'{len(mol.transitions)}'))
+                args.line_freq = mol.transitions[0].restfreq
+        else:
+            args.log.warning('No line frequency given, using whole range')
+            args.line_freq = None
 
         # Get frequency/velocity slab
         subcube = args.cube.with_spectral_unit(u.GHz,
@@ -306,23 +384,8 @@ def _iter_sections(args: argparse.Namespace) -> None:
                                              velocity_convention='radio',
                                              rest_value=args.line_freq)
 
-        # PV map options
-        pvmap_kwargs = {'output': args.output,
-                        'file_fmt': args.pvconfig.get(section, 'file_fmt',
-                                                      fallback=None),
-                        'sources': args.source,
-                        'source_section': source_section,
-                        'section': section,
-                        }
-        if args.paths or (args.pvconfig and 'paths' in args.pvconfig[section]):
-            pvmap_kwargs['paths'] = args.path
-            if args.path is None:
-                aux = args.pvconfig.get(section, 'paths').split(',')
-                pvmap_kwargs['paths'] = (Path(path) for path in aux)
-        else:
-            # Positions and other options
-            pvmap_kwargs['positions'] = args.position
-
+        # Check input for positions
+        if 'positions' in pvmap_kwargs:
             # PA
             if args.pa is not None:
                 pvmap_kwargs['pas'] = args.pa
@@ -463,7 +526,7 @@ def _generate_filename(suffix_fmt: str,
                        **kwargs):
     """Generate the pv map file name.
 
-    At leas one of the following input need to be specified to generate the
+    At least one of the following input need to be specified to generate the
     file name (in order of priority): `output`, `file_fmt` or
     (`source`, `source_section`)
 
@@ -506,7 +569,7 @@ def _generate_filename(suffix_fmt: str,
 
     return filename
 
-def main(args: Sequence):
+def pvmap_extractor(args: Sequence):
     """Extract the pv maps based on command line input.
 
     Args:
@@ -524,10 +587,10 @@ def main(args: Sequence):
     )
     group1 = parser.add_mutually_exclusive_group(required=True)
     group1.add_argument('--source', action=LoadSources,
-            help='Source configuration file')
+                        help='Source configuration file')
     group1.add_argument('--cube', action=actions.LoadCube,
-            help='Cube file name')
-    parser.set_defaults()
+                        help='Cube file name')
+    parser.set_defaults(pvtype=None)
     args = parser.parse_args()
 
     for step in pipe:
@@ -535,4 +598,4 @@ def main(args: Sequence):
 
 
 if __name__=='__main__':
-    main(sys.argv[1:])
+    pvmap_extractor(sys.argv[1:])

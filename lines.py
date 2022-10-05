@@ -271,3 +271,37 @@ def _query_to_transition(name: str,
                        vlsr=vlsr, eup=data[3], logaij=data[4]))
 
     return transitions
+
+def get_molecule(molecule: str,
+                 cube: 'spectral_cube.SpectralCube',
+                 qns: Optional[str] = None,
+                 onlyj: bool = False,
+                 line_lists: Sequence[str] = ['CDMS', 'JPL'],
+                 vlsr: Optional[u.Quantity] = None,
+                 log: Callable = print) -> u.Quantity
+    # Frequency ranges
+    spectral_axis = cube.spectral_axis
+    obs_freq_range = spectral_axis[[0,-1]]
+    log((f'Observed freq. range: {obs_freq_range[0].value} '
+         f'{obs_freq_range[1].value} {obs_freq_range[1].unit}'))
+    if vlsr is not None:
+        equiv = u.doppler_radio(get_restfreq(cube))
+        rest_freq_range = to_rest_freq(obs_freq_range, vlsr, equiv)
+        log((f'Rest freq. range: {rest_freq_range[0].value} '
+             f'{rest_freq_range[1].value} {rest_freq_range[1].unit}'))
+    else:
+        log('Could not determine rest frequency, using observed')
+        rest_freq_range = obs_freq_range
+
+    # Create molecule
+    if onlyj:
+        filter_out = ['F', 'K']
+    else:
+        filter_out = None
+    mol = Molecule.from_query(f' {molecule} ', rest_freq_range,
+                              vlsr=vlsr, filter_out=filter_out,
+                              line_lists=line_lists, qns=qns)
+    mol.reduce_qns()
+    log(f'Number of transitions: {len(mol.transitions)}')
+
+    return mol
