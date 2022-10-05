@@ -5,7 +5,7 @@ from pathlib import Path
 import argparse
 import sys
 
-from astro_source.source import LoadSources
+from astro_source.source import LoadSource
 from astropy.io import fits
 from astropy.units.equivalencies import doppler_radio
 from pvextractor import PathFromCenter, extract_pv_slice
@@ -586,7 +586,7 @@ def pvmap_extractor(args: Sequence):
         conflict_handler='resolve',
     )
     group1 = parser.add_mutually_exclusive_group(required=True)
-    group1.add_argument('--source', action=LoadSources,
+    group1.add_argument('--source', action=LoadSource,
                         help='Source configuration file')
     group1.add_argument('--cube', action=actions.LoadCube,
                         help='Cube file name')
