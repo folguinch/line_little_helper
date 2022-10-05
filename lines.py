@@ -278,7 +278,18 @@ def get_molecule(molecule: str,
                  onlyj: bool = False,
                  line_lists: Sequence[str] = ['CDMS', 'JPL'],
                  vlsr: Optional[u.Quantity] = None,
-                 log: Callable = print) -> u.Quantity
+                 log: Callable = print) -> Molecule:
+    """Get a `Molecule` from  a splataligue query.
+
+    Args:
+      molecule: name of the molecule.
+      cube: spectral cube where to search the molecule.
+      qns: optional; quantum number.
+      onlyj: optional; ingore F and K quantum numbers.
+      line_lists: optional; line lists.
+      vlsr: optional; systemic velocity of the source.
+      log: optional; logging function
+    """
     # Frequency ranges
     spectral_axis = cube.spectral_axis
     obs_freq_range = spectral_axis[[0,-1]]
