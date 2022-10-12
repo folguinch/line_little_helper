@@ -414,7 +414,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
             pvmap_kwargs['width'] = args.pvconfig.getquantity(section, 'width')
         else:
             raise ValueError('No slit width given')
-        args.log.info('Slit width: {args.width.value} {args.width.unit}')
+        args.log.info(f'Slit width: {args.width.value} {args.width.unit}')
 
         # Get pv maps:
         _calculate_pv_maps(subcube, invert=args.invert, log=args.log.warning,
