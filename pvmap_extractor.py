@@ -43,6 +43,7 @@ def get_pvmap_from_slit(cube: 'SpectralCube',
                         width: u.Quantity,
                         angle: u.Quantity,
                         invert: bool = False,
+                        rms: Optional[u.Quantity] = None,
                         filename: Optional[Path] = None,
                         log: Callable = print) -> 'PrimaryHDU':
     """Calculate a position velocity map from a slit.
@@ -54,6 +55,7 @@ def get_pvmap_from_slit(cube: 'SpectralCube',
       width: width of the slit.
       angle: position angle of the slit.
       invert: optional; invert the velocity/position axes
+      rms: optional; pv map rms.
       filename: optional; output file name.
       log: optional; logging function.
     Returns:
@@ -76,6 +78,10 @@ def get_pvmap_from_slit(cube: 'SpectralCube',
     except KeyError:
         log('Could not find BUNIT')
 
+    # RMS
+    if rms is not None:
+        pv_map.header['RMS'] = rms.to(cube.unit).value
+
     if filename is not None:
         log(f'Saving file: {filename}')
         pv_map.writeto(filename, overwrite=False)
@@ -86,6 +92,7 @@ def get_pvmap_from_region(cube: 'SpectralCube',
                           region: Path,
                           width: u.Quantity,
                           invert: bool = False,
+                          rms: Optional[u.Quantity] = None,
                           filename: Optional[Path] = None,
                           log: Callable = print) -> 'PrimaryHDU':
     """Calculate a position velocity map from a CASA poly region.
@@ -95,6 +102,7 @@ def get_pvmap_from_region(cube: 'SpectralCube',
       region: the `crtf` region filename.
       width: width of the slit.
       invert: optional; invert the velocity/position axes
+      rms: optional; pv map rms.
       filename: optional; output file name.
       log: optional; logging function.
     Returns:
@@ -119,6 +127,10 @@ def get_pvmap_from_region(cube: 'SpectralCube',
     except KeyError:
         log('Could not find BUNIT')
 
+    # RMS
+    if rms is not None:
+        pv_map.header['RMS'] = rms.to(cube.unit).value
+
     if filename is not None:
         log(f'Saving file: {filename}')
         pv_map.writeto(filename, overwrite=False)
@@ -133,6 +145,10 @@ def get_parent_parser() -> argparse.ArgumentParser:
         '--invert',
         action='store_true',
         help='Invert axes')
+    parent_parser.add_argument(
+        '--estimate_error',
+        action='store_true',
+        help='Estimate uncertainties by propagating errors')
     parent_parser.add_argument(
         '--pvconfig',
         action=actions.LoadConfig,
@@ -213,13 +229,10 @@ def _minimal_set(args: argparse.Namespace) -> None:
                                       wcs=args.cube.wcs.sub(['longitude',
                                                              'latitude']))
         args.sections = ['cube']
-        args.pvtype = 'cube_slit'
     elif args.cube and args.width and args.path and args.pvconfig is None:
         args.sections = ['cube']
-        args.pvtype = 'cube_region'
     elif args.pvconfig is not None:
         args.sections = args.sections or args.pvconfig.sections()
-        args.pvtype = 'pvconfig'
         args.log.info('PV config file selected sections: %r', args.sections)
     else:
         raise ValueError('Not enough information for pv map')
@@ -265,6 +278,11 @@ def _iter_sections(args: argparse.Namespace) -> None:
         source_section = _load_cube(args, section)
         pvmap_kwargs['source_section'] = source_section
         rest_freq = cube_utils.get_restfreq(args.cube)
+
+        # Estimate rms
+        if args.estimate_error:
+            cube_rms = cube_utils.get_cube_rms(args.cube, log=args.log.info)
+            args.log.info('Cube rms: %s', cube_rms)
 
         # Load position or path
         if args.pvconfig and 'moment0' in args.pvconfig[section]:
@@ -416,36 +434,53 @@ def _iter_sections(args: argparse.Namespace) -> None:
             raise ValueError('No slit width given')
         args.log.info(f'Slit width: {args.width.value} {args.width.unit}')
 
+        # Estimate error
+        if args.estimate_error:
+            pixsize = subcube.wcs.sub(['longitude', 'latitude'])
+            pixsize = pixsize.proj_plane_pixel_area()
+            pixsize = np.sqrt(pixsize).to(pvmap_kwargs['width'].unit)
+            npix = pvmap_kwargs['width'] / pixsize
+            args.log.info('Pixels in slit: %f', npix)
+            rms = rms / np.sqrt(npix)
+        else:
+            rms = None
+
         # Get pv maps:
-        _calculate_pv_maps(subcube, invert=args.invert, log=args.log.warning,
-                           **pvmap_kwargs)
+        _calculate_pv_maps(subcube, invert=args.invert, rms=rms,
+                           log=args.log.warning, **pvmap_kwargs)
 
 def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
-                       **kwargs):
+                       rms: Optional[u.Quantity] = None, **kwargs):
     """Calculate pv maps based on input.
 
     Args:
       cube: data cube.
       invert: optional; invert the velocity/position axes.
+      rms: optional; pv map rms.
       log: optional; logging function.
       kwargs: pv map input parameters.
     """
+    # Common beam
+    cube = cube_utils.to_common_beam(cube, log=log)
+
+    # Compute
     width = kwargs.pop('width')
     if kwargs.get('paths') is not None:
         paths = kwargs.pop('paths')
-        _pv_maps_from_region(cube, paths, width, invert=invert, log=log,
-                             **kwargs)
+        _pv_maps_from_region(cube, paths, width, invert=invert, rms=rms,
+                             log=log, **kwargs)
     else:
         pas = kwargs.pop('pas')
         positions = kwargs.pop('positions')
         length = kwargs.pop('length')
         _pv_maps_from_region(cube, pas, positions, length, width,
-                             invert=invert, log=log, **kwargs)
+                             invert=invert, rms=rms, log=log, **kwargs)
 
 def _pv_maps_from_region(cube: 'SpectralCube',
                          paths: Iterable[Path],
                          width: u.Quantity,
                          invert: bool = False,
+                         rms: Optional[u.Quantity] = None,
                          output: Optional[Path] = None,
                          file_fmt: Optional[str] = None,
                          log: Callable = print,
@@ -457,6 +492,7 @@ def _pv_maps_from_region(cube: 'SpectralCube',
       paths: `crtf` region files.
       width: slit width.
       invert: optional; invert the velocity/position axes.
+      rms: optional; pv map rms.
       output: optional; output filename.
       file_fmt: optional; filename format.
       log: optional; logging function.
@@ -465,12 +501,13 @@ def _pv_maps_from_region(cube: 'SpectralCube',
     # Iterate paths
     for i, path in enumerate(paths):
         log(f'Path = {path}')
-        suffix_fmt = '.path{ind}'
-        filename = _generate_filename(suffix_fmt, output=output,
-                                      file_fmt=file_fmt,
-                                      log=log, ind=i)
+        #suffix_fmt = '.path{ind}'
+        #filename = _generate_filename(suffix_fmt, output=output,
+        #                              file_fmt=file_fmt,
+        #                              log=log, ind=i)
+        filename = output.parent / f'{path.stem}.fits'
         get_pvmap_from_region(cube, path, width, filename=filename,
-                              invert=invert)
+                              invert=invert, rms=rms)
 
 def _pv_maps_from_slit(cube: 'SpectralCube',
                        pas: Iterable[u.Quantity],
@@ -478,6 +515,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
                        length: u.Quantity,
                        width: u.Quantity,
                        invert: bool = False,
+                       rms: Optional[u.Quantity] = None,
                        output: Optional[Path] = None,
                        file_fmt: Optional[str] = None,
                        sources: Optional[List['AstroSource']] = None,
@@ -493,6 +531,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
       length: slit length.
       width: slit width.
       invert: optional; invert the velocity/position axes.
+      rms: optional; pv map rms.
       output: optional; output filename.
       file_fmt: optional; filename format.
       sources: optional; astro sources.
@@ -516,7 +555,8 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
 
             # Get pv map
             get_pvmap_from_slit(cube, position, length, width, pa,
-                                invert=invert, filename=filename, log=log)
+                                invert=invert, rms=rms, filename=filename,
+                                log=log)
 
 def _generate_filename(suffix_fmt: str,
                        output: Optional[Path] = None,
@@ -591,7 +631,7 @@ def pvmap_extractor(args: Sequence):
                         help='Source configuration file')
     group1.add_argument('--cube', action=actions.LoadCube,
                         help='Cube file name')
-    parser.set_defaults(pvtype=None)
+    parser.set_defaults(rms=None)
     args = parser.parse_args()
 
     for step in pipe:

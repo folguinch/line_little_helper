@@ -100,8 +100,16 @@ def _fitter(args: argparse.Namespace):
             # Save
             filename = args.outdir / f'{pvmap.stem}_averaged.dat'
             array_utils.save_struct_array(filename, data_table,
-                                            meta['units'])
+                                          meta['units'])
             args.log.info('Data saved at: %s', filename)
+
+            # Save results
+            model_results = args.outdir / f'{pvmap.stem}_linear_fit.log'
+            lines = ['Model parameters:',
+                     f'Slope: {model.slope.value} {model.slope.unit}',
+                     (f'Intercept: {model.intercept.value}'
+                      f'{model.intercept.unit}')]
+            model_results.write_text('\n'.join(lines))
 
             # Plot
             x, y = img_tools.get_coord_axes(pv)
