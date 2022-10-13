@@ -281,7 +281,12 @@ def _iter_sections(args: argparse.Namespace) -> None:
 
         # Estimate rms
         if args.estimate_error:
-            cube_rms = cube_utils.get_cube_rms(args.cube, log=args.log.info)
+            if (args.source is not None and
+                'rms' in args.source.config[source_section]):
+                cube_rms = args.source.get_quantity('rms',
+                                                    section=source_section)
+            else:
+                cube_rms = cube_utils.get_cube_rms(args.cube, log=args.log.info)
             args.log.info('Cube rms: %s', cube_rms)
 
         # Load position or path
