@@ -292,14 +292,12 @@ def _iter_sections(args: argparse.Namespace) -> None:
             #rest_freq = moment0.header['RESTFRQ'] * u.Hz
         elif args.paths is not None or args.pvconfig is not None:
             if args.paths is not None:
-                pvmap_kwargs['paths'] = args.path
+                pvmap_kwargs['paths'] = args.paths
                 args.log.info('Using input paths')
             elif args.pvconfig and 'paths' in args.pvconfig[section]:
                 aux = args.pvconfig.get(section, 'paths').split(',')
                 pvmap_kwargs['paths'] = (Path(path.strip()) for path in aux)
                 args.log.info('Using config paths')
-            elif args.pvconfig and 'positions':
-                raise NotImplementedError
             elif args.source is not None:
                 # This assumes the cubes are the same for all sources
                 functions.pixels_to_positions(args,
