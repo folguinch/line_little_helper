@@ -1,6 +1,6 @@
 """Fit functions or models to pv maps.
 """
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, Callable
 from pathlib import Path
 import argparse
 import sys
@@ -70,6 +70,60 @@ def fit_linear(pvmap: 'astropy.io.fits',
 
     return fitted_line, x, yavg, ystd
 
+def plot_pvmap(plot: OTFMultiPlotter,
+               row: int,
+               pvmap: fits.PrimaryHDU,
+               data: Optional[Sequence] = None,
+               model: Optional[Callable] = None,
+               bunit: str = 'Jy/beam',
+               rms: Optional[u.Quantity] = None):
+    """Plot a pv map.
+
+    Args:
+      plot: on-the-fly multiplotter.
+      row: row of the plot.
+      pvmap: position-velocity map.
+      data: optional; `xy` data to plot as dots.
+      model: optional; model function to plot as line.
+      bunit: optional; intensity scale.
+      rms: optional; rms of the data for contours.
+    """
+    # Coodinates and location
+    x, y = img_tools.get_coord_axes(pvmap)
+    xfn = np.linspace(x[0], x[-1], 100).to(u.arcsec)
+    loc = (row, 0)
+
+    # Plot
+    handler = plot.gen_handler(
+        loc,
+        'pvmap',
+        include_cbar=True,
+        bunit=bunit,
+        xunit='arcsec',
+        yunit='km/s',
+        xname='Offset',
+        yname='Velocity',
+    )
+    handler.plot_map(pvmap,
+                     extent=(x[0], x[-1], y[0], y[-1]),
+                     rms=rms,
+                     self_contours=rms is not None,
+                     contour_nsigma=5,
+                     aspect='auto')
+
+    # Additional plot
+    if data is not None:
+        handler.plot(data[0], data[1], 'ro')
+    if model is not None:
+        handler.plot(xfn, model(xfn), 'k-')
+
+    # Configuration
+    plot.apply_config(loc, handler, 'pvmap', xlim=(x[0], x[-1]),
+                      ylim=(y[0], y[-1]))
+    if plot.has_cbar(loc):
+        handler.plot_cbar(plot.fig,
+                          orientation=plot.axes[loc].cborientation)
+
 def _fitter(args: argparse.Namespace):
     """Fit function to ov maps."""
     # Generate plot object
@@ -83,6 +137,9 @@ def _fitter(args: argparse.Namespace):
     for i, pvmap in enumerate(args.pvmaps):
         # Open map
         pv = fits.open(pvmap)[0]
+        if args.rms is None and 'RMS' in pv.header:
+            args.rms = float(pv.header['RMS']) * u.Unit(pv.header['BUNIT'])
+            args.log.info('Using rms from header: %s', args.rms)
 
         # Fit by functions
         if args.function[0] == 'linear':
@@ -112,33 +169,10 @@ def _fitter(args: argparse.Namespace):
             model_results.write_text('\n'.join(lines))
 
             # Plot
-            x, y = img_tools.get_coord_axes(pv)
-            xfn = np.linspace(x[0], x[-1], 100).to(u.arcsec)
-            loc = (i, 0)
-            handler = plot.gen_handler(
-                loc,
-                'pvmap',
-                include_cbar=True,
-                bunit=f'{args.bunit[0]}',
-                xunit='arcsec',
-                yunit='km/s',
-                xname='Offset',
-                yname='Velocity',
-            )
-            handler.plot_map(pv,
-                             extent=(x[0], x[-1], y[0], y[-1]),
-                             rms=args.rms,
-                             self_contours=args.rms is not None,
-                             contour_nsigma=5,
-                             aspect='auto')
-            handler.plot(data[0], data[1], 'ro')
-            handler.plot(xfn, model(xfn), 'k-')
-            plot.apply_config(loc, handler, 'pvmap', xlim=(x[0], x[-1]),
-                              ylim=(y[0], y[-1]))
-            if plot.has_cbar(loc):
-                handler.plot_cbar(plot.fig,
-                                  orientation=plot.axes[loc].cborientation)
-
+            plot_pvmap(plot, i, pv, data=data, model=model,
+                       bunit=f'{args.bunit[0]}', rms=args.rms)
+        elif args.function[0] == 'plot':
+            plot_pvmap(plot, i, pv, bunit=f'{args.bunit[0]}', rms=args.rms)
         else:
             raise NotImplementedError((f'Function {args.function[0]} '
                                        'not implemented yet'))
