@@ -444,11 +444,13 @@ def _iter_sections(args: argparse.Namespace) -> None:
             rms = None
 
         # Get pv maps:
-        _calculate_pv_maps(subcube, invert=args.invert, rms=rms,
-                           log=args.log.warning, **pvmap_kwargs)
+        args.filenames = _calculate_pv_maps(subcube, invert=args.invert,
+                                            rms=rms, log=args.log.warning,
+                                            **pvmap_kwargs)
 
 def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
-                       rms: Optional[u.Quantity] = None, **kwargs):
+                       rms: Optional[u.Quantity] = None,
+                       **kwargs) -> List[Path]:
     """Calculate pv maps based on input.
 
     Args:
@@ -465,14 +467,17 @@ def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
     width = kwargs.pop('width')
     if kwargs.get('paths') is not None:
         paths = kwargs.pop('paths')
-        _pv_maps_from_region(cube, paths, width, invert=invert, rms=rms,
-                             log=log, **kwargs)
+        filenames = _pv_maps_from_region(cube, paths, width, invert=invert,
+                                         rms=rms, log=log, **kwargs)
     else:
         pas = kwargs.pop('pas')
         positions = kwargs.pop('positions')
         length = kwargs.pop('length')
-        _pv_maps_from_region(cube, pas, positions, length, width,
-                             invert=invert, rms=rms, log=log, **kwargs)
+        filenames = _pv_maps_from_region(cube, pas, positions, length, width,
+                                         invert=invert, rms=rms, log=log,
+                                         **kwargs)
+
+    return filenames
 
 def _pv_maps_from_region(cube: 'SpectralCube',
                          paths: Iterable[Path],
@@ -482,7 +487,7 @@ def _pv_maps_from_region(cube: 'SpectralCube',
                          output: Optional[Path] = None,
                          file_fmt: Optional[str] = None,
                          log: Callable = print,
-                         **kwargs):
+                         **kwargs) -> List[Path]:
     """Iterate over paths to get pv maps.
 
     Args:
@@ -497,6 +502,7 @@ def _pv_maps_from_region(cube: 'SpectralCube',
       kwargs: ignored keyword parameters.
     """
     # Iterate paths
+    filenames = []
     for i, path in enumerate(paths):
         log(f'Path = {path}')
         #suffix_fmt = '.path{ind}'
@@ -506,6 +512,9 @@ def _pv_maps_from_region(cube: 'SpectralCube',
         filename = output.parent / f'{path.stem}.fits'
         get_pvmap_from_region(cube, path, width, filename=filename,
                               invert=invert, rms=rms)
+        filenames.append(filename)
+
+    return filenames
 
 def _pv_maps_from_slit(cube: 'SpectralCube',
                        pas: Iterable[u.Quantity],
@@ -519,7 +528,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
                        sources: Optional[List['AstroSource']] = None,
                        source_section: Optional[str] = None,
                        section: Optional[str] = None,
-                       log: Callable = print):
+                       log: Callable = print) -> List[Path]:
     """Iterate over PAs and sources to get pv maps.
 
     Args:
@@ -538,6 +547,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
       log: optional; logging function.
     """
     # Iterate position angles
+    filenames = []
     for pa in pas:
         log(f'Computing pv map for PA={pa}')
         for i, position in enumerate(positions):
@@ -555,6 +565,9 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
             get_pvmap_from_slit(cube, position, length, width, pa,
                                 invert=invert, rms=rms, filename=filename,
                                 log=log)
+            filenames.append(filename)
+
+    return filenames
 
 def _generate_filename(suffix_fmt: str,
                        output: Optional[Path] = None,
@@ -629,12 +642,13 @@ def pvmap_extractor(args: Sequence):
                         help='Source configuration file')
     group1.add_argument('--cube', action=actions.LoadCube,
                         help='Cube file name')
-    parser.set_defaults(rms=None)
+    parser.set_defaults(rms=None, filenames=None)
     args = parser.parse_args()
 
     for step in pipe:
         step(args)
 
+    return args.filenames
 
 if __name__=='__main__':
     pvmap_extractor(sys.argv[1:])
