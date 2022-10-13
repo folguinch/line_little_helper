@@ -68,7 +68,7 @@ def _proc(args: argparse.Namespace):
 
     # Get positions
     if args.source:
-        positions = [args.source.position]
+        positions = [args.source[0].position]
     else:
         positions = None
 
