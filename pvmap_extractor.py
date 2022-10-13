@@ -445,13 +445,14 @@ def _iter_sections(args: argparse.Namespace) -> None:
             pixsize = np.sqrt(pixsize).to(pvmap_kwargs['width'].unit)
             npix = pvmap_kwargs['width'] / pixsize
             args.log.info('Pixels in slit: %f', npix)
-            rms = rms / np.sqrt(npix)
+            cube_rms = cube_rms / np.sqrt(npix)
+            args.log.info('Estimated pvmap rms: %s', cube_rms)
         else:
-            rms = None
+            cube_rms = None
 
         # Get pv maps:
         args.filenames = _calculate_pv_maps(subcube, invert=args.invert,
-                                            rms=rms, log=args.log.warning,
+                                            rms=cube_rms, log=args.log.warning,
                                             **pvmap_kwargs)
 
 def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
