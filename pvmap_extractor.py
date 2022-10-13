@@ -643,7 +643,7 @@ def pvmap_extractor(args: Sequence):
     group1.add_argument('--cube', action=actions.LoadCube,
                         help='Cube file name')
     parser.set_defaults(rms=None, filenames=None)
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     for step in pipe:
         step(args)
