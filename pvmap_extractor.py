@@ -285,6 +285,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 'rms' in args.source.config[source_section]):
                 cube_rms = args.source.get_quantity('rms',
                                                     section=source_section)
+                cube_rms = cube_rms.to(args.cube.unit)
             else:
                 cube_rms = cube_utils.get_cube_rms(args.cube, log=args.log.info)
             args.log.info('Cube rms: %s', cube_rms)
