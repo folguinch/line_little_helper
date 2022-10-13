@@ -430,7 +430,8 @@ def _iter_sections(args: argparse.Namespace) -> None:
             pvmap_kwargs['width'] = args.pvconfig.getquantity(section, 'width')
         else:
             raise ValueError('No slit width given')
-        args.log.info(f'Slit width: {args.width.value} {args.width.unit}')
+        args.log.info('Slit width: %f %s', pvmap_kwargs['width'].value,
+                      pvmap_kwargs['width'].unit)
 
         # Estimate error
         if args.estimate_error:
