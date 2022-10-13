@@ -207,7 +207,7 @@ def pvmap_fitter(args: Sequence):
     parser.add_argument('pvmaps', action=actions.CheckFile, nargs='+',
                         help='Position-velocity files')
     parser.set_defaults()
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     for step in pipe:
         step(args)
