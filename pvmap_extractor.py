@@ -537,7 +537,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
                        rms: Optional[u.Quantity] = None,
                        output: Optional[Path] = None,
                        file_fmt: Optional[str] = None,
-                       sources: Optional[List['AstroSource']] = None,
+                       source: Optional['AstroSource'] = None,
                        source_section: Optional[str] = None,
                        section: Optional[str] = None,
                        log: Callable = print) -> List[Path]:
@@ -553,7 +553,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
       rms: optional; pv map rms.
       output: optional; output filename.
       file_fmt: optional; filename format.
-      sources: optional; astro sources.
+      source: optional; astro source.
       source_section: optional; data section of the source.
       section: optional; pv map section.
       log: optional; logging function.
@@ -566,7 +566,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
             log(f'Position = {position}')
             suffix_fmt = '.ra{ra:.3f}_dec{dec:.3f}.PA{pa}'
             filename = _generate_filename(suffix_fmt, output=output,
-                                          file_fmt=file_fmt, source=sources[i],
+                                          file_fmt=file_fmt, source=source,
                                           source_section=source_section,
                                           log=log,
                                           ra=position.ra.deg,
