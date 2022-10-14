@@ -413,8 +413,11 @@ def _iter_sections(args: argparse.Namespace) -> None:
             if args.pa is not None:
                 pvmap_kwargs['pas'] = args.pa
             elif args.pvconfig and 'PAs' in args.pvconfig[section]:
-                pvmap_kwargs['pas'] = list(args.pvconfig.getquantity(section,
-                                                                     'PAs'))
+                pvmap_kwargs['pas'] = args.pvconfig.getquantity(section, 'PAs')
+                try:
+                    pvmap_kwargs['pas'] = list(pvmap_kwargs['pas'])
+                except TypeError:
+                    pvmap_kwargs['pas'] = [pvmap_kwargs['pas']]
             else:
                 args.log.warning('No PAs given, skipping %s', section)
                 continue
