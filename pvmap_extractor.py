@@ -267,7 +267,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
         pvmap_kwargs = {'output': args.output,
                         'file_fmt': args.pvconfig.get(section, 'file_fmt',
                                                       fallback=None),
-                        'sources': args.source,
+                        'source': args.source,
                         'section': section,
                         }
         if args.pvconfig:
