@@ -426,8 +426,8 @@ def _iter_sections(args: argparse.Namespace) -> None:
                                                                    'length')
             else:
                 raise ValueError('No slit length given')
-            args.log.info(
-                f'Slit length: {args.length.value} {args.length.unit}')
+            args.log.info('Slit length: %f %s', pvmap_kwargs['length'].value,
+                          pvmap_kwargs['length'].unit)
 
         # Width is common
         if args.width:
