@@ -481,9 +481,9 @@ def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
         pas = kwargs.pop('pas')
         positions = kwargs.pop('positions')
         length = kwargs.pop('length')
-        filenames = _pv_maps_from_region(cube, pas, positions, length, width,
-                                         invert=invert, rms=rms, log=log,
-                                         **kwargs)
+        filenames = _pv_maps_from_slit(cube, pas, positions, length, width,
+                                       invert=invert, rms=rms, log=log,
+                                       **kwargs)
 
     return filenames
 
