@@ -862,13 +862,74 @@ class IndexedSpectra(dict):
 #    def overplot(self, output: Optional['Path'] = None,
 #                 molecule: Optional[Molecule] = None)
 
+def generate_mask(cube: SpectralCube,
+                  rms: Optional[u.Quantity] = None,
+                  nsigma: int = 5,
+                  flux_limit: Optional[u.Quantity] = None,
+                  savedir: Path = Path('./'),
+                  maskname: Optional[Path] = None,
+                  mask: Optional[np.array] = None,
+                  log: Callable = print) -> Tuple[np.array, Union[Path, None]]:
+    """Generate a mask and optionally its filename.
+
+    Args:
+      cube: the spectral cube.
+      rms: optional; common rms value for all cubes.
+      nsigma: optional; level over rms to filter data out.
+      flux_limit: optional; flux limit to filter data out.
+      savedir: optional; saving directory. Defaults to cube directory.
+      maskname: optional; mask file name.
+      mask: optional; true where the spectra will be extracted.
+      log: optional; logging function.
+
+    Returns:
+      The boolean mask array (`True` for valid points).
+      The mask filename if `maskname` given, else `None`.
+    """
+    # Determine mask filename
+    if maskname is not None and mask is None:
+        savemask = savedir / maskname
+        log(f'Mask filename: {savemask}')
+        if savemask.exists():
+            log('Loading mask')
+            mask = fits.open(savemask)[0].data
+            mask = mask.astype(bool)
+    else:
+        savemask = None
+
+    # Generate and check mask
+    if mask is None:
+        # Flux limit
+        if flux_limit is not None:
+            low_lim = flux_limit
+        elif rms is not None:
+            low_lim = nsigma * rms
+        else:
+            rms = cube_utils.get_cube_rms(cube,
+                                          use_header=True,
+                                          sampled=True)
+            low_lim = nsigma * rms
+        log(f'Flux limit: {low_lim.value} {low_lim.unit}')
+
+        # Create flux limit mask from the first cube
+        low_lim = low_lim.to(cube.unit).value
+        mask = np.any(np.squeeze(cube.unmasked_data[:].value) > low_lim,
+                      axis=0)
+    else:
+        if cube.shape[-2:] != mask.shape:
+            raise ValueError((f'Mask shape {mask.shape}, inconsistent with'
+                              f'cube shape {aux.shape}'))
+    log(f'Number of valid pixels in data: {np.sum(mask)}')
+
+    return mask, savemask
+
 def on_the_fly_spectra_loader(cubenames: Sequence[Path],
                               rms: Optional[u.Quantity] = None,
                               nsigma: int = 5,
                               flux_limit: Optional[u.Quantity] = None,
                               spectral_axis_unit: u.Unit = u.GHz,
                               vlsr: Optional[u.Quantity] = None,
-                              savedir: Optional[Path] = None,
+                              savedir: Path = Path('./'),
                               maskname: Optional[Path] = None,
                               mask: Optional[np.array] = None,
                               restframe: str = 'observed',
@@ -909,36 +970,9 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
     log(f'Saving directory: {savedir}')
 
     # Create mask
-    savemask = None
-    if maskname is not None and mask is None:
-        savemask = savedir / maskname
-        log(f'Mask filename: {savemask}')
-        if savemask.exists():
-            log('Loading mask')
-            mask = fits.open(savemask)[0].data
-            mask = mask.astype(bool)
-    if mask is None:
-        # Flux limit
-        if flux_limit is not None:
-            low_lim = flux_limit
-        elif rms is not None:
-            low_lim = nsigma * rms
-        else:
-            rms = cube_utils.get_cube_rms(aux,
-                                          use_header=True,
-                                          sampled=True)
-            low_lim = nsigma * rms
-        log(f'Flux limit: {low_lim.value} {low_lim.unit}')
-
-        # Create flux limit mask from the first cube
-        low_lim = low_lim.to(aux.unit).value
-        mask = np.any(np.squeeze(aux.unmasked_data[:].value) > low_lim,
-                      axis=0)
-    else:
-        if aux.shape[-2:] != mask.shape:
-            raise ValueError((f'mask shape {mask.shape}, inconsistent with'
-                              f'cube shape {aux.shape}'))
-    log(f'Initial number of points: {np.sum(mask)}')
+    mask, savemask = generate_mask(aux, rms=rms, nsigma=nsigma,
+                                   flux_limit=flux_limit, savedir=savedir,
+                                   maskname=maskname, mask=mask, log=log)
 
     # Iterate over coordinates
     rows, cols = np.indices(mask.shape)
