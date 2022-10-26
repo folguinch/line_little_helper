@@ -93,7 +93,13 @@ class Spectrum(LoggedObject):
 
     @property
     def length(self):
+        """Length of the spectrum array."""
         return len(self.intensity)
+
+    @property
+    def velocity_equiv(self):
+        """Frequency-velocity equivalency for current rest frequency."""
+        return u.doppler_radio(self.restfreq)
 
     @property
     def velocity_axis(self):
@@ -101,8 +107,8 @@ class Spectrum(LoggedObject):
         if self.spectral_axis.unit.is_equivalent(u.km / u.s):
             return self.spectral_axis
         else:
-            equiv = u.doppler_radio(self.restfreq)
-            return self.spectral_axis.to(u.km / u.s, equivalencies=equiv)
+            return self.spectral_axis.to(u.km / u.s,
+                                         equivalencies=self.velocity_axis)
 
     @property
     def frequency_axis(self):
@@ -111,7 +117,8 @@ class Spectrum(LoggedObject):
             return self.spectral_axis
         else:
             equiv = u.doppler_radio(self.restfreq)
-            return self.spectral_axis.to(u.MHz, equivalencies=equiv)
+            return self.spectral_axis.to(u.MHz,
+                                         equivalencies=self.velocity_axis)
 
     @classmethod
     def from_cube(cls,
@@ -460,6 +467,47 @@ class Spectrum(LoggedObject):
 
         return final_slices, results
 
+    def fit_transition(self, transition: 'Transition',
+                       velocity_range: Optional[u.Quantity] = None,
+                       channel_range: Optional[int] = None
+                       ) -> models.Gaussian1D:
+        """Fit emission around a reference molecule.
+
+        The transition frequency is only used as a reference to fit the line,
+        but it must be within the velocity or channel range.
+
+        The `channel_range` corresponds to the number of channels of the window
+        with the line channel in the center. The `velocity_range` corresponds
+        to the velocity furthest from the central line.
+
+        Args:
+          transition: `Transition` with the line information.
+          velocity_range: optional; velocity range around the line.
+          channel_range: optional; number of channels of the window around line.
+        """
+        if velocity_range is not None:
+            if transition.obsfreq is None:
+                transition.set_obsfreq(self.vlsr)
+            self.restfreq = transition.obsfreq
+            vel_axis = self.velocity_axis
+            ind = np.indices(vel_axis.shape)
+            mask = (vel_axis >= -velocity_range) & (vel_axis <= velocity_range)
+            slc = slice(min(ind[mask]), max(ind[mask]) + 1)
+        elif channel_range is not None:
+            axis = self.spectral_axis
+            if self._frame == 'observed':
+                if transition.obsfreq is None:
+                    transition.set_obsfreq(self.vlsr)
+                reffreq = transition.obsfreq
+            else:
+                reffreq = transition.restfreq
+            ind = np.nanargmin(np.abs(self.frequency_axis - reffreq))
+            slc = slice(ind - channel_range//2, ind + channel_range//2 + 1)
+        else:
+            raise ValueError('Could not determine spectral axis range')
+
+        return self.fit_line(slice_range=slc)
+
     def peak_frequency(self,
                        low: Optional[u.Quantity] = None,
                        up: Optional[u.Quantity] = None) -> u.Quantity:
@@ -477,7 +525,7 @@ class Spectrum(LoggedObject):
         mask = self.range_mask(low=low, up=up)
         ind = np.nanargmax(self.intensity[mask])
 
-        return self.spectral_axis[mask][ind]
+        return self.frequency_axis[mask][ind]
 
     def centroid(self,
                  low: Optional[u.Quantity] = None,
@@ -519,7 +567,8 @@ class Spectrum(LoggedObject):
     def plot(self, output: Optional[Path] = None,
              ax: Optional['Axis'] = None,
              molecule: Optional[Molecule] = None,
-             xlim: Optional[Sequence[u.Quantity]] = None
+             xlim: Optional[Sequence[u.Quantity]] = None,
+             use_velocity: bool = False
              ) -> Tuple['Axis','Figure']:
         """Plot spectra and overplot line transitions.
 
@@ -528,6 +577,7 @@ class Spectrum(LoggedObject):
           ax: optional; axis object.
           molecule: optional; transitions to overplot.
           xlim: optional; x-axis limits.
+
         Returns:
           A tuple with the figure and axis objects.
         """
@@ -538,11 +588,16 @@ class Spectrum(LoggedObject):
             ax = fig.add_subplot(111)
 
         # Plot
-        xunit = self.spectral_axis.unit
         if xlim is None:
             xlim = self.extrema()
-        ax.plot(self.spectral_axis, self.intensity, 'b-')
-        ax.set_xlim(xlim[0].to(xunit).value, xlim[1].to(xunit).value)
+        if use_velocity:
+            ax.plot(self.velocity_axis, self.intensity, 'b-')
+            xunit = self.velocity_axis.unit
+        else:
+            ax.plot(self.frequency_axis, self.intensity, 'b-')
+            xunit = self.frequency_axis.unit
+        ax.set_xlim(xlim[0].to(xunit, equivalencies=self.velocity_equiv).value,
+                    xlim[1].to(xunit, equivalencies=self.velocity_equiv).value)
         ax.set_ylim(np.min(self.intensity.value),
                     1.1 * np.max(self.intensity.value))
         ax.set_ylabel(f'Intensity ({self.intensity.unit:latex_inline})')
@@ -583,6 +638,11 @@ class Spectrum(LoggedObject):
             xy = freq, ylocs[i%6]
             ax.annotate(transition.qns, xy, xytext=xy, verticalalignment='top',
                         horizontalalignment='right')
+
+    def plot_model(self, ax: 'Axis', result_fn: Callable):
+        """
+        """
+        ax.plot(x, y)
 
 class Spectra(list):
     """Class to store Spectrum objects."""
@@ -1021,3 +1081,50 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
         hdu = fits.PrimaryHDU(mask.astype(int), header=header)
         hdu.update_header()
         hdu.writeto(savemask, overwrite=True)
+
+def cube_fitter(cube: SpectralCube,
+                rms: Optional[u.Quantity] = None,
+                nsigma: int = 5,
+                flux_limit: Optional[u.Quantity] = None,
+                spectral_axis_unit: u.Unit = u.GHz,
+                vlsr: Optional[u.Quantity] = None,
+                savedir: Path = Path('./'),
+                maskname: Optional[Path] = None,
+                mask: Optional[np.array] = None,
+                restframe: str = 'observed',
+                fmt: str = 'cassis',
+                radius: Optional[u.Quantity] = None,
+                area_pix: Optional[float] = None,
+                log: Callable = print) -> np.array:
+    """Fit all the 
+    """
+    # Check input
+    if rms is not None:
+        rms = rms.to(cube.unit)
+
+    # Create mask
+    mask, savemask = generate_mask(cube, rms=rms, nsigma=nsigma,
+                                   flux_limit=flux_limit, savedir=savedir,
+                                   maskname=maskname, mask=mask, log=log)
+
+    # Iterate over coordinates
+    rows, cols = np.indices(mask.shape)
+    log('Extracting spectra')
+    for row, col in zip(rows.flatten(), cols.flatten()):
+        # Load spectrum
+        if not mask[row, col]:
+            continue
+        spectrum = Spectrum.from_cube(cube, [col, row],
+                                      spectral_axis_unit=spectral_axis_unit,
+                                      vlsr=vlsr, rms=rms, restframe=restframe,
+                                      radius=radius, area_pix=area_pix)
+
+        # Save
+        if np.any(np.isnan(spec.intensity)):
+            #log(f'Removing spectrum x={col} y={row}')
+            mask[row, col] = False
+            continue
+        #log(f'Saving spectrum x={col} y={row}')
+        fname = f'spec_x{col:04d}_y{row:04d}.dat'
+        spec.saveas(savedir / fname, fmt=fmt)
+

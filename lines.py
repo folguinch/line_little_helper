@@ -44,8 +44,7 @@ class Transition:
         self.restfreq = restfreq.to(u.GHz)
         self.obsfreq = obsfreq
         if self.obsfreq is None and vlsr is not None:
-            equiv = u.doppler_radio(self.restfreq)
-            self.obsfreq = to_rest_freq(self.restfreq, -vlsr, equiv)
+            set_obsfreq(vlsr)
         try:
             self.obsfreq = self.obsfreq.to(u.GHz)
         except AttributeError:
@@ -84,6 +83,11 @@ class Transition:
 
         return cls(species, qns, restfreq, obsfreq=obsfreq, eup=eup, vlsr=vlsr,
                    logaij=logaij)
+
+    def set_obsfreq(self, vlsr: u.Quantity):
+        """Store the observed frequency of the transition."""
+        equiv = u.doppler_radio(self.restfreq)
+        self.obsfreq = to_rest_freq(self.restfreq, -vlsr, equiv)
 
     def generate_name(
         self,
