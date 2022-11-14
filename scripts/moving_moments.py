@@ -31,16 +31,17 @@ import textwrap
 
 from astropy.io import fits
 from toolkit.argparse_tools import actions
-from toolkit.astro_tools.cube_utils import get_restfreq, get_cube_rms
+from toolkit.astro_tools.cube_utils import (get_restfreq, get_cube_rms,
+                                            to_common_beam)
 import astropy.units as u
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
 import numpy as np
 import scipy.ndimage as ndimg
 
-from line_little_helper.lines import get_molecule
 from line_little_helper.parents import line_parents
 from line_little_helper.processing_tools import to_rest_freq
+from line_little_helper.scripts.argparse_processing import load_molecule
 
 Cube = TypeVar('Cube')
 Logger = TypeVar('Logger')
@@ -351,16 +352,6 @@ def full_incremental_moments(cube: Cube,
         filename = f'{transition}_moment1_dilate{iterations}.fits'
         aux.write(outdir / filename, overwrite=True)
 
-def _get_molecule(args: argparse.Namespace) -> 'Molecule':
-    """Generate a `Molecule` from argparse.
-
-    Requires the argparse to have `cube` and `log` attributes. The `vlsr`
-    attribute is also needed but does not need to be initialized.
-    """
-    return get_molecule(args.molecule[0], args.cube, qns=args.qns,
-                        onlyj=args.onlyj, line_lists=args.line_lists,
-                        vlsr=args.vlsr, log=args.log.info)
-
 def _preproc(args: argparse.Namespace) -> None:
     """Generate the necessary objects to process the data."""
     # Load cube
@@ -369,7 +360,7 @@ def _preproc(args: argparse.Namespace) -> None:
     args.cube = args.cube.with_spectral_unit(u.GHz)
 
     # Load molecule
-    args.mol = _get_molecule(args)
+    args.mol = load_molecule(args)
 
 def _proc(args: argparse.Namespace) -> None:
     """Process the cube."""
@@ -409,23 +400,7 @@ def _proc(args: argparse.Namespace) -> None:
                                              rest_value=transition.restfreq)
 
         # Common beam
-        args.log.info(f'Convolving to common beam:')
-        smallest = subcube.beams.smallest_beam()
-        sm_maj = smallest.major.to(u.arcsec).value
-        sm_min = smallest.minor.to(u.arcsec).value
-        largest = subcube.beams.largest_beam()
-        la_maj = largest.major.to(u.arcsec).value
-        la_min = largest.minor.to(u.arcsec).value
-        args.log.info(('Beam extrema: '
-                       f"{sm_maj:.4f}'' x {sm_min:.4f}'' -- "
-                       f"{la_maj:.4f}'' x {la_min:.4f}''"))
-        common_beam = subcube.beams.common_beam(auto_increase_epsilon=True,
-                                                tolerance=5e-5)
-        cb_maj = common_beam.major.to(u.arcsec).value
-        cb_min = common_beam.minor.to(u.arcsec).value
-        args.log.info(f"Common beam: {cb_maj:.4f}'' x {cb_min:.4f}''")
-        subcube.allow_huge_operations = True
-        subcube = subcube.convolve_to(common_beam, allow_huge=True)
+        subcube = to_common_beam(subcube, log=args.log.info)
 
         # Calculate results
         if args.split is not None:

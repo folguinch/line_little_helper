@@ -44,7 +44,7 @@ class Transition:
         self.restfreq = restfreq.to(u.GHz)
         self.obsfreq = obsfreq
         if self.obsfreq is None and vlsr is not None:
-            set_obsfreq(vlsr)
+            self.set_obsfreq(vlsr)
         try:
             self.obsfreq = self.obsfreq.to(u.GHz)
         except AttributeError:

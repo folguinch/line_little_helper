@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .processing_tools import observed_to_rest
-from .lines import Molecule
+from .molecule import Molecule
 
 Coordinate = TypeVar('Coordinate')
 

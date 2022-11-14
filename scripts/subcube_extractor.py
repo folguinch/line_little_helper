@@ -10,63 +10,26 @@ import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
 import toolkit.astro_tools.cube_utils as cubeutils
 
-from line_little_helper.lines import NoTransitionError
-from line_little_helper.moving_moments import HelpFormatter, _get_molecule
-from line_little_helper.parents import line_parents
+from line_little_helper.molecule import NoTransitionError
+from line_little_helper.scripts.moving_moments import (HelpFormatter,
+                                                       _get_molecule)
+from line_little_helper.scripts.argparse_parents import line_parents
+from line_little_helper.scripts.argparse_processing import get_subcube
 
 def parent_parser() -> argparse.ArgumentParser:
     """Define the parent parser."""
-    parents = [line_parents(['vlsr', 'molecule'])]
+    parents = [line_parents('vlsr', 'molecule', 'spectral_range',
+                            'spatial_range')]
     parser = argparse.ArgumentParser(parents=parents)
     parser.add_argument('--put_rms', action='store_true',
                         help='Calculate and write input cube rms to subcube')
     parser.add_argument('--linefreq', nargs=2, action=actions.ReadQuantity,
                         default=None,
                         help='Line rest freq')
-    group1 = parser.add_mutually_exclusive_group(required=False)
-    group1.add_argument('--freq_range', metavar=('VAL0', 'VAL1', 'UNIT'),
-                        nargs=3, action=actions.ReadQuantity,
-                        help='Frequency range with unit')
-    group1.add_argument('--vel_range', metavar=('VAL0', 'VAL1', 'UNIT'),
-                        nargs=3, action=actions.ReadQuantity,
-                        help='Velocity range with unit')
-    group1.add_argument('--chan_range', metavar=('CHAN0', 'CHAN1'), nargs=2,
-                        type=int,
-                        help='Channel range')
-    group1.add_argument('--win_halfwidth', nargs=1, type=int, default=[None],
-                        help=('Channel window half width '
-                              '(vlsr and line freq needed)'))
-    group2 = parser.add_mutually_exclusive_group(required=False)
-    group2.add_argument('--blc_trc', metavar=('BLCX', 'BLCY', 'TRCX', 'TRCY'),
-                        nargs=4, type=int,
-                        help='Position of BLC and TRC')
-    group2.add_argument('--xy_ranges', metavar=('XLOW', 'XUP', 'YLOW', 'YUP'),
-                        nargs=4, type=int,
-                        help='Position x and y ranges')
     parser.add_argument('cubename', nargs=1, action=actions.CheckFile,
                         help='The input cube')
 
     return parser
-
-def get_subcube(args: argparse.Namespace) -> None:
-    """Extract the subcube."""
-    args.log.info('Calculating subcube')
-    try:
-        common_beam = args.common_beam
-    except AttributeError:
-        common_beam = False
-    args.subcube = cubeutils.get_subcube(args.cube,
-                                         freq_range=args.freq_range,
-                                         vel_range=args.vel_range,
-                                         chan_range=args.chan_range,
-                                         chan_halfwidth=args.win_halfwidth[0],
-                                         blc_trc=args.blc_trc,
-                                         xy_ranges=args.xy_ranges,
-                                         vlsr=args.vlsr,
-                                         linefreq=args.linefreq,
-                                         put_rms=args.put_rms,
-                                         common_beam=common_beam,
-                                         log=args.log.info)
 
 def check_line_freq(args: argparse.Namespace) -> None:
     """Copy molecule freq if `linefreq` is None."""

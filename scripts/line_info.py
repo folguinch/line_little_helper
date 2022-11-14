@@ -13,9 +13,9 @@ import sys
 from toolkit.argparse_tools import actions, parents
 import spectral_cube
 
-from line_little_helper.lines import Molecule
+from line_little_helper.molecule import Molecule
 from line_little_helper.spectrum import Spectrum
-from line_little_helper.argparse_plugins import query_freqrange
+from line_little_helper.scripts.argparse_parents import query_freqrange
 
 def _preproc(args: argparse.ArgumentParser) -> None:
     """Pre-process the command arguments."""
