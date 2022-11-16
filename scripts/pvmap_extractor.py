@@ -139,7 +139,7 @@ def get_pvmap_from_region(cube: 'SpectralCube',
 
 def get_parent_parser() -> argparse.ArgumentParser:
     """Base parent parser for pv maps."""
-    parents = [line_parents(['vlsr', 'molecule'])]
+    parents = [line_parents('vlsr', 'molecule')]
     parent_parser = argparse.ArgumentParser(add_help=False, parents=parents)
     parent_parser.add_argument(
         '--invert',
