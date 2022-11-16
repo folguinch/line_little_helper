@@ -11,10 +11,10 @@ import toolkit.argparse_tools.parents as apparents
 import toolkit.astro_tools.cube_utils as cubeutils
 
 from line_little_helper.molecule import NoTransitionError
-from line_little_helper.scripts.moving_moments import (HelpFormatter,
-                                                       _get_molecule)
+from line_little_helper.scripts.moving_moments import HelpFormatter
 from line_little_helper.scripts.argparse_parents import line_parents
-from line_little_helper.scripts.argparse_processing import get_subcube
+from line_little_helper.scripts.argparse_processing import (get_subcube,
+                                                            load_molecule)
 
 def parent_parser() -> argparse.ArgumentParser:
     """Define the parent parser."""
@@ -35,7 +35,7 @@ def check_line_freq(args: argparse.Namespace) -> None:
     """Copy molecule freq if `linefreq` is None."""
     if args.linefreq is None and args.molecule is not None:
         args.cube = args.cube.with_spectral_unit(u.GHz)
-        molec = _get_molecule(args)
+        molec = load_molecule(args)
         args.log.info(f'{molec}')
         if len(molec.transitions) > 1:
             raise ValueError('Too many transitions')

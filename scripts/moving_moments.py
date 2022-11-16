@@ -39,7 +39,7 @@ import toolkit.argparse_tools.parents as apparents
 import numpy as np
 import scipy.ndimage as ndimg
 
-from line_little_helper.parents import line_parents
+from line_little_helper.scripts.argparse_parents import line_parents
 from line_little_helper.processing_tools import to_rest_freq
 from line_little_helper.scripts.argparse_processing import load_molecule
 
