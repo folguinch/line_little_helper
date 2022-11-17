@@ -240,15 +240,16 @@ def _minimal_set(args: argparse.Namespace) -> None:
 def _load_cube(args, section):
     """Load the cube depending on the input data."""
     if args.cube is not None:
+        args._cube = args.cube
         return None
     elif args.pvconfig is not None:
         if args.source is not None:
             source_section = args.pvconfig.get(section, 'source_section',
                                                fallback=section)
-            args.cube = args.source[source_section]
+            args._cube = args.source[source_section]
             return source_section
         elif 'cube' in args.pvconfig[section]:
-            args.cube = SpectralCube.read(args.pvconfig[section]['cube'])
+            args._cube = SpectralCube.read(args.pvconfig[section]['cube'])
             return None
         else:
             raise ValueError('Cannot load the input cube')
@@ -277,7 +278,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
         # Load data
         source_section = _load_cube(args, section)
         pvmap_kwargs['source_section'] = source_section
-        rest_freq = cube_utils.get_restfreq(args.cube)
+        rest_freq = cube_utils.get_restfreq(args._cube)
 
         # Estimate rms
         if args.estimate_error:
@@ -285,9 +286,9 @@ def _iter_sections(args: argparse.Namespace) -> None:
                 'rms' in args.source.config[source_section]):
                 cube_rms = args.source.get_quantity('rms',
                                                     section=source_section)
-                cube_rms = cube_rms.to(args.cube.unit)
+                cube_rms = cube_rms.to(args._cube.unit)
             else:
-                cube_rms = cube_utils.get_cube_rms(args.cube, log=args.log.info)
+                cube_rms = cube_utils.get_cube_rms(args._cube, log=args.log.info)
             args.log.info('Cube rms: %s', cube_rms)
 
         # Load position or path
@@ -307,7 +308,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
             elif args.source is not None:
                 # This assumes the cubes are the same for all sources
                 functions.pixels_to_positions(args,
-                                              wcs=args.cube.wcs.sub(['longitude',
+                                              wcs=args._cube.wcs.sub(['longitude',
                                                                      'latitude']))
                 pvmap_kwargs['positions'] = args.position
                 args.log.info('Using source positions for slit')
@@ -334,7 +335,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
         if args.line_freq:
             args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
         elif args.molecule and args.qns:
-            mol = get_molecule(args.molecule[0], args.cube, qns=args.qns,
+            mol = get_molecule(args.molecule[0], args._cube, qns=args.qns,
                                onlyj=args.onlyj, line_lists=args.line_lists,
                                vlsr=args.vlsr)
             if len(mol.transitions) != 1:
@@ -354,7 +355,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
                     'line_lists' in args.pvconfig[section]):
                     line_lists = args.pvconfig[section]['line_lists'].split(',')
                     line_lists = [x.strip() for x in line_lists]
-                mol = get_molecule(molecule, args.cube, qns=qns,
+                mol = get_molecule(molecule, args._cube, qns=qns,
                                    onlyj=args.onlyj,
                                    line_lists=line_lists,
                                    vlsr=args.vlsr)
@@ -367,7 +368,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
             args.line_freq = None
 
         # Get frequency/velocity slab
-        subcube = args.cube.with_spectral_unit(u.GHz,
+        subcube = args._cube.with_spectral_unit(u.GHz,
                                                velocity_convention='radio')
         cdelt = np.abs(subcube.spectral_axis[0] - subcube.spectral_axis[1])
         args.log.info('Cube spectral axis step: %s', cdelt.to(u.MHz))
@@ -657,7 +658,7 @@ def pvmap_extractor(args: Sequence):
                         help='Source configuration file')
     group1.add_argument('--cube', action=actions.LoadCube,
                         help='Cube file name')
-    parser.set_defaults(rms=None, filenames=None)
+    parser.set_defaults(rms=None, filenames=None, _cube=None)
     args = parser.parse_args(args)
 
     for step in pipe:
