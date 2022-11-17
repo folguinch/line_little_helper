@@ -564,7 +564,10 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
         log(f'Computing pv map for PA={pa}')
         for i, position in enumerate(positions):
             log(f'Position = {position}')
-            suffix_fmt = '.ra{ra:.3f}_dec{dec:.3f}.PA{pa}'
+            if section is not None:
+                suffix_fmt = '{section}.ra{ra:.5f}_dec{dec:.5f}.PA{pa}'
+            else:
+                suffix_fmt = '.ra{ra:.5f}_dec{dec:.5f}.PA{pa}'
             filename = _generate_filename(suffix_fmt, output=output,
                                           file_fmt=file_fmt, source=source,
                                           source_section=source_section,
