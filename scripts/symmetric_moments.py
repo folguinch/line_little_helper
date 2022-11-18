@@ -9,6 +9,7 @@ from toolkit.argparse_tools import parents
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cubeutils
 
+from line_little_helper.scripts.argparse_parents import line_parents
 from line_little_helper.scripts.moving_moments import HelpFormatter
 import line_little_helper.scripts.subcube_extractor as extractor
 
@@ -25,7 +26,8 @@ def _get_moment(args: argparse.Namespace) -> Sequence[str]:
         moment = cubeutils.get_moment(args.subcube,
                                       mom,
                                       linefreq=args.linefreq,
-                                      lower_limit=args.fluxlimit,
+                                      lower_limit=args.flux_limit,
+                                      rms=args.rms,
                                       auto_rms=True,
                                       nsigma=args.nsigma[0],
                                       log=args.log.info)
@@ -50,16 +52,13 @@ def symmetric_moments(args: Sequence[str]) -> Sequence[str]:
     pipe = [aploaders.load_spectral_cube, extractor.check_line_freq,
             extractor.get_subcube, _save_subcube, _get_moment]
     args_parents = [extractor.parent_parser(),
+                    line_parents('flux'),
                     parents.logger('debug_symmetric_moments.log')]
     parser = argparse.ArgumentParser(
         add_help=True,
         formatter_class=HelpFormatter,
         parents=args_parents,
         conflict_handler='resolve')
-    parser.add_argument('--fluxlimit', nargs=2, action=actions.ReadQuantity,
-                        help='Flux lower limit with units')
-    parser.add_argument('--nsigma', nargs=1, type=int, default=[5],
-                        help='Number of rms levels for flux limit')
     parser.add_argument('output', nargs=1, action=actions.NormalizePath,
                         help='The output basename')
     parser.add_argument('moments', nargs='*', type=int,

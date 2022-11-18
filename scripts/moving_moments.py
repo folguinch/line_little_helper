@@ -467,7 +467,7 @@ def main(args: list) -> None:
         by `ROLL` channels until the `winwidth` is covered.""")
     pipe = [_preproc, _proc]
     args_parents = [apparents.logger('debug_moving_moments.log'),
-                    line_parents(['vlsr', 'molecule'])]
+                    line_parents('vlsr', 'molecule', 'flux')]
     parser = argparse.ArgumentParser(
         add_help=True,
         description=description,
@@ -475,12 +475,6 @@ def main(args: list) -> None:
         parents=args_parents)
     parser.add_argument('--shrink', action='store_true',
                         help='Shrink to minimal cube.')
-    group1 = parser.add_mutually_exclusive_group(required=False)
-    group1.add_argument('--rms', metavar=('VAL', 'UNIT'), default=None,
-                        action=actions.ReadQuantity,
-                        help='Noise level.')
-    group1.add_argument('--sampled_rms', action='store_true',
-                        help='Calculate the rms from a sample of channels.')
     parser.add_argument('--savemasks', action='store_true',
                         help='Save masks at each step.')
     parser.add_argument('--split', metavar=('WIDTH', 'WIN'), nargs=2, type=int,
