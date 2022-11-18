@@ -12,6 +12,8 @@ def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
     It creates the `cubename` and the default `cube` attributes.
     If `nargs` is larger than 1 or in `[*, +]`, then a `cubenames` attibute
     is generated and the `cubename` attribute is set to `None`.
+    If nargs is 0 then no cubename argument is generated, i.e. only `use_dask`
+    and `common_beam` arguments are generated.
     """
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -23,6 +25,8 @@ def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
         parser.add_argument('cubename', nargs=nargs, action=actions.CheckFile,
                             help='Cube file name')
         parser.set_defaults(cube=None)
+    elif nargs == 0:
+        pass
     else:
         raise ValueError(f'nargs {nargs} not recognized')
     parser.add_argument('--use_dask', action='store_true',
