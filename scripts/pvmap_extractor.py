@@ -18,7 +18,8 @@ from toolkit.astro_tools import cube_utils
 import astropy.units as u
 import numpy as np
 
-from line_little_helper.scripts.argparse_parents import line_parents
+from line_little_helper.scripts.argparse_parents import (line_parents,
+                                                         cube_parent)
 from line_little_helper.molecule import get_molecule
 
 ConfigParser = TypeVar('ConfigParser')
@@ -296,7 +297,7 @@ def _load_slit(args: argparse.Namespace, section: str,
 
     return slit
 
-def _get_vlsr(args: argparse.Namespace) -> u.Quantity:
+def _get_vlsr(args: argparse.Namespace, section: str) -> u.Quantity:
     """Extract the vlsr from input."""
     if args.vlsr is not None:
         vlsr = args.vlsr
@@ -312,13 +313,13 @@ def _get_vlsr(args: argparse.Namespace) -> u.Quantity:
         args.log.warning('LSR velocity: %s', vlsr)
     return vlsr
 
-def _get_linefreq(args: argparse.Namespace,
+def _get_linefreq(args: argparse.Namespace, section: str, cube: SpectralCube,
                   vlsr: Optional[u.Quantity] = None) -> u.Quantity:
     """Extract line frequency from input."""
     if args.line_freq:
         line_freq = args.line_freq
     elif args.molecule and args.qns:
-        mol = get_molecule(args.molecule[0], args._cube, qns=args.qns,
+        mol = get_molecule(args.molecule[0], cube, qns=args.qns,
                             onlyj=args.onlyj, line_lists=args.line_lists,
                             vlsr=vlsr)
         if len(mol.transitions) != 1:
@@ -337,7 +338,7 @@ def _get_linefreq(args: argparse.Namespace,
                 line_lists = args.pvconfig[section]['line_lists'].split(',')
                 line_lists = [x.strip() for x in line_lists]
             mol = get_molecule(molecule,
-                               args._cube,
+                               cube,
                                qns=qns,
                                onlyj=args.onlyj,
                                line_lists=line_lists,
@@ -421,7 +422,7 @@ def _iter_sections(args: argparse.Namespace) -> None:
         if args.pvconfig is not None and args.source is not None:
             source_section = args.pvconfig.get(section, 'source_section',
                                                fallback=section)
-            source_config = args.config['source_section']
+            source_config = args.source.config[source_section]
         else:
             source_config = None
         pvmap_kwargs['source_config'] = source_config
@@ -431,11 +432,11 @@ def _iter_sections(args: argparse.Namespace) -> None:
         pvmap_kwargs.update(_load_slit(args, section, cube))
 
         # vlsr
-        vlsr = _get_vlsr(args)
+        vlsr = _get_vlsr(args, section)
 
         # Line frequency
         args.log.info('Rest frequency: %s', rest_freq.to(u.GHz))
-        line_freq = _get_linefreq(args, vlsr=vlsr)
+        line_freq = _get_linefreq(args, section, cube, vlsr=vlsr)
 
         # Get frequency/velocity slab
         subcube = _crop_cube(cube, args, section, rest_freq, line_freq, vlsr)
@@ -450,10 +451,14 @@ def _iter_sections(args: argparse.Namespace) -> None:
         # Get pv maps:
         args.filenames = _calculate_pv_maps(subcube, invert=args.invert,
                                             rms=cube_rms, log=args.log.info,
+                                            common_beam=args.common_beam,
                                             **pvmap_kwargs)
 
-def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
+def _calculate_pv_maps(cube: SpectralCube,
+                       invert: bool = False,
                        rms: Optional[u.Quantity] = None,
+                       common_beam: bool = False,
+                       log: Callable = print,
                        **kwargs) -> List[Path]:
     """Calculate pv maps based on input.
 
@@ -461,11 +466,13 @@ def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
       cube: data cube.
       invert: optional; invert the velocity/position axes.
       rms: optional; pv map rms.
+      common_beam: optional; convolve cube to common beam?
       log: optional; logging function.
       kwargs: pv map input parameters.
     """
     # Common beam
-    cube = cube_utils.to_common_beam(cube, log=log)
+    if common_beam:
+        cube = cube_utils.to_common_beam(cube, log=log)
 
     # Compute
     width = kwargs.pop('width')
@@ -639,6 +646,7 @@ def pvmap_extractor(args: Sequence):
     pipe = [_minimal_set, _iter_sections]
     args_parents = [parents.logger('debug_line_helper.log'),
                     parents.source_position(required=False),
+                    cube_parent(nargs=0),
                     line_parents('vlsr', 'molecule')]
     parser = argparse.ArgumentParser(
         add_help=True,
@@ -701,7 +709,7 @@ def pvmap_extractor(args: Sequence):
         '--cube',
         action=actions.LoadCube,
         help='Cube file name')
-    parser.set_defaults(rms=None, filenames=None, _cube=None)
+    parser.set_defaults(filenames=None)
     args = parser.parse_args(args)
 
     for step in pipe:
