@@ -410,7 +410,6 @@ def _iter_sections(args: argparse.Namespace) -> None:
         pvmap_kwargs = {'output': args.output,
                         'file_fmt': args.pvconfig.get(section, 'file_fmt',
                                                       fallback=None),
-                        #'source': args.source,
                         'section': section,
                         }
         if args.pvconfig:
@@ -536,7 +535,6 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
                        rms: Optional[u.Quantity] = None,
                        output: Optional[Path] = None,
                        file_fmt: Optional[str] = None,
-                       #source: Optional['AstroSource'] = None,
                        source_config: Optional[ConfigParser] = None,
                        section: Optional[str] = None,
                        log: Callable = print) -> List[Path]:
@@ -552,8 +550,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
       rms: optional; pv map rms.
       output: optional; output filename.
       file_fmt: optional; filename format.
-      source: optional; astro source.
-      source_section: optional; data section of the source.
+      source_config: optional; config proxy of the source.
       section: optional; pv map section.
       log: optional; logging function.
     """
@@ -568,7 +565,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
             else:
                 suffix_fmt = '.ra{ra:.5f}_dec{dec:.5f}.PA{pa}'
             filename = _generate_filename(suffix_fmt, output=output,
-                                          file_fmt=file_fmt,# source=source,
+                                          file_fmt=file_fmt,
                                           source_config=source_config,
                                           log=log,
                                           ra=position.ra.deg,
@@ -586,7 +583,6 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
 def _generate_filename(suffix_fmt: str,
                        output: Optional[Path] = None,
                        file_fmt: Optional[Path] = None,
-                       #source: Optional['AstroSource'] = None,
                        source_config: Optional[ConfigParser] = None,
                        log: Callable = print,
                        **kwargs):
@@ -600,8 +596,7 @@ def _generate_filename(suffix_fmt: str,
       suffix_fmt: format of the suffix.
       output: optional; output filename.
       file_fmt: optional; filename format.
-      sources: optional; astro sources.
-      source_section: optional; data section of the source.
+      source_config: optional; config proxy of the source.
       kwargs: keyword arguments for the suffix format.
     """
     # Get filename
@@ -616,8 +611,7 @@ def _generate_filename(suffix_fmt: str,
     elif file_fmt is not None:
         filename = file_fmt.format(**kwargs)
         filename = Path(filename).expanduser()
-    elif source_config is not None: #(source is not None and source_section is not None):
-        #cubename = source.config.getpath(source_section, 'file')
+    elif source_config is not None:
         cubename = source_config.getpath('file')
         if 'section' in kwargs:
             suffix = f".pvmap.{kwargs['section']}"
