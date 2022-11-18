@@ -75,6 +75,7 @@ def fit_cube(cube: SpectralCube, vel_axis: u.Quantity, indices: np.array,
     vel_map = np.ones(indices.shape) * np.nan
     fwhm_map = np.ones(indices.shape) * np.nan
     peak_map = np.ones(indices.shape) * np.nan
+    residual = np.ones(indices.shape) * np.nan
     i, page, fig, axs = 0, 1, None, None
     for x, y in product(xgrid, ygrid):
         # Channel range
@@ -93,6 +94,8 @@ def fit_cube(cube: SpectralCube, vel_axis: u.Quantity, indices: np.array,
         vel_map[y, x] = model.mean.value
         fwhm_map[y, x] = model.stddev.value * gaussian_sigma_to_fwhm
         peak_map[y, x] = model.amplitude.value
+        residual[y, x] = np.sum(np.abs(model(vel).to(spec.unit).value - \
+                                       spec.value))
 
         # Plot
         if axs is None:
@@ -119,6 +122,8 @@ def fit_cube(cube: SpectralCube, vel_axis: u.Quantity, indices: np.array,
              'fit_fwhm')
     save_map(peak_map * model.amplitude.unit, cube, filename, filename.parent,
              'fit_amplitude')
+    save_map(residual * cube.unit, cube, filename, filename.parent,
+             'fit_residual')
 
 def _proc(args: argparse.Namespace):
     for transition in args.molec.transitions:
