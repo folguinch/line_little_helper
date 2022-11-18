@@ -1,6 +1,6 @@
 #!/bin/python3
 """Calculate a position-velocity (pv) map."""
-from typing import Callable, Optional, Sequence, Iterable, List
+from typing import Callable, Optional, Sequence, Iterable, List, Mapping
 from pathlib import Path
 import argparse
 import sys
@@ -19,6 +19,8 @@ import numpy as np
 
 from line_little_helper.scripts.argparse_parents import line_parents
 from line_little_helper.molecule import get_molecule
+
+ConfigParser = TypeVar('ConfigParser')
 
 def swap_axes(hdu: 'PrimaryHDU'):
     """Swap the axis of an HDU."""
@@ -137,60 +139,6 @@ def get_pvmap_from_region(cube: 'SpectralCube',
 
     return pv_map
 
-def get_parent_parser() -> argparse.ArgumentParser:
-    """Base parent parser for pv maps."""
-    parents = [line_parents('vlsr', 'molecule')]
-    parent_parser = argparse.ArgumentParser(add_help=False, parents=parents)
-    parent_parser.add_argument(
-        '--invert',
-        action='store_true',
-        help='Invert axes')
-    parent_parser.add_argument(
-        '--estimate_error',
-        action='store_true',
-        help='Estimate uncertainties by propagating errors')
-    parent_parser.add_argument(
-        '--pvconfig',
-        action=actions.LoadConfig,
-        help='Configuration of the PV maps (position and slit)')
-    parent_parser.add_argument(
-        '--config_section',
-        dest='sections',
-        nargs='*',
-        help='Use only this section(s) from the config file')
-    parent_parser.add_argument(
-        '--line_freq',
-        action=actions.ReadQuantity,
-        help='Line (or slab center) frequency')
-    parent_parser.add_argument(
-        '--dfreq',
-        action=actions.ReadQuantity,
-        help='Frequency slab width')
-    parent_parser.add_argument(
-        '--pa',
-        nargs='*',
-        action=actions.ReadQuantity,
-        help='Position angles in degrees')
-    parent_parser.add_argument(
-        '--length',
-        action=actions.ReadQuantity,
-        help='Length of the slit')
-    parent_parser.add_argument(
-        '--width',
-        action=actions.ReadQuantity,
-        help='Width of the slit in arcsec')
-    parent_parser.add_argument(
-        '--paths',
-        nargs='*',
-        action=actions.NormalizePath,
-        help='Read a CASA poly region as pv path')
-    parent_parser.add_argument(
-        '--output',
-        action=actions.NormalizePath,
-        help='File output')
-
-    return parent_parser
-
 def get_spectral_slab(cube: 'SpectralCube',
                       line_freq: u.Quantity,
                       delta_freq: u.Quantity,
@@ -221,6 +169,34 @@ def get_spectral_slab(cube: 'SpectralCube',
     except u.core.UnitsError:
         return cube.spectral_slab(*dvel)
 
+def error_estimator(cube: SpectralCube,
+                    slit_width: u.Quantity,
+                    config: ConfigParser = None,
+                    log: Callable = print) -> u.Quantity:
+    """Estimate the error in pv map using propagation of error.
+
+    Args:
+      cube: data cube.
+      slit_width: width of the slit.
+      config: optional; config parser with `rms` value.
+      log: optional; logging function.
+    """
+    if config and 'rms' in config:
+        cube_rms = config.getquantity('rms')
+        cube_rms = cube_rms.to(cube.unit)
+    else:
+        cube_rms = cube_utils.get_cube_rms(cube, log=log)
+    log(f'Cube rms: {cube_rms}')
+    pixsize = cube.wcs.sub(['longitude', 'latitude'])
+    pixsize = pixsize.proj_plane_pixel_area()
+    pixsize = np.sqrt(pixsize).to(slit_width.unit)
+    npix = slit_width / pixsize
+    log(f'Pixels in slit: {npix}')
+    cube_rms = cube_rms / np.sqrt(npix)
+    log(f'Estimated pvmap rms: {cube_rms}')
+
+    return cube_rms
+
 def _minimal_set(args: argparse.Namespace) -> None:
     """Determine wether input cmd parameters define the slice."""
     if (args.cube and args.pa and args.length and
@@ -237,24 +213,190 @@ def _minimal_set(args: argparse.Namespace) -> None:
     else:
         raise ValueError('Not enough information for pv map')
 
-def _load_cube(args, section):
+def _load_cube(args: argparse.Namespace, section: str) -> SpectralCube:
     """Load the cube depending on the input data."""
     if args.cube is not None:
-        args._cube = args.cube
-        return None
+        return args.cube
     elif args.pvconfig is not None:
         if args.source is not None:
             source_section = args.pvconfig.get(section, 'source_section',
                                                fallback=section)
-            args._cube = args.source[source_section]
-            return source_section
+            return args.source[source_section]
         elif 'cube' in args.pvconfig[section]:
-            args._cube = SpectralCube.read(args.pvconfig[section]['cube'])
-            return None
+            return SpectralCube.read(args.pvconfig[section]['cube'])
         else:
             raise ValueError('Cannot load the input cube')
     else:
         raise ValueError('Cannot load the input cube')
+
+def _load_slit(args: argparse.Namespace, section: str,
+               cube: Union[None, SpectralCube]) -> Mapping:
+    """Load pv map slit properties."""
+    slit = {}
+    if args.pvconfig and 'moment0' in args.pvconfig[section]:
+        raise NotImplementedError
+        #moment0 = Image(args.pvconfig.get(section, 'moment0'))
+        #xmax, ymax = moment0.max_pix()
+        #rest_freq = moment0.header['RESTFRQ'] * u.Hz
+    elif args.paths is not None or args.pvconfig is not None:
+        if args.paths is not None:
+            slit['paths'] = args.paths
+            args.log.info('Using input paths')
+        elif args.pvconfig and 'paths' in args.pvconfig[section]:
+            aux = args.pvconfig.get(section, 'paths').split(',')
+            slit['paths'] = (Path(path.strip()) for path in aux)
+            args.log.info('Using config paths')
+        elif args.source is not None:
+            # This assumes the cubes are the same for all sources
+            if args.position is None:
+                functions.pixels_to_positions(
+                    args,
+                    wcs=cube.wcs.sub(['longitude', 'latitude']),
+                )
+            slit['positions'] = args.position
+            args.log.info('Using source positions for slit')
+        else:
+            raise ValueError('Cannot determine the slit or region')
+    else:
+        raise NotImplementedError('Only pvconfig for now')
+
+    # Load slit path properties
+    if 'positions' in slit:
+        # PA
+        if args.pa is not None:
+            slit['pas'] = args.pa
+        elif args.pvconfig and 'PAs' in args.pvconfig[section]:
+            slit['pas'] = args.pvconfig.getquantity(section, 'PAs')
+            try:
+                slit['pas'] = list(slit['pas'])
+            except TypeError:
+                slit['pas'] = [slit['pas']]
+        else:
+            raise ValueError(f'No PAs given in section {section}')
+
+        # Length
+        if args.length:
+            slit['length'] = args.length
+        elif args.pvconfig and 'length' in args.pvconfig[section]:
+            slit['length'] = args.pvconfig.getquantity(section, 'length')
+        else:
+            raise ValueError(f'No slit length given in section {section}')
+        args.log.info('Slit length: %f %s', slit['length'].value,
+                      slit['length'].unit)
+
+    # Width is common
+    if args.width:
+        slit['width'] = args.width
+    elif args.pvconfig and 'width' in args.pvconfig[section]:
+        slit['width'] = args.pvconfig.getquantity(section, 'width')
+    else:
+        raise ValueError('No slit width given')
+    args.log.info('Slit width: %f %s',slit['width'].value, slit['width'].unit)
+
+    return slit
+
+def _get_vlsr(args: argparse.Namespace) -> u.Quantity:
+    """Extract the vlsr from input."""
+    if args.vlsr is not None:
+        vlsr = args.vlsr
+        args.log.info('Input LSR velocity: %s', vlsr)
+    elif args.pvconfig and 'v_lsr' in args.pvconfig[section]:
+        vlsr = args.pvconfig.getquantity(section, 'v_lsr')
+        args.log.info('LSR velocity from config: %s', vlsr)
+    elif args.source is not None and args.source.vlsr is not None:
+        vlsr = args.source.vlsr
+        args.log.info('LSR velocity from source: %s', vlsr)
+    else:
+        vlsr = 0. * u.km / u.s
+        args.log.warning('LSR velocity: %s', vlsr)
+    return vlsr
+
+def _get_linefreq(args: argparse.Namespace,
+                  vlsr: Optional[u.Quantity] = None) -> u.Quantity:
+    """Extract line frequency from input."""
+    if args.line_freq:
+        line_freq = args.line_freq
+    elif args.molecule and args.qns:
+        mol = get_molecule(args.molecule[0], args._cube, qns=args.qns,
+                            onlyj=args.onlyj, line_lists=args.line_lists,
+                            vlsr=vlsr)
+        if len(mol.transitions) != 1:
+            raise ValueError(f'Number of transitions: {len(mol.transitions)}')
+        line_freq = mol.transitions[0].restfreq
+    elif args.pvconfig is not None:
+        if 'line_freq' in args.pvconfig[section]:
+            line_freq = args.pvconfig.getquantity(section, 'line_freq')
+        elif ('molecule' in args.pvconfig[section] and
+              'qns' in args.pvconfig[section]):
+            molecule = args.pvconfig[section]['molecule']
+            qns = args.pvconfig[section]['qns']
+            line_lists = args.line_lists
+            if (line_lists is None and
+                'line_lists' in args.pvconfig[section]):
+                line_lists = args.pvconfig[section]['line_lists'].split(',')
+                line_lists = [x.strip() for x in line_lists]
+            mol = get_molecule(molecule,
+                               args._cube,
+                               qns=qns,
+                               onlyj=args.onlyj,
+                               line_lists=line_lists,
+                               vlsr=vlsr)
+            if len(mol.transitions) != 1:
+                raise ValueError(('Number of transitions: '
+                                  f'{len(mol.transitions)}'))
+            line_freq = mol.transitions[0].restfreq
+    else:
+        args.log.warning('No line frequency given, using whole range')
+        line_freq = None
+    try:
+        args.log.info('Line frequency: %s', line_freq.to(u.GHz))
+    except AttributeError:
+        pass
+
+    return line_freq
+
+def _crop_cube(cube: SpectralCube, args: argparse.Namespace, section: str,
+               rest_freq: u.Quantity, line_freq: u.Quantity,
+               vlsr: u.Quantity) -> SpectralCube:
+    """Select subcube for pv maps."""
+    subcube = cube.with_spectral_unit(u.GHz, velocity_convention='radio')
+    cdelt = np.abs(subcube.spectral_axis[0] - subcube.spectral_axis[1])
+    args.log.info('Cube spectral axis step: %s', cdelt.to(u.MHz))
+    if args.pvconfig and 'chan_slab' in args.pvconfig[section]:
+        chan0, chan1 = args.pvconfig.getintlist(section, 'chan_slab')
+        args.log.info('Channel slab: %i, %i', chan0, chan1)
+        subcube = subcube[chan0:chan1+1]
+        args.log.info('New cube shape: %r', subcube.shape)
+    elif line_freq is not None:
+        if args.dfreq:
+            dfreq2 = args.dfreq / 2.
+        elif args.pvconfig and 'freq_slab' in args.pvconfig[section]:
+            dfreq2 = args.pvconfig.getquantity(section, 'freq_slab') / 2.
+        else:
+            args.log.warning('No frequency slab width, using whole range')
+            dfreq2 = None
+
+        # Get the spectral slab
+        if dfreq2 is not None:
+            args.log.info('Frequency slab width: %s', dfreq2.to(u.MHz)*2)
+            subcube = get_spectral_slab(subcube, line_freq, dfreq2,
+                                        rest_freq=rest_freq,
+                                        vlsr=vlsr)
+            cdelt = np.abs(subcube.spectral_axis[0] - \
+                            subcube.spectral_axis[1])
+            args.log.info('New cube shape: %r', subcube.shape)
+            args.log.info('New cube spectral axis step: %s',
+                            cdelt.to(u.MHz))
+    else:
+        pass
+
+    # Change units to velocity
+    # The zero velocity is in the line center
+    subcube = subcube.with_spectral_unit(u.km/u.s,
+                                         velocity_convention='radio',
+                                         rest_value=line_freq)
+
+    return subcube
 
 def _iter_sections(args: argparse.Namespace) -> None:
     """Iterate over the sections in configuration."""
@@ -263,12 +405,10 @@ def _iter_sections(args: argparse.Namespace) -> None:
         args.log.info('PV map for: %s', section)
 
         # PV map options
-        has_paths = (args.paths or
-                     (args.pvconfig and 'paths' in args.pvconfig[section]))
         pvmap_kwargs = {'output': args.output,
                         'file_fmt': args.pvconfig.get(section, 'file_fmt',
                                                       fallback=None),
-                        'source': args.source,
+                        #'source': args.source,
                         'section': section,
                         }
         if args.pvconfig:
@@ -276,189 +416,39 @@ def _iter_sections(args: argparse.Namespace) -> None:
                                                          fallback=None)
 
         # Load data
-        source_section = _load_cube(args, section)
-        pvmap_kwargs['source_section'] = source_section
-        rest_freq = cube_utils.get_restfreq(args._cube)
-
-        # Estimate rms
-        if args.estimate_error:
-            if (args.source is not None and
-                'rms' in args.source.config[source_section]):
-                cube_rms = args.source.get_quantity('rms',
-                                                    section=source_section)
-                cube_rms = cube_rms.to(args._cube.unit)
-            else:
-                cube_rms = cube_utils.get_cube_rms(args._cube, log=args.log.info)
-            args.log.info('Cube rms: %s', cube_rms)
-
-        # Load position or path
-        if args.pvconfig and 'moment0' in args.pvconfig[section]:
-            raise NotImplementedError
-            #moment0 = Image(args.pvconfig.get(section, 'moment0'))
-            #xmax, ymax = moment0.max_pix()
-            #rest_freq = moment0.header['RESTFRQ'] * u.Hz
-        elif args.paths is not None or args.pvconfig is not None:
-            if args.paths is not None:
-                pvmap_kwargs['paths'] = args.paths
-                args.log.info('Using input paths')
-            elif args.pvconfig and 'paths' in args.pvconfig[section]:
-                aux = args.pvconfig.get(section, 'paths').split(',')
-                pvmap_kwargs['paths'] = (Path(path.strip()) for path in aux)
-                args.log.info('Using config paths')
-            elif args.source is not None:
-                # This assumes the cubes are the same for all sources
-                functions.pixels_to_positions(args,
-                                              wcs=args._cube.wcs.sub(['longitude',
-                                                                     'latitude']))
-                pvmap_kwargs['positions'] = args.position
-                args.log.info('Using source positions for slit')
-            else:
-                raise ValueError('Cannot determine the slit or region')
+        cube = _load_cube(args, section)
+        if args.pvconfig is not None and args.source is not None:
+            source_section = args.pvconfig.get(section, 'source_section',
+                                               fallback=section)
+            source_config = args.config['source_section']
         else:
-            raise NotImplementedError('Only pvconfig for now')
+            source_config = None
+        pvmap_kwargs['source_config'] = source_config
+        rest_freq = cube_utils.get_restfreq(cube)
+
+        # Load slit
+        pvmap_kwargs.update(_load_slit(args, section, cube))
 
         # vlsr
-        if args.vlsr is not None:
-            args.log.info('Input LSR velocity: %s', args.vlsr)
-        elif args.pvconfig and 'v_lsr' in args.pvconfig[section]:
-            args.vlsr = args.pvconfig.getquantity(section, 'v_lsr')
-            args.log.info('LSR velocity from config: %s', args.vlsr)
-        elif args.source is not None and args.source.vlsr is not None:
-            args.vlsr = args.source.vlsr
-            args.log.info('LSR velocity from source: %s', args.vlsr)
-        else:
-            vlsr = 0. * u.km / u.s
-            args.log.warning('LSR velocity: %s', vlsr)
+        vlsr = _get_vlsr(args)
 
         # Line frequency
         args.log.info('Rest frequency: %s', rest_freq.to(u.GHz))
-        if args.line_freq:
-            args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
-        elif args.molecule and args.qns:
-            mol = get_molecule(args.molecule[0], args._cube, qns=args.qns,
-                               onlyj=args.onlyj, line_lists=args.line_lists,
-                               vlsr=args.vlsr)
-            if len(mol.transitions) != 1:
-                raise ValueError(('Number of transitions: '
-                                  f'{len(mol.transitions)}'))
-            args.line_freq = mol.transitions[0].restfreq
-        elif args.pvconfig is not None:
-            if 'line_freq' in args.pvconfig[section]:
-                args.line_freq = args.pvconfig.getquantity(section, 'line_freq')
-                args.log.info('Line frequency: %s', args.line_freq.to(u.GHz))
-            elif ('molecule' in args.pvconfig[section] and
-                  'qns' in args.pvconfig[section]):
-                molecule = args.pvconfig[section]['molecule']
-                qns = args.pvconfig[section]['qns']
-                line_lists = args.line_lists
-                if (line_lists is None and
-                    'line_lists' in args.pvconfig[section]):
-                    line_lists = args.pvconfig[section]['line_lists'].split(',')
-                    line_lists = [x.strip() for x in line_lists]
-                mol = get_molecule(molecule, args._cube, qns=qns,
-                                   onlyj=args.onlyj,
-                                   line_lists=line_lists,
-                                   vlsr=args.vlsr)
-                if len(mol.transitions) != 1:
-                    raise ValueError(('Number of transitions: '
-                                      f'{len(mol.transitions)}'))
-                args.line_freq = mol.transitions[0].restfreq
-        else:
-            args.log.warning('No line frequency given, using whole range')
-            args.line_freq = None
+        line_freq = _get_linefreq(args, vlsr=vlsr)
 
         # Get frequency/velocity slab
-        subcube = args._cube.with_spectral_unit(u.GHz,
-                                               velocity_convention='radio')
-        cdelt = np.abs(subcube.spectral_axis[0] - subcube.spectral_axis[1])
-        args.log.info('Cube spectral axis step: %s', cdelt.to(u.MHz))
-        if args.line_freq is not None:
-            if args.dfreq:
-                dfreq2 = args.dfreq / 2.
-                args.log.info('Frequency slab width: %s', args.dfreq.to(u.MHz))
-            elif args.pvconfig and 'freq_slab' in args.pvconfig[section]:
-                dfreq2 = args.pvconfig.getquantity(section, 'freq_slab') / 2.
-                args.log.info('Frequency slab width: %s', dfreq2.to(u.MHz)*2.)
-            elif args.pvconfig and 'chan_slab' in args.pvconfig[section]:
-                chan0, chan1 = args.pvconfig.getintlist(section, 'chan_slab')
-                args.log.info('Channel slab: %i, %i', chan0, chan1)
-                dfreq2 = None
-                subcube = subcube.data[chan0:chan1+1]
-                args.log.info('New cube shape: %r', subcube.shape)
-            else:
-                args.log.warning('No frequency slab width, using whole range')
-                dfreq2 = None
-
-            # Get the spectral slab
-            if dfreq2 is not None:
-                subcube = get_spectral_slab(subcube, args.line_freq, dfreq2,
-                                            rest_freq=rest_freq,
-                                            vlsr=args.vlsr)
-                cdelt = np.abs(subcube.spectral_axis[0] - \
-                               subcube.spectral_axis[1])
-                args.log.info('New cube shape: %r', subcube.shape)
-                args.log.info('New cube spectral axis step: %s',
-                              cdelt.to(u.MHz))
-        else:
-            pass
-
-        # Change units to velocity
-        # The zero velocity is in the line center
-        subcube = subcube.with_spectral_unit(u.km/u.s,
-                                             velocity_convention='radio',
-                                             rest_value=args.line_freq)
-
-        # Check input for positions
-        if 'positions' in pvmap_kwargs:
-            # PA
-            if args.pa is not None:
-                pvmap_kwargs['pas'] = args.pa
-            elif args.pvconfig and 'PAs' in args.pvconfig[section]:
-                pvmap_kwargs['pas'] = args.pvconfig.getquantity(section, 'PAs')
-                try:
-                    pvmap_kwargs['pas'] = list(pvmap_kwargs['pas'])
-                except TypeError:
-                    pvmap_kwargs['pas'] = [pvmap_kwargs['pas']]
-            else:
-                args.log.warning('No PAs given, skipping %s', section)
-                continue
-
-            # Length
-            if args.length:
-                pvmap_kwargs['length'] = args.length
-            elif args.pvconfig and 'length' in args.pvconfig[section]:
-                pvmap_kwargs['length'] = args.pvconfig.getquantity(section,
-                                                                   'length')
-            else:
-                raise ValueError('No slit length given')
-            args.log.info('Slit length: %f %s', pvmap_kwargs['length'].value,
-                          pvmap_kwargs['length'].unit)
-
-        # Width is common
-        if args.width:
-            pvmap_kwargs['width'] = args.width
-        elif args.pvconfig and 'width' in args.pvconfig[section]:
-            pvmap_kwargs['width'] = args.pvconfig.getquantity(section, 'width')
-        else:
-            raise ValueError('No slit width given')
-        args.log.info('Slit width: %f %s', pvmap_kwargs['width'].value,
-                      pvmap_kwargs['width'].unit)
+        subcube = _crop_cube(cube, args, section, rest_freq, line_freq, vlsr)
 
         # Estimate error
         if args.estimate_error:
-            pixsize = subcube.wcs.sub(['longitude', 'latitude'])
-            pixsize = pixsize.proj_plane_pixel_area()
-            pixsize = np.sqrt(pixsize).to(pvmap_kwargs['width'].unit)
-            npix = pvmap_kwargs['width'] / pixsize
-            args.log.info('Pixels in slit: %f', npix)
-            cube_rms = cube_rms / np.sqrt(npix)
-            args.log.info('Estimated pvmap rms: %s', cube_rms)
+            cube_rms = error_estimator(subcube, pvmap_kwargs['width'],
+                                       config=source_config, log=args.log.info)
         else:
             cube_rms = None
 
         # Get pv maps:
         args.filenames = _calculate_pv_maps(subcube, invert=args.invert,
-                                            rms=cube_rms, log=args.log.warning,
+                                            rms=cube_rms, log=args.log.info,
                                             **pvmap_kwargs)
 
 def _calculate_pv_maps(cube, invert: bool = False, log: Callable = print,
@@ -538,8 +528,8 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
                        rms: Optional[u.Quantity] = None,
                        output: Optional[Path] = None,
                        file_fmt: Optional[str] = None,
-                       source: Optional['AstroSource'] = None,
-                       source_section: Optional[str] = None,
+                       #source: Optional['AstroSource'] = None,
+                       source_config: Optional[ConfigParser] = None,
                        section: Optional[str] = None,
                        log: Callable = print) -> List[Path]:
     """Iterate over PAs and sources to get pv maps.
@@ -570,8 +560,8 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
             else:
                 suffix_fmt = '.ra{ra:.5f}_dec{dec:.5f}.PA{pa}'
             filename = _generate_filename(suffix_fmt, output=output,
-                                          file_fmt=file_fmt, source=source,
-                                          source_section=source_section,
+                                          file_fmt=file_fmt,# source=source,
+                                          source_config=source_config,
                                           log=log,
                                           ra=position.ra.deg,
                                           dec=position.dec.deg,
@@ -588,8 +578,8 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
 def _generate_filename(suffix_fmt: str,
                        output: Optional[Path] = None,
                        file_fmt: Optional[Path] = None,
-                       source: Optional['AstroSource'] = None,
-                       source_section: Optional[str] = None,
+                       #source: Optional['AstroSource'] = None,
+                       source_config: Optional[ConfigParser] = None,
                        log: Callable = print,
                        **kwargs):
     """Generate the pv map file name.
@@ -618,8 +608,9 @@ def _generate_filename(suffix_fmt: str,
     elif file_fmt is not None:
         filename = file_fmt.format(**kwargs)
         filename = Path(filename).expanduser()
-    elif (source is not None and source_section is not None):
-        cubename = source.config.getpath(source_section, 'file')
+    elif source_config is not None: #(source is not None and source_section is not None):
+        #cubename = source.config.getpath(source_section, 'file')
+        cubename = source_config.getpath('file')
         if 'section' in kwargs:
             suffix = f".pvmap.{kwargs['section']}"
         else:
@@ -647,17 +638,68 @@ def pvmap_extractor(args: Sequence):
     pipe = [_minimal_set, _iter_sections]
     args_parents = [parents.logger('debug_line_helper.log'),
                     parents.source_position(required=False),
-                    get_parent_parser()]
+                    line_parents('vlsr', 'molecule')]
     parser = argparse.ArgumentParser(
         add_help=True,
         parents=args_parents,
         conflict_handler='resolve',
     )
+    parser.add_argument(
+        '--invert',
+        action='store_true',
+        help='Invert axes')
+    parser.add_argument(
+        '--estimate_error',
+        action='store_true',
+        help='Estimate uncertainties by propagating errors')
+    parser.add_argument(
+        '--pvconfig',
+        action=actions.LoadConfig,
+        help='Configuration of the PV maps (position and slit)')
+    parser.add_argument(
+        '--config_section',
+        dest='sections',
+        nargs='*',
+        help='Use only this section(s) from the config file')
+    parser.add_argument(
+        '--line_freq',
+        action=actions.ReadQuantity,
+        help='Line (or slab center) frequency')
+    parser.add_argument(
+        '--dfreq',
+        action=actions.ReadQuantity,
+        help='Frequency slab width')
+    parser.add_argument(
+        '--pa',
+        nargs='*',
+        action=actions.ReadQuantity,
+        help='Position angles in degrees')
+    parser.add_argument(
+        '--length',
+        action=actions.ReadQuantity,
+        help='Length of the slit')
+    parser.add_argument(
+        '--width',
+        action=actions.ReadQuantity,
+        help='Width of the slit in arcsec')
+    parser.add_argument(
+        '--paths',
+        nargs='*',
+        action=actions.CheckFile,
+        help='Read a CASA poly region as pv path')
+    parser.add_argument(
+        '--output',
+        action=actions.NormalizePath,
+        help='File output')
     group1 = parser.add_mutually_exclusive_group(required=True)
-    group1.add_argument('--source', action=LoadSource,
-                        help='Source configuration file')
-    group1.add_argument('--cube', action=actions.LoadCube,
-                        help='Cube file name')
+    group1.add_argument(
+        '--source',
+        action=LoadSource,
+        help='Source configuration file')
+    group1.add_argument(
+        '--cube',
+        action=actions.LoadCube,
+        help='Cube file name')
     parser.set_defaults(rms=None, filenames=None, _cube=None)
     args = parser.parse_args(args)
 
