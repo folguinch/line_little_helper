@@ -128,6 +128,7 @@ def fit_cube(cube: SpectralCube, vel_axis: u.Quantity, indices: np.array,
 def _proc(args: argparse.Namespace):
     for transition in args.molec.transitions:
         # Store linefreq
+        args.log.info(f'Working on transition:\n{transition}')
         args.log.info('Setting frequency to transition rest: %s',
                       transition.restfreq)
         args.linefreq = transition.restfreq
