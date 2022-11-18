@@ -1,7 +1,7 @@
 #!/bin/python3
 """Calculate a position-velocity (pv) map."""
 from typing import (Callable, Optional, Sequence, Iterable, List, Mapping,
-                    TypeVar)
+                    TypeVar, Union)
 from pathlib import Path
 import argparse
 import sys
