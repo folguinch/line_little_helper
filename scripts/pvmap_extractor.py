@@ -519,7 +519,11 @@ def _pv_maps_from_region(cube: 'SpectralCube',
         #filename = _generate_filename(suffix_fmt, output=output,
         #                              file_fmt=file_fmt,
         #                              log=log, ind=i)
-        filename = output.parent / f'{path.stem}.fits'
+        if 'section' in kwargs:
+            section = kwargs['section']
+            filename = output.parent / f'{path.stem}_{section}.fits'
+        else:
+            filename = output.parent / f'{path.stem}.fits'
         get_pvmap_from_region(cube, path, width, filename=filename,
                               invert=invert, rms=rms)
         filenames.append(filename)
