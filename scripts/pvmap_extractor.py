@@ -135,6 +135,14 @@ def get_pvmap_from_region(cube: 'SpectralCube',
     if rms is not None:
         pv_map.header['RMS'] = rms.to(cube.unit).value
 
+    # Beam
+    try:
+        beam = cube.beam
+        pv_map.header.update(beam.to_header_keywords())
+        log('Beam stored in pvmap')
+    except AttributeError:
+        pass
+
     if filename is not None:
         log(f'Saving file: {filename}')
         pv_map.writeto(filename, overwrite=False)
