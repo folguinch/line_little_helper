@@ -14,7 +14,7 @@ from pvextractor import Path as pvPath
 from regions import Regions
 from spectral_cube import SpectralCube
 from toolkit.argparse_tools import actions, parents, functions
-from toolkit.astro_tools import cube_utils
+from toolkit.astro_tools import cube_utils, images
 import astropy.units as u
 import numpy as np
 
@@ -41,12 +41,42 @@ def swap_axes(hdu: 'PrimaryHDU'):
 
     return fits.PrimaryHDU(aux, header=header)
 
+def recenter_offset(pvmap: 'PrimaryHDU',
+                    origin: Optional[int] = None) -> 'PrimaryHDU':
+    """Shift the offset axis origin.
+
+    If origin is not given, then the middle of the offset axis is used. Note
+    that origin corresponds to the value of `CRPIX`, hence the index origin is
+    1.
+
+    Args:
+      pvmap: the pv map.
+      origin: optional; offset reference value.
+    """
+    # Get axes
+    xaxis, yaxis = images.get_coord_axes(pvmap)
+
+    # Select axis
+    if xaxis.unit.is_equivalent(u.arcsec):
+        if origin is not None:
+            pvmap.header['CRPIX1'] = origin
+        else:
+            pvmap.header['CRPIX1'] = len(xaxis) / 2 + 0.5
+    else:
+        if origin is not None:
+            pvmap.header['CRPIX2'] = origin
+        else:
+            pvmap.header['CRPIX2'] = len(yaxis) / 2 + 0.5
+
+    return pvmap
+
 def get_pvmap_from_slit(cube: 'SpectralCube',
                         position: 'SkyCoord',
                         length: u.Quantity,
                         width: u.Quantity,
                         angle: u.Quantity,
                         invert: bool = False,
+                        recenter: bool = False,
                         rms: Optional[u.Quantity] = None,
                         filename: Optional[Path] = None,
                         log: Callable = print) -> 'PrimaryHDU':
@@ -58,10 +88,12 @@ def get_pvmap_from_slit(cube: 'SpectralCube',
       length: length of the slit.
       width: width of the slit.
       angle: position angle of the slit.
-      invert: optional; invert the velocity/position axes
+      invert: optional; invert the velocity/position axes?
+      recenter: optional; recenter the offset axis?
       rms: optional; pv map rms.
       filename: optional; output file name.
       log: optional; logging function.
+
     Returns:
       A `PrimaryHDU` containing the pv map.
     """
@@ -86,6 +118,18 @@ def get_pvmap_from_slit(cube: 'SpectralCube',
     if rms is not None:
         pv_map.header['RMS'] = rms.to(cube.unit).value
 
+    # Beam
+    try:
+        beam = cube.beam
+        pv_map.header.update(beam.to_header_keywords())
+        log('Beam stored in pvmap')
+    except AttributeError:
+        pass
+
+    # Recenter offset
+    if recenter:
+        pv_map = recenter_offset(pv_map)
+
     if filename is not None:
         log(f'Saving file: {filename}')
         pv_map.writeto(filename, overwrite=False)
@@ -96,6 +140,7 @@ def get_pvmap_from_region(cube: 'SpectralCube',
                           region: Path,
                           width: u.Quantity,
                           invert: bool = False,
+                          recenter: bool = False,
                           rms: Optional[u.Quantity] = None,
                           filename: Optional[Path] = None,
                           log: Callable = print) -> 'PrimaryHDU':
@@ -106,9 +151,11 @@ def get_pvmap_from_region(cube: 'SpectralCube',
       region: the `crtf` region filename.
       width: width of the slit.
       invert: optional; invert the velocity/position axes
+      recenter: optional; recenter the offset axis?
       rms: optional; pv map rms.
       filename: optional; output file name.
       log: optional; logging function.
+
     Returns:
       A `PrimaryHDU` containing the pv map.
     """
@@ -142,6 +189,10 @@ def get_pvmap_from_region(cube: 'SpectralCube',
         log('Beam stored in pvmap')
     except AttributeError:
         pass
+
+    # Recenter offset
+    if recenter:
+        pv_map = recenter_offset(pv_map)
 
     if filename is not None:
         log(f'Saving file: {filename}')
@@ -457,12 +508,14 @@ def _iter_sections(args: argparse.Namespace) -> None:
 
         # Get pv maps:
         args.filenames = _calculate_pv_maps(subcube, invert=args.invert,
+                                            recenter=args.recenter,
                                             rms=cube_rms, log=args.log.info,
                                             common_beam=args.common_beam,
                                             **pvmap_kwargs)
 
 def _calculate_pv_maps(cube: SpectralCube,
                        invert: bool = False,
+                       recenter: bool = False,
                        rms: Optional[u.Quantity] = None,
                        common_beam: bool = False,
                        log: Callable = print,
@@ -472,6 +525,7 @@ def _calculate_pv_maps(cube: SpectralCube,
     Args:
       cube: data cube.
       invert: optional; invert the velocity/position axes.
+      recenter: optional; recenter the offset axis?
       rms: optional; pv map rms.
       common_beam: optional; convolve cube to common beam?
       log: optional; logging function.
@@ -486,14 +540,15 @@ def _calculate_pv_maps(cube: SpectralCube,
     if kwargs.get('paths') is not None:
         paths = kwargs.pop('paths')
         filenames = _pv_maps_from_region(cube, paths, width, invert=invert,
-                                         rms=rms, log=log, **kwargs)
+                                         recenter=recenter, rms=rms, log=log,
+                                         **kwargs)
     else:
         pas = kwargs.pop('pas')
         positions = kwargs.pop('positions')
         length = kwargs.pop('length')
         filenames = _pv_maps_from_slit(cube, pas, positions, length, width,
-                                       invert=invert, rms=rms, log=log,
-                                       **kwargs)
+                                       invert=invert, recenter=recenter,
+                                       rms=rms, log=log, **kwargs)
 
     return filenames
 
@@ -501,6 +556,7 @@ def _pv_maps_from_region(cube: 'SpectralCube',
                          paths: Iterable[Path],
                          width: u.Quantity,
                          invert: bool = False,
+                         recenter: bool = False,
                          rms: Optional[u.Quantity] = None,
                          output: Optional[Path] = None,
                          file_fmt: Optional[str] = None,
@@ -513,6 +569,7 @@ def _pv_maps_from_region(cube: 'SpectralCube',
       paths: `crtf` region files.
       width: slit width.
       invert: optional; invert the velocity/position axes.
+      recenter: optional; recenter the offset axis?
       rms: optional; pv map rms.
       output: optional; output filename.
       file_fmt: optional; filename format.
@@ -533,7 +590,7 @@ def _pv_maps_from_region(cube: 'SpectralCube',
         else:
             filename = output.parent / f'{path.stem}.fits'
         get_pvmap_from_region(cube, path, width, filename=filename,
-                              invert=invert, rms=rms)
+                              invert=invert, recenter=recenter, rms=rms)
         filenames.append(filename)
 
     return filenames
@@ -544,6 +601,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
                        length: u.Quantity,
                        width: u.Quantity,
                        invert: bool = False,
+                       recenter: bool = False,
                        rms: Optional[u.Quantity] = None,
                        output: Optional[Path] = None,
                        file_fmt: Optional[str] = None,
@@ -559,6 +617,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
       length: slit length.
       width: slit width.
       invert: optional; invert the velocity/position axes.
+      recenter: optional; recenter the offset axis?
       rms: optional; pv map rms.
       output: optional; output filename.
       file_fmt: optional; filename format.
@@ -587,7 +646,7 @@ def _pv_maps_from_slit(cube: 'SpectralCube',
             # Get pv map
             get_pvmap_from_slit(cube, position, length, width, pa,
                                 invert=invert, rms=rms, filename=filename,
-                                log=log)
+                                log=log, recenter=recenter)
             filenames.append(filename)
 
     return filenames
@@ -663,6 +722,10 @@ def pvmap_extractor(args: Sequence):
         '--invert',
         action='store_true',
         help='Invert axes')
+    parser.add_argument(
+        '--recenter',
+        action='store_true',
+        help='Shift the origin of offset axes to the middle')
     parser.add_argument(
         '--estimate_error',
         action='store_true',
