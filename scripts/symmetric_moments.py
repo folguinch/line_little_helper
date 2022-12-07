@@ -35,7 +35,7 @@ def _get_moment(args: argparse.Namespace) -> Sequence[str]:
 
         # Save
         outname = f'{args.output[0]}.subcube.moment{mom}.fits'
-        moment.write(outname, overwrite=True)
+        moment.writeto(outname, overwrite=True)
         filenames.append(outname)
 
     return filenames
