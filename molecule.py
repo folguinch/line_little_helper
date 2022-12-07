@@ -7,6 +7,7 @@ from toolkit.astro_tools import cube_utils
 
 from .processing_tools import to_rest_freq, query_lines, zip_columns, combine_columns
 from .common_types import QPair
+from .utils import normalize_qns
 
 # Addtitonal types
 ConfigParser = TypeVar('ConfigParser')
@@ -105,9 +106,7 @@ class Transition:
         if 'species' in include:
             name.append(f'{self.species}'.replace('=', ''))
         if 'qns' in include:
-            qns = f'{self.qns}'
-            qns = qns.replace('-', '_').replace('(', '').replace(')', '')
-            qns = qns.replace(',', '_').replace('=','_').replace('/', '_')
+            qns = normalize_qns(self.qns)
             name.append(qns)
         return '_'.join(name)
 
