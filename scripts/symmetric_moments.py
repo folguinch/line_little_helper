@@ -12,6 +12,7 @@ import toolkit.astro_tools.cube_utils as cubeutils
 from line_little_helper.scripts.argparse_parents import line_parents
 from line_little_helper.scripts.argparse_processing import get_subcube
 from line_little_helper.scripts.moving_moments import HelpFormatter
+import line_little_helper.scripts.subcube_extractor as extractor
 
 def _save_subcube(args: argparse.Namespace) -> None:
     """Save the subcube to disk."""
