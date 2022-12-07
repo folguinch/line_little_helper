@@ -10,8 +10,8 @@ import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cubeutils
 
 from line_little_helper.scripts.argparse_parents import line_parents
+from line_little_helper.scripts.argparse_processing import get_subcube
 from line_little_helper.scripts.moving_moments import HelpFormatter
-import line_little_helper.scripts.subcube_extractor as extractor
 
 def _save_subcube(args: argparse.Namespace) -> None:
     """Save the subcube to disk."""
@@ -50,7 +50,7 @@ def symmetric_moments(args: Sequence[str]) -> Sequence[str]:
     """
     # Argument parser
     pipe = [aploaders.load_spectral_cube, extractor.check_line_freq,
-            extractor.get_subcube, _save_subcube, _get_moment]
+            get_subcube, _save_subcube, _get_moment]
     args_parents = [extractor.parent_parser(),
                     line_parents('flux'),
                     parents.logger('debug_symmetric_moments.log')]
