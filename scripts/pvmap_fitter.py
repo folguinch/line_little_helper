@@ -98,11 +98,14 @@ def plot_pvmap(plot: OTFMultiPlotter,
         loc,
         'pvmap',
         include_cbar=True,
-        bunit=bunit,
+        name='Intensity',
+        unit=bunit,
         xunit='arcsec',
         yunit='km/s',
         xname='Offset',
         yname='Velocity',
+        xformat='{x:.1f}',
+        yformat='{x:.1f}',
     )
     handler.plot_map(pvmap,
                      extent=(x[0], x[-1], y[0], y[-1]),
@@ -122,10 +125,10 @@ def plot_pvmap(plot: OTFMultiPlotter,
                       ylim=(y[0], y[-1]))
     if plot.has_cbar(loc):
         handler.plot_cbar(plot.fig,
-                          orientation=plot.axes[loc].cborientation)
+                          plot.axes[loc].cborientation)
 
 def _fitter(args: argparse.Namespace):
-    """Fit function to ov maps."""
+    """Fit function to pv maps."""
     # Generate plot object
     plot = OTFMultiPlotter(nrows=f'{len(args.pvmaps)}',
                            right='1.5',
@@ -211,7 +214,6 @@ def pvmap_fitter(args: Sequence):
 
     for step in pipe:
         step(args)
-
 
 if __name__=='__main__':
     pvmap_fitter(sys.argv[1:])
