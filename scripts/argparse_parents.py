@@ -33,6 +33,8 @@ def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
                         help='Use dask for cube')
     parser.add_argument('--common_beam', action='store_true',
                         help='Convolve with common beam before results')
+    parser.add_argument('--shrink', action='store_true',
+                        help='Reduce cube size to fit the FOV')
 
     return parser
 

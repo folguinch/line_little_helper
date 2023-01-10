@@ -68,7 +68,7 @@ def get_subcube(args: argparse.Namespace) -> None:
     kwargs = {}
     optional = ['freq_range', 'vel_range', 'chan_range', 'win_halfwidth',
                 'blc_trc', 'xy_ranges', 'vlsr', 'linefreq', 'put_rms',
-                'rms', 'common_beam', 'log']
+                'rms', 'common_beam', 'shrink', 'log']
     for key, val in vars(args).items():
         if key == 'win_halfwidth':
             kwargs[key] = val[0]
