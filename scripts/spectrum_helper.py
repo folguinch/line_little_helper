@@ -150,9 +150,9 @@ def extractor(filenames: Sequence[Path],
         if mask_from is not None:
             log(f'Opening: {mask_from}')
             img = fits.open(mask_from)[0]
-            rms = quick_rms(img.data)
-            log(f'Reference image rms: {rms}')
-            mask = img.data > 5 * rms
+            img_rms = quick_rms(img.data)
+            log(f'Reference image rms: {img_rms}')
+            mask = img.data > 5 * img_rms
             log('Extracting all spectrum in mask (5sigma)')
             if savemask is not None:
                 savemask = outdir / savemask
