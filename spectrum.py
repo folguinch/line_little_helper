@@ -108,7 +108,7 @@ class Spectrum(LoggedObject):
             return self.spectral_axis
         else:
             return self.spectral_axis.to(u.km / u.s,
-                                         equivalencies=self.velocity_axis)
+                                         equivalencies=self.velocity_equiv)
 
     @property
     def frequency_axis(self):
@@ -118,7 +118,7 @@ class Spectrum(LoggedObject):
         else:
             equiv = u.doppler_radio(self.restfreq)
             return self.spectral_axis.to(u.MHz,
-                                         equivalencies=self.velocity_axis)
+                                         equivalencies=self.velocity_equiv)
 
     @classmethod
     def from_cube(cls,
