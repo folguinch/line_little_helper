@@ -224,7 +224,7 @@ def main(args: list):
     pipe = [freq_range_fn, _extractor, _plotter]
     args_parents = [
         freq_range_parent,
-        line_parents(['vlsr', 'flux']),
+        line_parents('vlsr', 'flux'),
         apparents.logger('debug_spectrum_extractor.log'),
         apparents.source_position(required=False),
         apparents.verify_files(
