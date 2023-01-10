@@ -978,7 +978,7 @@ def generate_mask(cube: SpectralCube,
     else:
         if cube.shape[-2:] != mask.shape:
             raise ValueError((f'Mask shape {mask.shape}, inconsistent with'
-                              f'cube shape {aux.shape}'))
+                              f'cube shape {cube.shape[-2:]}'))
     log(f'Number of valid pixels in data: {np.sum(mask)}')
 
     return mask, savemask
