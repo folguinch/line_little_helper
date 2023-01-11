@@ -127,6 +127,7 @@ class Spectrum(LoggedObject):
                   spectral_axis_unit: u.Unit = u.GHz,
                   vlsr: Optional[u.Quantity] = None,
                   rms: Optional[u.Quantity] = None,
+                  sampled_rms: bool = True,
                   radius: Optional[u.Quantity] = None,
                   area_pix: Optional[float] = None,
                   restframe: str = 'observed'):
@@ -138,6 +139,7 @@ class Spectrum(LoggedObject):
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
           rms: optional; cube rms.
+          sampled_rms: optional; calculate the rms from a sample of channels?
           radius: optional; source radius.
           area_pix: optional; source area in pixels.
           restframe: optional; spectral frame (observed or rest).
@@ -160,7 +162,8 @@ class Spectrum(LoggedObject):
 
         # rms
         if rms is None:
-            rms = cube_utils.get_cube_rms(cube, use_header=True, sampled=True)
+            rms = cube_utils.get_cube_rms(cube, use_header=True,
+                                          sampled=sampled_rms)
 
         return cls(spec[0], spec[1].quantity,
                    restfreq=cube_utils.get_restfreq(cube),
@@ -926,6 +929,7 @@ def generate_mask(cube: SpectralCube,
                   rms: Optional[u.Quantity] = None,
                   nsigma: int = 5,
                   flux_limit: Optional[u.Quantity] = None,
+                  sampled_rms: bool = False,
                   savedir: Path = Path('./'),
                   maskname: Optional[Path] = None,
                   mask: Optional[np.array] = None,
@@ -937,6 +941,7 @@ def generate_mask(cube: SpectralCube,
       rms: optional; common rms value for all cubes.
       nsigma: optional; level over rms to filter data out.
       flux_limit: optional; flux limit to filter data out.
+      sampled_rms: optional; calculate rms from a sample of channels?
       savedir: optional; saving directory. Defaults to cube directory.
       maskname: optional; mask file name.
       mask: optional; true where the spectra will be extracted.
@@ -967,7 +972,7 @@ def generate_mask(cube: SpectralCube,
         else:
             rms = cube_utils.get_cube_rms(cube,
                                           use_header=True,
-                                          sampled=True)
+                                          sampled=sampled_rms)
             low_lim = nsigma * rms
         log(f'Flux limit: {low_lim.value} {low_lim.unit}')
 
@@ -987,6 +992,9 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
                               rms: Optional[u.Quantity] = None,
                               nsigma: int = 5,
                               flux_limit: Optional[u.Quantity] = None,
+                              common_rms: Callable[[u.Quantity],
+                                                   u.Quantity] = np.max,
+                              sampled_rms: bool = False,
                               spectral_axis_unit: u.Unit = u.GHz,
                               vlsr: Optional[u.Quantity] = None,
                               savedir: Path = Path('./'),
@@ -1009,6 +1017,8 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
       rms: optional; common rms value for all cubes.
       nsigma: optional; level over rms to filter data out.
       flux_limit: optional; flux limit to filter data out.
+      common_rms: optional; function to the determine the common rms.
+      sampled_rms: optional; calculate rms from a sample of channels?
       spectral_axis_unit: optional; units of the spectral axis.
       vlsr: optional; LSR velocity.
       savedir: optional; saving directory. Defaults to cube directory.
@@ -1029,6 +1039,21 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
         savedir = Path(cubenames[0].parent)
     log(f'Saving directory: {savedir}')
 
+    # Check rms: adding spectra imply that the rms is common between spectra
+    # This may not be important in some cases
+    cubes = {cubenames[0]: aux}
+    if rms is None:
+        rms_vals = np.array([]) * aux.unit
+        for cube in cubenames:
+            aux = cubes.get(cube)
+            if aux is None:
+                cubes[cube] = SpectralCube.read(cube)
+                aux = cubes[cube]
+            rms_val = cube_utils.get_cube_rms(aux, use_header=True,
+                                              sampled=sampled_rms)
+            rms_vals = np.append(rms_vals, [rms_val])
+        rms = common_rms(rms_vals)
+
     # Create mask
     mask, savemask = generate_mask(aux, rms=rms, nsigma=nsigma,
                                    flux_limit=flux_limit, savedir=savedir,
@@ -1036,7 +1061,6 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
 
     # Iterate over coordinates
     rows, cols = np.indices(mask.shape)
-    cubes = {cubenames[0]: aux}
     log('Extracting spectra')
     for row, col in zip(rows.flatten(), cols.flatten()):
         # Load spectrum
