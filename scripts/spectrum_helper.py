@@ -49,7 +49,7 @@ def spectra_loader(filenames: Sequence[Path],
     return specs
 
 def _build_table(results: dict, coords: Sequence, filename: Path,
-                log: Callable = print):
+                 log: Callable = print):
     """Stores fitting results in Table."""
     table = []
     # Iterate over results
@@ -94,6 +94,7 @@ def _extractor(args: argparse.ArgumentParser) -> None:
                            rms=args.rms,
                            radius=args.radius,
                            flux_limit=args.flux_limit,
+                           nsigma=args.nsigma[0],
                            mask_from=args.mask_from[0],
                            outdir=args.outdir[0],
                            savemask=args.savemask[0],
@@ -106,6 +107,7 @@ def extractor(filenames: Sequence[Path],
               radius: Optional[u.Quantity] = None,
               rms: Optional[u.Quantity] = None,
               flux_limit: Optional[u.Quantity] = None,
+              nsigma: float = 5,
               mask_from: Optional[Path] = None,
               outdir: Optional[Path] = None,
               savemask: Optional[Path] = None,
@@ -124,6 +126,7 @@ def extractor(filenames: Sequence[Path],
       radius: optional; average all spectra within this radius.
       rms: optional; only save spectra with any value over 5sigma.
       flux_limit: optional; only save spectra with any value over limit.
+      nsigma: optional; number of rms levels for flux limit.
       mask_from: optional; reference image to calculate a 5sigma mask.
       outdir: optional; where to save the extracted spectra.
       savemask: optional; save the mask.
@@ -152,8 +155,8 @@ def extractor(filenames: Sequence[Path],
             img = fits.open(mask_from)[0]
             img_rms = quick_rms(img.data)
             log(f'Reference image rms: {img_rms}')
-            mask = img.data > 5 * img_rms
-            log('Extracting all spectrum in mask (5sigma)')
+            mask = img.data > nsigma * img_rms
+            log(f'Extracting all spectrum in mask ({nsigma}sigma)')
             if savemask is not None:
                 savemask = outdir / savemask
                 log(f'Mask filename: {savemask}')
@@ -168,6 +171,7 @@ def extractor(filenames: Sequence[Path],
         frame = 'rest' if rest else 'observed'
         on_the_fly_spectra_loader(filenames,
                                   rms=rms,
+                                  nsigma=nsigma,
                                   flux_limit=flux_limit,
                                   vlsr=vlsr,
                                   mask=mask,
