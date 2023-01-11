@@ -1053,6 +1053,7 @@ def on_the_fly_spectra_loader(cubenames: Sequence[Path],
                                               sampled=sampled_rms)
             rms_vals = np.append(rms_vals, [rms_val])
         rms = common_rms(rms_vals)
+        log(f'Common rms: {rms}')
 
     # Create mask
     mask, savemask = generate_mask(aux, rms=rms, nsigma=nsigma,
