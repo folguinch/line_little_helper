@@ -57,7 +57,11 @@ class CassisResult():
                 continue
             
             # Search for values
-            key, val = field.split('=')
+            try:
+                key, val = field.split('=')
+            except ValueError:
+                key, *val = field.split('=')
+                val = '='.join(val)
             if key in valid_keys:
                 vkey = valid_keys[key]
                 value = float(val) * CassisResult.UNITS[vkey]
@@ -75,11 +79,15 @@ class CassisResult():
         data = txt_file.read_text().split('\n')
         vals = {}
         for field in data:
-            key, val = tuple(map(lambda x: x.strip(), field.split('=')))
+            try:
+                key, val = tuple(map(lambda x: x.strip(), field.split('=')))
+            except ValueError:
+                key, *val = tuple(map(lambda x: x.strip(), field.split('=')))
+                val = '='.join(val)
             if key not in keys:
                 continue
             elif key == 'Chi2MinReduced':
-                vals[key] = np.float(val) * u.Unit(1)
+                vals[key] = float(val) * u.Unit(1)
             elif key == 'inputFile':
                 vals[key] = Path(val)
             else:
@@ -122,9 +130,9 @@ class CassisResult():
 
         # Extract information
         obs_spec = None
-        if best_file.is_file():
+        if lam_file.is_file():
             stats, species, obs_spec = CassisResult.data_from_lam(
-                best_file, component=component)
+                lam_file, component=component)
             from_txt = ('Chi2MinReduced',)
         else:
             stats = {f'{key}_{component}': None for key in cls.PROPS}
