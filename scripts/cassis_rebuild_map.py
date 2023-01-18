@@ -24,7 +24,7 @@ class CassisResult():
       mod_spec: model spectral data file name.
       stats: dictionary with the results.
     """
-    PROPS = ['nmol', 'tex', 'fwhm', 'size', 'vlsr']
+    PROPS = ('nmol', 'tex', 'fwhm', 'size', 'vlsr')
     UNITS = {'nmol': 1/u.cm**2, 'tex': u.K, 'fwhm': u.km/u.s,
              'size': u.sr, 'vlsr': u.km/u.s}
 
@@ -39,8 +39,134 @@ class CassisResult():
         self.mod_spec = mod_spec
         self.stats = stats
 
+    @staticmethod
+    def data_from_lam(lam_file: Path, component: int = 1):
+        """Extract the best model information from best model file."""
+        # Read parameters from file
+        data = lam_file.read_text().split('\n')
+        comp = f'Comp{component+1}'
+        valid_keys = {f'{comp}Mol1NSp': 'nmol',
+                      f'{comp}Mol1Tex': 'tex',
+                      f'{comp}Mol1FWHM': 'fwhm',
+                      f'{comp}Mol1Size': 'size',
+                      f'{comp}Vlsr': 'vlsr'}
+        stats = {}
+        for field in data:
+            # Skip comments
+            if field.startswith('#'):
+                continue
+            
+            # Search for values
+            key, val = field.split('=')
+            if key in valid_keys:
+                vkey = valid_keys[key]
+                value = float(val) * CassisResult.UNITS[vkey]
+                stats[f'{vkey}_{component}'] = [value, None, None]
+            elif key == f'{comp}Mol1Species':
+                species = val.strip()
+            elif key == 'nameData':
+                obs_spec = Path(val.strip())
+
+        return stats, species, obs_spec
+
+    @staticmethod
+    def values_from_txt(txt_file: Path, keys: Sequence[str]) -> Dict:
+        """Read the requested values of the best model."""
+        data = txt_file.read_text().split('\n')
+        vals = {}
+        for field in data:
+            key, val = tuple(map(lambda x: x.strip(), field.split('=')))
+            if key not in keys:
+                continue
+            elif key == 'Chi2MinReduced':
+                vals[key] = np.float(val) * u.Unit(1)
+            elif key == 'inputFile':
+                vals[key] = Path(val)
+            else:
+                vals[key] = val
+
+        return vals
+
     @classmethod
-    def from_file(cls, filename: Path, component: int = 1):
+    def from_best_file(cls,
+                       filename: Path,
+                       component: int = 1,
+                       stddev: int = 100,
+                       best: Optional[int] = None,
+                       species: Optional[str] = None):
+        """Load results from a result file.
+        
+        If `best` is given, then the best model will be computed from the
+        average of the `best` models sorted by `chi2`. In this case the value
+        of `stdev` is replaced by `best`. 
+
+        Args:
+          filename: any of the files produced by CASSIS.
+          component: optional; number of the component to load.
+          stddev: optional; number of models for calculating the std dev of
+            parameters.
+          best: optional; number of model to average.
+          species: optional; name of the molecule.
+        """
+        # Files
+        mod_spec = filename.with_suffix('.lis')
+        log_file = filename.with_suffix('.log')
+        lam_file = filename.with_suffix('.lam')
+        txt_file = filename.with_suffix('.txt')
+
+        # Model list
+        dtype = {'names': ('n',) + cls.PROPS + ('chi2', 'rate'),
+                 'formats':(np.int32,) + (np.float128,)*7}
+        mod_list = np.loadtxt(log_file, skiprows=2, dtype=dtype)
+        mod_list.sort(order='chi2')
+
+        # Extract information
+        obs_spec = None
+        if best_file.is_file():
+            stats, species, obs_spec = CassisResult.data_from_lam(
+                best_file, component=component)
+            from_txt = ('Chi2MinReduced',)
+        else:
+            stats = {f'{key}_{component}': None for key in cls.PROPS}
+            from_txt = ('Chi2MinReduced', 'species', 'inputFile')
+        if txt_file.is_file():
+            vals_txt = CassisResult.values_from_txt(txt_file, from_txt)
+            redchi2 = vals_txt['Chi2MinReduced']
+            if len(vals_txt) == 3:
+                species = vals_txt['species']
+                obs_spec = vals_txt['inputFile']
+        else:
+            redchi2 = 0*u.Unit(1)
+
+        # Store other stats
+        for prop in cls.PROPS:
+            # Read Value
+            stat = f'{prop}_{component}'
+            if best is not None:
+                val = [np.mean(mod_list[prop][:best]) * cls.UNITS[prop], None,
+                       None]
+                stddev = best
+            else:
+                val = stats[f'{prop}_{component}']
+                if val is None:
+                    val = [mod_list[prop][0] * cls.UNITS[prop], None, None]
+            
+            # Median
+            val[1] = np.median(mod_list[prop][:stddev]) * cls.UNITS[prop]
+
+            # Std dev
+            val[2] = np.std(mod_list[prop][:stddev]) * cls.UNITS[prop]
+
+            stats[f'{prop}_{component}'] = val
+
+        # Store chi2
+        stats['chi2'] = [mod_list['chi2'][0]*u.Unit(1), 0, 0]
+        stats['redchi2'] = [redchi2, 0, 0]
+
+        return cls(species, obs_spec=obs_spec, mod_spec=mod_spec, **stats)
+
+    @classmethod
+    def from_avg_file(cls, filename: Path, component: int = 1):
         """Load results from a result file."""
         mod_spec = filename.with_suffix('.lis')
         stats = {f'{key}_{component}': None
@@ -119,7 +245,7 @@ class CassisResults(dict):
             if not filename.exists():
                 continue
             keys.append((row, col))
-            vals.append(CassisResult.from_file(filename))
+            vals.append(CassisResult.from_best_file(filename))
 
         return cls(zip(keys, vals), shape=img.shape, header=header)
 
