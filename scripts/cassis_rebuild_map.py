@@ -227,6 +227,7 @@ class CassisResults(dict):
                   mask: Path,
                   directory: Path,
                   fmt: str = 'spec_x{col:04d}_y{row:04d}.{ext}',
+                  component: int = 1,
                   remove_tex_below: Optional[u.Quantity] = None) -> Dict:
         """Load Cassis results for points in a mask.
 
@@ -234,6 +235,7 @@ class CassisResults(dict):
           mask: FITS file with 1 for valid points.
           directory: path for the results.
           fmt: optional; format of the file name.
+          component: optional; number of the component to load.
           remove_tex_below: optional; remove data with temperature below value.
         """
         # Load mask
@@ -255,9 +257,9 @@ class CassisResults(dict):
             if not filename.exists():
                 continue
             keys.append((row, col))
-            result = CassisResult.from_best_file(filename)
+            result = CassisResult.from_best_file(filename, component=component)
             if (remove_tex_below is not None and
-                result.stats['tex'][0] < remove_tex_below):
+                result.stats[f'tex_{component}'][0] < remove_tex_below):
                 for suffix in ['.lam', '.log', '.txt', '.lis']:
                     aux = filename.with_suffix(suffix)
                     aux.unlink()
@@ -311,6 +313,7 @@ class CassisResults(dict):
 def _proc(args: argparse.ArgumentParser) -> None:
     """Process inputs."""
     model = CassisResults.with_mask(args.maskfile[0], args.indir[0],
+                                    component=args.component[0],
                                     remove_tex_below=args.remove_cold)
     for key in args.keys:
         key_comp = f'{key}_{args.component[0]}'
