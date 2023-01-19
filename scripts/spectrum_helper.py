@@ -95,6 +95,7 @@ def _extractor(args: argparse.ArgumentParser) -> None:
                            radius=args.radius,
                            flux_limit=args.flux_limit,
                            nsigma=args.nsigma[0],
+                           box=args.box,
                            mask_from=args.mask_from[0],
                            outdir=args.outdir[0],
                            savemask=args.savemask[0],
@@ -108,6 +109,7 @@ def extractor(filenames: Sequence[Path],
               rms: Optional[u.Quantity] = None,
               flux_limit: Optional[u.Quantity] = None,
               nsigma: float = 5,
+              box: Optional[Sequence[int]] = None,
               mask_from: Optional[Path] = None,
               outdir: Optional[Path] = None,
               savemask: Optional[Path] = None,
@@ -127,6 +129,7 @@ def extractor(filenames: Sequence[Path],
       rms: optional; only save spectra with any value over 5sigma.
       flux_limit: optional; only save spectra with any value over limit.
       nsigma: optional; number of rms levels for flux limit.
+      box: optional; ignore values outside box.
       mask_from: optional; reference image to calculate a 5sigma mask.
       outdir: optional; where to save the extracted spectra.
       savemask: optional; save the mask.
@@ -157,6 +160,12 @@ def extractor(filenames: Sequence[Path],
             log(f'Reference image rms: {img_rms}')
             mask = img.data > nsigma * img_rms
             log(f'Extracting all spectrum in mask ({nsigma}sigma)')
+            if box is not None:
+                xlow, ylow, xhigh, yhigh = box
+                mask[:ylow] = False
+                mask[yhigh:] = False
+                mask[:, :xlow] = False
+                mask[:, xhigh:] = False
             if savemask is not None:
                 savemask = outdir / savemask
                 log(f'Mask filename: {savemask}')
@@ -264,6 +273,8 @@ def main(args: list):
                               '(one plot per position).'))
     parser.add_argument('--rest', action='store_true',
                         help='Store in rest frame if vlsr is given')
+    parser.add_argument('--box', type=int, nargs=4,
+                        help='Extract the spectrum and mask within limits')
     parser.add_argument('--savemask', nargs=1, type=Path, default=[None],
                         help='Save the mask to `outdir.`')
     parser.add_argument('--analyze', action='store_true',
