@@ -226,13 +226,15 @@ class CassisResults(dict):
     def with_mask(cls,
                   mask: Path,
                   directory: Path,
-                  fmt: str = 'spec_x{col:04d}_y{row:04d}.{ext}') -> Dict:
+                  fmt: str = 'spec_x{col:04d}_y{row:04d}.{ext}',
+                  remove_tex_below: Optional[u.Quantity] = None) -> Dict:
         """Load Cassis results for points in a mask.
 
         Args:
           mask: FITS file with 1 for valid points.
           directory: path for the results.
-          fmt: optional; format of the file name
+          fmt: optional; format of the file name.
+          remove_tex_below: optional; remove data with temperature below value.
         """
         # Load mask
         img = fits.open(mask)[0]
@@ -253,7 +255,14 @@ class CassisResults(dict):
             if not filename.exists():
                 continue
             keys.append((row, col))
-            vals.append(CassisResult.from_best_file(filename))
+            result = CassisResult.from_best_file(filename)
+            if (remove_tex_below is not None and
+                result.stats['tex'][0] < remove_tex_below):
+                for suffix in ['.lam', '.log', '.txt', '.lis']:
+                    aux = filename.with_suffix(suffix)
+                    aux.unlink()
+                continue
+            vals.append(result)
 
         return cls(zip(keys, vals), shape=img.shape, header=header)
 
@@ -301,7 +310,8 @@ class CassisResults(dict):
 
 def _proc(args: argparse.ArgumentParser) -> None:
     """Process inputs."""
-    model = CassisResults.with_mask(args.maskfile[0], args.indir[0])
+    model = CassisResults.with_mask(args.maskfile[0], args.indir[0],
+                                    remove_tex_below=args.remove_cold)
     for key in args.keys:
         key_comp = f'{key}_{args.component[0]}'
         if args.error:
@@ -337,6 +347,8 @@ def main(args: list) -> None:
                         help='Save error maps only?')
     parser.add_argument('-x', '--chi', action='store_true',
                         help='Save chi2 and reduced chi2 map?')
+    parser.add_argument('--remove_cold', action=actions.ReadQuantity, nargs=2,
+                        help='Remove fits with temperature below this value')
     parser.add_argument('maskfile', action=actions.CheckFile, nargs=1,
                         help='Mask file name')
     parser.add_argument('indir', action=actions.NormalizePath, nargs=1,
