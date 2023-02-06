@@ -330,7 +330,7 @@ def _proc(args: argparse.ArgumentParser) -> None:
             filename = args.indir[0] / f'{key}_map.fits'
             model.generate_map(key, filename=filename)
 
-def main(args: list) -> None:
+def rebuild_map(args: list) -> None:
     """Build the maps from Cassis results.
 
     Args:
@@ -363,4 +363,4 @@ def main(args: list) -> None:
         step(args)
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    rebuild_map(sys.argv[1:])
