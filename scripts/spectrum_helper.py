@@ -249,7 +249,7 @@ def spectrum_helper(args: list):
         apparents.verify_files(
             'filenames',
             '--mask_from',
-            '--mask'
+            '--mask',
             filenames={'help': 'File names (cubes or spectra)', 'nargs': '*'},
             mask_from={'help': 'Image file name to build the mask from',
                        'nargs': 1,
