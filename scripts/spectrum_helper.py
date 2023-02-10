@@ -254,7 +254,7 @@ def spectrum_helper(args: list):
             mask_from={'help': 'Image file name to build the mask from',
                        'nargs': 1,
                        'default': [None]},
-            mask={'help': 'Mask image file'
+            mask={'help': 'Mask image file',
                   'nargs': 1,
                   'default': [None]}
         ),
