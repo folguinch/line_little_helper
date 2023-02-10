@@ -227,7 +227,7 @@ def _plotter(args):
                     plotname = plotname.with_suffix('.png')
                     fig.savefig(plotname)
 
-def main(args: list):
+def spectrum_helper(args: list):
     """Search Splatalogue for line information.
 
     Args:
@@ -290,4 +290,4 @@ def main(args: list):
         step(args)
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    spectrum_helper(sys.argv[1:])
