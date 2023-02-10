@@ -91,6 +91,7 @@ def _extractor(args: argparse.ArgumentParser) -> None:
                            position=args.position,
                            vlsr=args.vlsr,
                            rest=args.rest,
+                           input_mask=args.mask[0],
                            rms=args.rms,
                            radius=args.radius,
                            flux_limit=args.flux_limit,
@@ -106,6 +107,7 @@ def extractor(filenames: Sequence[Path],
               vlsr: Optional[u.Quantity] = None,
               rest: bool = False,
               radius: Optional[u.Quantity] = None,
+              input_mask: Optional[Path] = None,
               rms: Optional[u.Quantity] = None,
               flux_limit: Optional[u.Quantity] = None,
               nsigma: float = 5,
@@ -126,6 +128,7 @@ def extractor(filenames: Sequence[Path],
       vlsr: optional; source LSR velocity.
       rest: optional; store frequency in rest system.
       radius: optional; average all spectra within this radius.
+      input_mask: optional; load mask from this file.
       rms: optional; only save spectra with any value over 5sigma.
       flux_limit: optional; only save spectra with any value over limit.
       nsigma: optional; number of rms levels for flux limit.
@@ -174,6 +177,9 @@ def extractor(filenames: Sequence[Path],
                 hdu = fits.PrimaryHDU(mask.astype(int), header=header)
                 hdu.update_header()
                 hdu.writeto(savemask, overwrite=True)
+        elif input_mask is not None:
+            mask = fits.open(input_mask)[0]
+            mask = mask.data.astype(bool)
         else:
             mask = None
             log('Extracting all spectrum over flux limit')
@@ -243,10 +249,14 @@ def spectrum_helper(args: list):
         apparents.verify_files(
             'filenames',
             '--mask_from',
+            '--mask'
             filenames={'help': 'File names (cubes or spectra)', 'nargs': '*'},
             mask_from={'help': 'Image file name to build the mask from',
                        'nargs': 1,
-                       'default':[None]},
+                       'default': [None]},
+            mask={'help': 'Mask image file'
+                  'nargs': 1,
+                  'default': [None]}
         ),
     ]
     parser = argparse.ArgumentParser(
