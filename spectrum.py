@@ -6,13 +6,14 @@ import io
 from astropy.io import fits
 from astropy.modeling import models, fitting
 from radio_beam import Beam, Beams
-from scipy import ndimage
+from scipy import ndimage, signal
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
 from toolkit.logger import LoggedObject
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 
 from .processing_tools import observed_to_rest
 from .molecule import Molecule
@@ -207,8 +208,22 @@ class Spectrum(LoggedObject):
             beam = Beams(bmaj*units[3], bmin*units[4], pa*units[5])
 
         return cls((spectral_axis * units[0]).to(spectral_axis_unit),
-                   intensity * units[2], restfreq = restfreq,
+                   intensity * units[2], restfreq=restfreq,
                    restframe=restframe, vlsr=vlsr, rms=rms, beam=beam)
+
+    @classmethod
+    def from_cassis(cls, filename: Path) -> None:
+        """Load spectrum from CASSIS `lis` file."""
+        # Read file
+        text = filename.read_text()
+        text = io.StringIO('\n'.join(text.split('\n')[3:]))
+
+        # Data
+        freq, spec = np.loadtxt(data, usecols=(0,4), unpack=True)
+        freq = freq * u.MHz
+        spec = spec * u.K
+
+        return cls(freq, spec)
 
     def to_temperature(self,
                        bmaj: Optional[u.Quantity] = None,
@@ -339,7 +354,7 @@ class Spectrum(LoggedObject):
 
         return mask
 
-    def intensity_mask(self, nsigma: float = 5) -> np.array:
+    def intensity_mask(self, nsigma: float = 5) -> npt.ArrayLike:
         """Create a mask based on the intensity over the number of rms."""
         if self.rms is not None:
             mask = self.intensity >= nsigma*self.rms
@@ -357,6 +372,25 @@ class Spectrum(LoggedObject):
         mask = mask & self.intensity_mask(nsigma=nsigma)
 
         return mask
+
+    def find_peaks(self, **kwargs) -> Tuple[npt.ArrayLike]:
+        """Find the peaks in the spectra and width properties.
+
+        Args:
+          kwargs: additional arguments for `signal.peak_widths`.
+
+        Return:
+          A tuple with the peaks channel positions, width, level at width,
+          lower and upper limit.
+        """
+        # Find peaks
+        peaks = signal.find_peaks(self.intensity)
+        
+        # Widths
+        kwargs.setdefault('rel_height', 1)
+        widths = signal.peak_widths(self.intensity, peaks, **kwargs)
+
+        return (peaks,) + widths
 
     def has_lines(self, min_width: int = 5,
                   dilate: Optional[int] = None) -> list:
