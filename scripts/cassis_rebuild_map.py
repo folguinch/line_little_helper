@@ -15,6 +15,8 @@ from toolkit.argparse_tools import actions
 import astropy.units as u
 import numpy as np
 
+from line_little_helper.spectrum import Spectrum
+
 class CassisResult():
     """Store results from Cassis runs.
 
@@ -36,7 +38,7 @@ class CassisResult():
         """Initialize new object."""
         self.species = species.strip()
         self.obs_spec = obs_spec
-        self.mod_spec = mod_spec
+        self.mod_spec = Spectrum.from_cassis(mod_spec)
         self.stats = stats
 
     @staticmethod
@@ -210,6 +212,41 @@ class CassisResult():
 
         return cls(species, obs_spec=obs_spec, mod_spec=mod_spec, **stats)
 
+    def plot_spectrum(self, filename: Path,
+                      spectrum: Optional[Spectrum] = None) -> None:
+        """Plot the spectrum file around the CASSIS model lines.
+        
+        Args:
+          filename: plot file name.
+          spectrum: spectrum to overplot.
+        """
+        # Get peak information
+        peaks, *widths = self.mod_spec.find_peaks()
+        xlims = zip(widths[-2], widths[-1])
+
+        # Plot
+        fig, axs = plt.subplots(1, len(peaks))
+        for ax, xlim in zip(axs, xlims):
+            freqlow = self.mod_spec.spectral_axis[int(xlim[0] - 10)]
+            freqhigh = self.mod_spec.spectral_axis[int(xlim[1] + 11)]
+            mask = ((self.mod_spec.spectral_axis > freqlow) &
+                    (self.mod_spec.spectral_axis < freqhigh))
+            ax.plot(self.mod_spec.spectral_axis[mask].value,
+                    self.mod_spec.intensity[mask].value, color='k',
+                    ds='steps-mid')
+            if spectrum is not None:
+                xunit = self.mod_spec.spectral_axis.unit
+                yunit = self.mod_spec.intensity.unit
+                spectral_axis = spectrum.spectral_axis.to(xunit)
+                intensity = spectrum.intensity.to(yunit)
+                mask = ((spectral_axis > freqlow) &
+                        (spectral_axis < freqhigh))
+                ax.plot(spectral_axis[mask].value, intensity[mask].value,
+                        color='b', ds='steps-mid')
+
+        # Save fig
+        fig.savefig(filename)
+
 class CassisResults(dict):
     """Stores the results from Cassis in a dictionary.
 
@@ -273,14 +310,16 @@ class CassisResults(dict):
                      filename: Optional[Path] = None,
                      *,
                      error_map: bool = False,
-                     median_map: bool = False) -> np.array:
+                     median_map: bool = False,
+                     observed: Optional[Path] = None) -> np.array:
         """Build the maps from the results.
 
         Args:
           key: physical quantity to map.
+          filename: optional; filename to save the maps as FITS.
           error_map: optional; map of the standard deviation values?
           median_map: optional; map of the median values?
-          filename: optional; filename to save the maps as FITS.
+          observed: optional; directory of observed spectra.
         """
         # Determine type of map
         if error_map:
@@ -300,6 +339,14 @@ class CassisResults(dict):
             data[pos] = val.stats[key][ind].value
             if data_unit is None:
                 data_unit = val.stats[key][ind].unit
+
+            if observed is not None:
+                # Plot spectrum
+                spec_file = observed / f'spec_x{pos[1]:04d}_y{pos[0]:04d}.dat'
+                plot_name = filename.parent / spec_file.name
+                plot_name = plot_name.with_suffix('.png')
+                spectrum = Spectrum.from_cassis(spec_file)
+                val.plot_spectrum(plot_name, spectrum=spectrum)
 
         # Save
         if filename is not None:
@@ -321,8 +368,8 @@ def _proc(args: argparse.ArgumentParser) -> None:
             filename = args.indir[0] / f'{key_comp}_map_error.fits'
         else:
             filename = args.indir[0] / f'{key_comp}_map.fits'
-        print(filename)
-        model.generate_map(key_comp, filename=filename, error_map=args.error)
+        model.generate_map(key_comp, filename=filename, error_map=args.error,
+                           observed=args.observed[0])
 
     # Chi2 does not have errors
     if args.chi:
@@ -352,6 +399,8 @@ def rebuild_map(args: list) -> None:
                         help='Save chi2 and reduced chi2 map?')
     parser.add_argument('--remove_cold', action=actions.ReadQuantity, nargs=2,
                         help='Remove fits with temperature below this value')
+    parser.add_argument('--observed', action=actions.NormalizePath, nargs=1,
+                        help='Directory with observed spectra')
     parser.add_argument('maskfile', action=actions.CheckFile, nargs=1,
                         help='Mask file name')
     parser.add_argument('indir', action=actions.NormalizePath, nargs=1,
