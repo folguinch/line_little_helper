@@ -222,24 +222,25 @@ class CassisResult():
           spectrum: spectrum to overplot.
         """
         # Plot
-        fig, axs = plt.subplots(len(peaks), 1, figsize=(5, 2*len(peaks)))
-        for ax, xlim, spec in zip(axs, xlims, self.mod_spec):
+        nspecs = len(self.mod_spec)
+        fig, axs = plt.subplots(nspecs, 1, figsize=(8.5, 3.2*nspecs))
+        for ax, spec in zip(axs, self.mod_spec):
             freqlow = np.min(spec.spectral_axis).to(u.GHz)
             freqhigh = np.max(spec.spectral_axis).to(u.GHz)
             top = np.nanmax(spec.intensity)
-            ax[0].set_xlim(freqlow.value, freqhigh.value)
-            ax[0].plot(spec.spectral_axis.to(u.GHz).value, spec.intensity.value,
-                       color='k', ds='steps-mid')
+            ax.set_xlim(freqlow.value, freqhigh.value)
+            ax.plot(spec.spectral_axis.to(u.GHz).value, spec.intensity.value,
+                    color='k', ds='steps-mid')
             if spectrum is not None:
                 yunit = spec.intensity.unit
                 spectral_axis = spectrum.spectral_axis.to(u.GHz)
                 intensity = spectrum.intensity.to(yunit)
-                ax[0].plot(spectral_axis.value, intensity.value,
-                           color='b', ds='steps-mid')
+                ax.plot(spectral_axis.value, intensity.value,
+                        color='b', ds='steps-mid')
                 mask = (spectral_axis < freqhigh) & (spectral_axis > freqlow)
                 top = max(top, np.nanmax(intensity[mask]))
 
-            ax[0].set_ylim(-2, top.value + 2)
+            ax.set_ylim(-2, top.value + 2)
 
         # Save fig
         fig.savefig(filename)
