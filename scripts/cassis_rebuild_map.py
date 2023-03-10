@@ -4,8 +4,8 @@
 It uses the file name default structure of `spectrum_extractor.py` to obtain
 the coordinates and build the maps.
 """
-from pathlib import Path
 from typing import Optional, Dict, Sequence, Tuple
+from pathlib import Path
 import argparse
 import math
 import sys
@@ -13,9 +13,10 @@ import sys
 from astropy.io import fits
 from toolkit.argparse_tools import actions
 import astropy.units as u
+import matplotlib.pyplot as plt
 import numpy as np
 
-from line_little_helper.spectrum import Spectrum
+from line_little_helper.spectrum import Spectrum, CassisModelSpectra
 
 class CassisResult():
     """Store results from Cassis runs.
@@ -38,7 +39,7 @@ class CassisResult():
         """Initialize new object."""
         self.species = species.strip()
         self.obs_spec = obs_spec
-        self.mod_spec = Spectrum.from_cassis(mod_spec)
+        self.mod_spec = CassisModelSpectra.read(mod_spec)
         self.stats = stats
 
     @staticmethod
@@ -220,29 +221,25 @@ class CassisResult():
           filename: plot file name.
           spectrum: spectrum to overplot.
         """
-        # Get peak information
-        peaks, *widths = self.mod_spec.find_peaks()
-        xlims = zip(widths[-2], widths[-1])
-
         # Plot
-        fig, axs = plt.subplots(1, len(peaks))
-        for ax, xlim in zip(axs, xlims):
-            freqlow = self.mod_spec.spectral_axis[int(xlim[0] - 10)]
-            freqhigh = self.mod_spec.spectral_axis[int(xlim[1] + 11)]
-            mask = ((self.mod_spec.spectral_axis > freqlow) &
-                    (self.mod_spec.spectral_axis < freqhigh))
-            ax.plot(self.mod_spec.spectral_axis[mask].value,
-                    self.mod_spec.intensity[mask].value, color='k',
-                    ds='steps-mid')
+        fig, axs = plt.subplots(len(peaks), 1, figsize=(5, 2*len(peaks)))
+        for ax, xlim, spec in zip(axs, xlims, self.mod_spec):
+            freqlow = np.min(spec.spectral_axis).to(u.GHz)
+            freqhigh = np.max(spec.spectral_axis).to(u.GHz)
+            top = np.nanmax(spec.intensity)
+            ax[0].set_xlim(freqlow.value, freqhigh.value)
+            ax[0].plot(spec.spectral_axis.to(u.GHz).value, spec.intensity.value,
+                       color='k', ds='steps-mid')
             if spectrum is not None:
-                xunit = self.mod_spec.spectral_axis.unit
-                yunit = self.mod_spec.intensity.unit
-                spectral_axis = spectrum.spectral_axis.to(xunit)
+                yunit = spec.intensity.unit
+                spectral_axis = spectrum.spectral_axis.to(u.GHz)
                 intensity = spectrum.intensity.to(yunit)
-                mask = ((spectral_axis > freqlow) &
-                        (spectral_axis < freqhigh))
-                ax.plot(spectral_axis[mask].value, intensity[mask].value,
-                        color='b', ds='steps-mid')
+                ax[0].plot(spectral_axis.value, intensity.value,
+                           color='b', ds='steps-mid')
+                mask = (spectral_axis < freqhigh) & (spectral_axis > freqlow)
+                top = max(top, np.nanmax(intensity[mask]))
+
+            ax[0].set_ylim(-2, top.value + 2)
 
         # Save fig
         fig.savefig(filename)
