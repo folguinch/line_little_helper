@@ -219,7 +219,7 @@ class Spectrum(LoggedObject):
         text = io.StringIO('\n'.join(text.split('\n')[3:]))
 
         # Data
-        freq, spec = np.loadtxt(data, usecols=(0,4), unpack=True)
+        freq, spec = np.loadtxt(text, usecols=(0,4), unpack=True)
         freq = freq * u.MHz
         spec = spec * u.K
 
@@ -384,7 +384,7 @@ class Spectrum(LoggedObject):
           lower and upper limit.
         """
         # Find peaks
-        peaks = signal.find_peaks(self.intensity)
+        peaks, _ = signal.find_peaks(self.intensity)
         
         # Widths
         kwargs.setdefault('rel_height', 1)
