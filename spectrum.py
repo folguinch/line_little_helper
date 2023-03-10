@@ -777,6 +777,37 @@ class Spectra(list):
 
         return None
 
+    def find_peaks(self) -> List[Tuple[npt.ArrayLike]]:
+        """Find peaks and their widths for each spectrum."""
+        vals = []
+        for spec in self:
+            vals.append(spec.find_peaks())
+
+        return vals
+
+class CassisModelSpectra(Spectra):
+
+    @classmethod
+    def read(cls, filename: Path):
+        """Load model spectra from CASSIS `.lis` file."""
+        # Read file
+        text = filename.read_text()
+        text = io.StringIO('\n'.join(text.split('\n')[3:]))
+
+        # Data
+        freq, vel, spec = np.loadtxt(text, usecols=(0, 1, 4), unpack=True)
+
+        # Split using velocity
+        ind = np.where(vel[:-1] < vel[1:])[0] + 1
+        ind = np.hstack(([0], ind, vel.size))
+        specs = []
+        for i, j in zip(ind[:-1], ind[1:]):
+            spectral_axis = freq[i:j] * u.MHz
+            intensity = spec[i:j] * u.K
+            specs.append(Spectrum(spectral_axis, intensity))
+
+        return cls(specs)
+
 class IndexedSpectra(dict):
     """Class to store Spectra objects indexed by key."""
 
