@@ -244,6 +244,7 @@ class CassisResult():
 
         # Save fig
         fig.savefig(filename)
+        plt.close()
 
 class CassisResults(dict):
     """Stores the results from Cassis in a dictionary.
