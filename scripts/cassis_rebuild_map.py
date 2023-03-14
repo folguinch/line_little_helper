@@ -345,7 +345,8 @@ class CassisResults(dict):
                 plot_name = filename.parent / spec_file.name
                 plot_name = plot_name.with_suffix('.png')
                 spectrum = Spectrum.from_cassis(spec_file)
-                val.plot_spectrum(plot_name, spectrum=spectrum)
+                if not plot_name.is_file():
+                    val.plot_spectrum(plot_name, spectrum=spectrum)
 
         # Save
         if filename is not None:
@@ -399,6 +400,7 @@ def rebuild_map(args: list) -> None:
     parser.add_argument('--remove_cold', action=actions.ReadQuantity, nargs=2,
                         help='Remove fits with temperature below this value')
     parser.add_argument('--observed', action=actions.NormalizePath, nargs=1,
+                        default=[None],
                         help='Directory with observed spectra')
     parser.add_argument('maskfile', action=actions.CheckFile, nargs=1,
                         help='Mask file name')
