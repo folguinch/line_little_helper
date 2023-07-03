@@ -4,8 +4,8 @@ import argparse
 from toolkit.astro_tools import cube_utils
 from toolkit.argparse_tools import loaders
 
-from line_little_helper.global_vars import ALMA_BANDS
-from line_little_helper.molecule import get_molecule
+from .global_vars import ALMA_BANDS
+from .molecule import get_molecule
 
 def load_cube(args: argparse.Namespace) -> None:
     """Load a spectral cube from `args`."""
@@ -68,7 +68,7 @@ def get_subcube(args: argparse.Namespace) -> None:
     kwargs = {}
     optional = ['freq_range', 'vel_range', 'chan_range', 'win_halfwidth',
                 'blc_trc', 'xy_ranges', 'vlsr', 'linefreq', 'put_rms',
-                'rms', 'common_beam', 'shrink', 'log']
+                'put_linefreq', 'rms', 'common_beam', 'shrink', 'log']
     for key, val in vars(args).items():
         if key == 'win_halfwidth':
             kwargs[key] = val[0]

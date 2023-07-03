@@ -4,7 +4,7 @@ import argparse
 
 from toolkit.argparse_tools import actions
 
-from line_little_helper.scripts.argparse_processing import get_freqrange
+from .argparse_processing import get_freqrange
 
 def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
     """Generate a parser to read cube filenames.
@@ -33,8 +33,10 @@ def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
                         help='Use dask for cube')
     parser.add_argument('--common_beam', action='store_true',
                         help='Convolve with common beam before results')
-    parser.add_argument('--shrink', action='store_true',
-                        help='Reduce cube size to fit the FOV')
+    #parser.add_argument('--shrink', action='store_true',
+    #                    help='Reduce cube size to fit the FOV or mask')
+    parser.add_argument('--mask', action=actions.CheckFile,
+                        help='Cube mask')
 
     return parser
 

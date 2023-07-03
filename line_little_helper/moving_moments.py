@@ -39,9 +39,9 @@ import toolkit.argparse_tools.parents as apparents
 import numpy as np
 import scipy.ndimage as ndimg
 
-from line_little_helper.scripts.argparse_parents import line_parents
+from line_little_helper.argparse_parents import line_parents
 from line_little_helper.processing_tools import to_rest_freq
-from line_little_helper.scripts.argparse_processing import load_molecule
+from line_little_helper.argparse_processing import load_molecule
 
 Cube = TypeVar('Cube')
 Logger = TypeVar('Logger')
@@ -435,7 +435,7 @@ def _proc(args: argparse.Namespace) -> None:
                                      transition.generate_name(), log=args.log,
                                      save_masks=args.savemasks)
 
-def main(args: list) -> None:
+def main(args: Optional[Sequence[str]] = None) -> None:
     """Moment 1 maps from different windows.
 
     Args:
@@ -496,6 +496,8 @@ def main(args: list) -> None:
     parser.set_defaults(pipe=pipe, results=None, cubename=None,
                         cube=aploaders.load_spectral_cube, mol=None,
                         nsigma=5.)
+    if args is None:
+        args = sys.argv[1:]
     args = parser.parse_args(args)
     for cube in args.cubenames:
         args.log.info(f'Working on cube: {cube}')
