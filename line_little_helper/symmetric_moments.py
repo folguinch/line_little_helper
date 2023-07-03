@@ -1,6 +1,6 @@
 #!/bin/python3
 """Compute moments in a window centered in a line."""
-from typing import Sequence
+from typing import Sequence, Optional
 import argparse
 import sys
 
@@ -9,10 +9,10 @@ from toolkit.argparse_tools import parents
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cubeutils
 
-from line_little_helper.scripts.argparse_parents import line_parents
-from line_little_helper.scripts.argparse_processing import get_subcube
-from line_little_helper.scripts.moving_moments import HelpFormatter
-import line_little_helper.scripts.subcube_extractor as extractor
+from line_little_helper.argparse_parents import line_parents
+from line_little_helper.argparse_processing import get_subcube
+from line_little_helper.moving_moments import HelpFormatter
+import line_little_helper.subcube_extractor as extractor
 
 def _save_subcube(args: argparse.Namespace) -> None:
     """Save the subcube to disk."""
@@ -40,7 +40,7 @@ def _get_moment(args: argparse.Namespace) -> Sequence[str]:
 
     return filenames
 
-def symmetric_moments(args: Sequence[str]) -> Sequence[str]:
+def symmetric_moments(args: Optional[Sequence[str]] = None) -> Sequence[str]:
     """Calculate symmetric moments from commad line arguments.
     
     Args:
@@ -65,6 +65,8 @@ def symmetric_moments(args: Sequence[str]) -> Sequence[str]:
     parser.add_argument('moments', nargs='*', type=int,
                         help='Moments to calculate')
     parser.set_defaults(subcube=None, common_beam=True, put_rms=True)
+    if args is None:
+        args = sys.argv[1:]
     args = parser.parse_args(args)
     args.put_rms = True
     for i, step in enumerate(pipe):
@@ -75,5 +77,5 @@ def symmetric_moments(args: Sequence[str]) -> Sequence[str]:
 
     return filenames
 
-if __name__=='__main__':
+if __name__ == '__main__':
     symmetric_moments(sys.argv[1:])
