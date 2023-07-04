@@ -182,7 +182,7 @@ def _fitter(args: argparse.Namespace):
     # Save plot
     plot.savefig(args.plotname)
 
-def pvmap_fitter(args: Sequence):
+def pvmap_fitter(args: Optional[Sequence] = None):
     """Fit a function to input pv maps.
 
     Args:
@@ -210,6 +210,8 @@ def pvmap_fitter(args: Sequence):
     parser.add_argument('pvmaps', action=actions.CheckFile, nargs='+',
                         help='Position-velocity files')
     parser.set_defaults()
+    if args is None:
+        args = sys.argv[1:]
     args = parser.parse_args(args)
 
     for step in pipe:

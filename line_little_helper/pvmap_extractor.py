@@ -18,8 +18,7 @@ from toolkit.astro_tools import cube_utils, images
 import astropy.units as u
 import numpy as np
 
-from line_little_helper.scripts.argparse_parents import (line_parents,
-                                                         cube_parent)
+from line_little_helper.argparse_parents import line_parents, cube_parent
 from line_little_helper.molecule import get_molecule
 
 ConfigParser = TypeVar('ConfigParser')
@@ -701,7 +700,7 @@ def _generate_filename(suffix_fmt: str,
 
     return filename
 
-def pvmap_extractor(args: Sequence):
+def pvmap_extractor(args: Optional[Sequence] = None):
     """Extract the pv maps based on command line input.
 
     Args:
@@ -779,6 +778,8 @@ def pvmap_extractor(args: Sequence):
         action=actions.LoadCube,
         help='Cube file name')
     parser.set_defaults(filenames=None)
+    if args is None:
+        args = sys.argv[1:]
     args = parser.parse_args(args)
 
     for step in pipe:
