@@ -1,5 +1,5 @@
 """Calculate a line peak map."""
-from typing import Sequence
+from typing import Sequence, Optional
 from itertools import product
 import argparse
 import sys
@@ -15,8 +15,9 @@ import astropy.units as u
 import numpy as np
 import matplotlib.pyplot as plt
 
-from line_little_helper.scripts import argparse_parents
-from line_little_helper.scripts import argparse_processing as processing
+from line_little_helper import argparse_parents
+from line_little_helper import argparse_processing as processing
+from line_little_helper.moving_moments import HelpFormatter
 
 def save_map(data: u.Quantity,
              cube: SpectralCube,
@@ -205,12 +206,19 @@ def _proc(args: argparse.Namespace):
             ind = np.arange(vel_axis.size)[masked_chans]
             chmin, chmax = np.min(ind), np.max(ind)
             moment_cube = moment_cube[chmin:chmax+1]
-            moment_cube = cube_utils.to_common_beam(moment_cube,
-                                                    log=args.log.info)
+            #moment_cube = cube_utils.to_common_beam(moment_cube,
+            #                                        log=args.log.info)
             for moment in args.moments:
-                filename = f'{args.cubename[0].stem}_{suffix}_moment{moment}.fits'
+                filename = f'{args.cubename[0].stem}_{suffix}_peak_moment{moment}.fits'
                 filename = args.outdir[0] / filename
-                cube_utils.get_moment(moment_cube, moment, filename=filename,
+                cube_utils.get_moment(moment_cube,
+                                      moment,
+                                      linefreq=args.linefreq,
+                                      lower_limit=args.flux_limit[0],
+                                      #rms=args.rms,
+                                      auto_rms=True,
+                                      nsigma=args.nsigma[0],
+                                      filename=filename,
                                       log=args.log.info)
 
         if args.fit_halfwidth[0] is not None:
@@ -226,12 +234,12 @@ def _proc(args: argparse.Namespace):
             #                                  iterations=args.fit_halfwidth[0])
 
             # Fit cube
-            filename = f'{args.cubename[0].stem}_{suffix}.fits'
+            filename = f'{args.cubename[0].stem}_{suffix}_halfwidth_fit.fits'
             filename = args.outdir[0] / filename
             fit_cube(args.cube, vel_axis, ind_map, args.fit_halfwidth[0],
                      filename)
 
-def line_peak_map(args: Sequence[str]) -> None:
+def line_peak_map(args: Optional[Sequence[str]] = None) -> None:
     """Calculate the line peak map from command line parameters."""
     pipe = [processing.load_cube, processing.load_molecule,
             processing.set_fluxlimit, _proc]
@@ -243,7 +251,7 @@ def line_peak_map(args: Sequence[str]) -> None:
     ]
     parser = argparse.ArgumentParser(
         add_help=True,
-        formatter_class=argparse.HelpFormatter,
+        formatter_class=HelpFormatter,
         parents=args_parents,
         conflict_handler='resolve')
     parser.add_argument('--fit_halfwidth', nargs=1, type=int, default=[None],
@@ -253,6 +261,8 @@ def line_peak_map(args: Sequence[str]) -> None:
     parser.add_argument('outdir', nargs=1, action=actions.NormalizePath,
                         help='The output directory')
     parser.set_defaults(molec=None)
+    if args is None:
+        args = sys.argv[1:]
     args = parser.parse_args(args)
 
     for step in pipe:
