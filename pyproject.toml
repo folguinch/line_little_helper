@@ -10,8 +10,8 @@ packages = [{include = "line_little_helper"}]
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 #toolkit = {git = "https://github.com/folguinch/toolkit.git"}
-toolkit = {path = "../toolkit"}
-tile-plotter = {path = "../tile-plotter"}
+toolkit = {path = "../toolkit", develop = true}
+tile-plotter = {path = "../tile-plotter", develop = true}
 numpy = "^1.24.2"
 astropy = "^5.2.1"
 matplotlib = "^3.7.1"
@@ -22,6 +22,12 @@ spectral-cube = "^0.6.0"
 pvextractor = "^0.3"
 regions = "^0.7"
 
+[tool.poetry.scripts]
+subcube_extractor = 'line_little_helper.subcube_extractor:subcube_extractor'
+moving_moments = 'line_little_helper.moving_moments:main'
+symmetric_moments = 'line_little_helper.symmetric_moments:symmetric_moments'
+pvmap_extractor = 'line_little_helper.pvmap_extractor:pvmap_extractor'
+line_peak_map = 'line_little_helper.line_peak_map:line_peak_map'
 
 [build-system]
 requires = ["poetry-core"]
