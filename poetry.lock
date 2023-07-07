@@ -1487,7 +1487,7 @@ category = "main"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = []
-develop = false
+develop = true
 
 [package.dependencies]
 astropy = "^5.2.1"
@@ -1511,7 +1511,7 @@ category = "main"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = []
-develop = false
+develop = true
 
 [package.dependencies]
 astropy = "^5.2.1"
@@ -1586,4 +1586,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.12"
-content-hash = "95c1b9703d0bd3d0f6be0fa2d72dc661529b48a671224c4713fc2d9528952216"
+content-hash = "269605f06bc74e48ca0e1ce3f73e5186d24f46a208a4f7c4f2551181d2e7c39d"
