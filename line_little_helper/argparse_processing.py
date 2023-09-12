@@ -43,7 +43,8 @@ def get_freqrange(args: argparse.Namespace) -> None:
         except AttributeError:
             print(msg)
 
-def get_channel_range(args: argparse.Namespace) -> None:
+def get_channel_range(args: argparse.Namespace,
+                      allow_all: bool = False) -> None:
     """Convert spectral ranges to channel range."""
     # Filter args
     kwargs = {}
@@ -60,7 +61,9 @@ def get_channel_range(args: argparse.Namespace) -> None:
             continue
 
     # Get range
-    args.chan_range = cube_utils.limits_to_chan_range(args.cube, **kwargs)
+    args.chan_range = cube_utils.limits_to_chan_range(args.cube,
+                                                      allow_all=allow_all,
+                                                      **kwargs)
 
 def get_subcube(args: argparse.Namespace) -> None:
     """Extract the subcube."""
