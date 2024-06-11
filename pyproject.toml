@@ -8,18 +8,18 @@ readme = "README.md"
 packages = [{include = "line_little_helper"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.9,<4.0"
 #toolkit = {git = "https://github.com/folguinch/toolkit.git"}
 toolkit = {path = "../toolkit", develop = true}
 tile-plotter = {path = "../tile-plotter", develop = true}
-numpy = "^1.24.2"
-astropy = "^5.2.1"
-matplotlib = "^3.7.1"
+numpy = "^1.26.4"
+astropy = "^6.0.0"
+matplotlib = "^3.8.3"
 astroquery = "^0.4.6"
 radio-beam = "^0.3.4"
-scipy = "^1.10.1"
-spectral-cube = "^0.6.0"
-pvextractor = "^0.3"
+scipy = "^1.12.0"
+spectral-cube = "^0.6.5"
+pvextractor = "^0.4"
 regions = "^0.7"
 
 [tool.poetry.scripts]
