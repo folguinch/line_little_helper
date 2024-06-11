@@ -79,7 +79,7 @@ def _molecule_args(parser: argparse.ArgumentParser) -> None:
                         help='Filter line lists for online queries')
     parser.add_argument('--molecule', nargs=1, default=None,
                         help='Molecule name or formula')
-    parser.add_argument('--qns', nargs=1, default=None,
+    parser.add_argument('--qns', nargs=1, default=[None],
                         help='Molecule qns')
     parser.add_argument('--onlyj', action='store_true',
                         help='Filter out F, K transitions')
