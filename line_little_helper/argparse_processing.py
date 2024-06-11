@@ -18,9 +18,15 @@ def load_molecule(args: argparse.Namespace
     Requires the argparse to have `cube` and `log` attributes. The `vlsr`
     attribute is also needed but does not need to be initialized.
     """
-    molecule = get_molecule(args.molecule[0], args.cube, qns=args.qns,
-                            onlyj=args.onlyj, line_lists=args.line_lists,
-                            vlsr=args.vlsr, log=args.log.info)
+    molecule = get_molecule(args.molecule[0],
+                            args.cube,
+                            qns=args.qns[0],
+                            onlyj=args.onlyj,
+                            line_lists=args.line_lists,
+                            vlsr=args.vlsr,
+                            save_molecule=args.save_molecule[0],
+                            restore_molecule=args.restore_molecule[0],
+                            log=args.log.info)
     if 'molec' in vars(args):
         args.molec = molecule
 

@@ -46,7 +46,8 @@ def line_parents(*parents: str) -> argparse.ArgumentParser:
     Available parents:
 
     - `vlsr`: add `vlsr` attribute.
-    - `molecule`: add `line_lists`, `molecule`, `qns` and `onlyj` attributes.
+    - `molecule`: add `line_lists`, `molecule`, `save_molecule`, `qns` and
+        `onlyj` attributes.
     - `flux`: add `rms`, `nsigma` and `flux_limit` attributes.
     - `spectral_range`: add `freq_range`, `vel_range`, `chan_range`,
       `win_halfwidth` attributes.
@@ -82,6 +83,12 @@ def _molecule_args(parser: argparse.ArgumentParser) -> None:
                         help='Molecule qns')
     parser.add_argument('--onlyj', action='store_true',
                         help='Filter out F, K transitions')
+    parser.add_argument('--save_molecule', nargs=1, default=[None],
+                        action=actions.NormalizePath,
+                        help='Save molecule to disk')
+    parser.add_argument('--restore_molecule', nargs=1, default=[None],
+                        action=actions.NormalizePath,
+                        help='Restore molecule from disk')
 
 def _flux_parameters(parser: argparse.ArgumentParser) -> None:
     """Add arguments to filter intensity."""

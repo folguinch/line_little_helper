@@ -378,8 +378,10 @@ def _get_linefreq(args: argparse.Namespace, section: str, cube: SpectralCube,
         line_freq = args.line_freq
     elif args.molecule and args.qns:
         mol = get_molecule(args.molecule[0], cube, qns=args.qns,
-                            onlyj=args.onlyj, line_lists=args.line_lists,
-                            vlsr=vlsr)
+                           onlyj=args.onlyj, line_lists=args.line_lists,
+                           vlsr=vlsr, save_molecule=args.save_molecule[0],
+                           restore_molecule=args.restore_molecule[0],
+                           log=args.log.info)
         if len(mol.transitions) != 1:
             raise ValueError(f'Number of transitions: {len(mol.transitions)}')
         line_freq = mol.transitions[0].restfreq
@@ -390,17 +392,23 @@ def _get_linefreq(args: argparse.Namespace, section: str, cube: SpectralCube,
               'qns' in args.pvconfig[section]):
             molecule = args.pvconfig[section]['molecule']
             qns = args.pvconfig[section]['qns']
+            restore_molecule = None
             line_lists = args.line_lists
             if (line_lists is None and
                 'line_lists' in args.pvconfig[section]):
                 line_lists = args.pvconfig[section]['line_lists'].split(',')
                 line_lists = [x.strip() for x in line_lists]
+            if 'restore_molecule' in args.pvconfig[section]:
+                restore_molecule = args.pvconfig.getpath(section,
+                                                         'restore_molecule')
             mol = get_molecule(molecule,
                                cube,
                                qns=qns,
                                onlyj=args.onlyj,
                                line_lists=line_lists,
-                               vlsr=vlsr)
+                               vlsr=vlsr,
+                               restore_molecule=restore_molecule,
+                               log=args.log.info)
             if len(mol.transitions) != 1:
                 raise ValueError(('Number of transitions: '
                                   f'{len(mol.transitions)}'))
