@@ -337,9 +337,11 @@ def line_peak_map(args: Optional[Sequence[str]] = None) -> None:
                         help='Line width map to determine integration window')
     parser.add_argument('--moments', nargs='*', type=int,
                         help='Moments to calculate')
+    parser.add_argument('--temp_map', action='store_true',
+                        help='Calculate a peak temperature map')
     parser.add_argument('outdir', nargs=1, action=actions.NormalizePath,
                         help='The output directory')
-    parser.set_defaults(molec=None)
+    parser.set_defaults(molec=None, mapfiles=None)
     if args is None:
         args = sys.argv[1:]
     args = parser.parse_args(args)
