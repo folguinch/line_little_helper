@@ -61,18 +61,27 @@ def extract_cube_info(cube: SpectralCube,
     extrema = cube.spectral_extrema
     info.append(('Observed frequency range: '
                  f'{extrema[0].value}-{extrema[1].value} extrema[0].unit'))
+    axis = cube.spectral_axis
+    freqwidth = np.median(np.abs(axis[1:] - axis[:-1])).to(u.kHz)
+    axis = axis.to(u.km/u.s, equivalencies=u.doppler_radio(restfreq))
+    velwidth = np.median(np.abs(axis[1:] - axis[:-1]))
+    info.append(('Median channel width: '
+                 f'{.3:freqwidth.value} {freqwidth.unit} '
+                 f'({.2:velwidth.value} {velwidth.unit})'))
     if vlsr is not None:
-        axis = cube.spectral_axis
-        axis = axis.to(u.km/u.s, equivalencies=u.doppler_radio(restfreq))
         axis = axis - vlsr
         axis = axis.to(u.GHz, equivalencies=u.doppler_radio(restfreq))
         info.append(('Rest frequency range: '
-                     f'{axis[0].value}-{axis[-1].value} extrema[0].unit'))
+                     f'{axis[0].value}-{axis[-1].value} {extrema[0].unit}'))
 
     return '\n'.join(info)
 
-def main(args: Sequence[str]):
-    """Main program."""
+def cube_info(args: Optional[Sequence[str]] = None) -> None:
+    """Main program.
+
+    Args:
+      args: arguments for argparse.
+    """
     # Argument parser
     parents = [line_parents(['vlsr'])]
     pipe = [aploaders.load_spectral_cube, _print_info]
@@ -90,5 +99,5 @@ def main(args: Sequence[str]):
         step(args)
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    cube_info(sys.argv[1:])
 
