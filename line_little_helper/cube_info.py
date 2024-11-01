@@ -67,8 +67,8 @@ def extract_cube_info(cube: SpectralCube,
     axis = axis.to(u.km/u.s, equivalencies=u.doppler_radio(restfreq))
     velwidth = np.median(np.abs(axis[1:] - axis[:-1]))
     info.append(('Median channel width: '
-                 f'{.3f:freqwidth.value} {freqwidth.unit} '
-                 f'({.2f:velwidth.value} {velwidth.unit})'))
+                 f'{freqwidth.value:.3f} {freqwidth.unit} '
+                 f'({velwidth.value:.2f} {velwidth.unit})'))
     if vlsr is not None:
         axis = axis - vlsr
         axis = axis.to(u.GHz, equivalencies=u.doppler_radio(restfreq))
