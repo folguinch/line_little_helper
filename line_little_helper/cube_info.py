@@ -18,6 +18,7 @@ import sys
 
 from toolkit.argparse_tools import actions
 import astropy.units as u
+import numpy as np
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cbutils
 
