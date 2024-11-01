@@ -47,10 +47,23 @@ def extract_cube_info(cube: SpectralCube,
         info.append(f"Cube rms: {cube.header['RMS']}")
     try:
         smallest, largest = cube.beams.extrema_beams()
+        common = cube.beams.common_beam()
+        smallest = (f'{smallest.minor.to(u.arcsec).value} x '
+                    f'{smallest.major.to(u.arcsec)}'
+                    f'PA={smallest.pa.to(u.deg)} '
+                    f'({smallest.to(u.arcsec**2)})')
+        largest = (f'{largest.minor.to(u.arcsec).value} x '
+                   f'{largest.major.to(u.arcsec)}'
+                   f'PA={largest.pa.to(u.deg)} '
+                   f'({largest.to(u.arcsec**2)})')
+        common = (f'{common.minor.to(u.arcsec).value} x '
+                   f'{common.major.to(u.arcsec)}'
+                   f'PA={common.pa.to(u.deg)} '
+                   f'({common.to(u.arcsec**2)})')
         info.append('Multi-beam cube')
         info.append(f'Smallest beam: {smallest}')
         info.append(f'Largest beam: {largest}')
-        info.append(f'Common beam: {cube.beams.common_beam()}')
+        info.append(f'Common beam: {common}')
     except AttributeError:
         info.append('Single-beam cube')
         info.append(f'Beam size: {cube.beam}')
@@ -59,13 +72,14 @@ def extract_cube_info(cube: SpectralCube,
     restfreq = cbutils.get_restfreq(cube)
     restfreq = restfreq.to(u.GHz)
     info.append(f'Rest frequency: {restfreq.value} {restfreq.unit}')
-    extrema = cube.spectral_extrema
+    extrema = cube.spectral_extrema.to(u.GHz)
     info.append(('Observed frequency range: '
-                 f'{extrema[0].value}-{extrema[1].value} extrema[0].unit'))
+                 f'{extrema[0].value}-{extrema[1].value} {extrema[0].unit}'))
     axis = cube.spectral_axis
     freqwidth = np.median(np.abs(axis[1:] - axis[:-1])).to(u.kHz)
     axis = axis.to(u.km/u.s, equivalencies=u.doppler_radio(restfreq))
     velwidth = np.median(np.abs(axis[1:] - axis[:-1]))
+    info.append(f'Spectral axis length: {axis.size}')
     info.append(('Median channel width: '
                  f'{freqwidth.value:.3f} {freqwidth.unit} '
                  f'({velwidth.value:.2f} {velwidth.unit})'))
