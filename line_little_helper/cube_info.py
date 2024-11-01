@@ -22,7 +22,7 @@ import toolkit.argparse_tools.loaders as aploaders
 import toolkit.astro_tools.cube_utils as cbutils
 
 from line_little_helper.moving_moments import HelpFormatter
-from line_little_helper.parents import line_parents
+from line_little_helper.argparse_parents import line_parents
 
 SpectralCube = TypeVar('SpectralCube')
 
