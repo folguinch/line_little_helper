@@ -83,7 +83,7 @@ def cube_info(args: Optional[Sequence[str]] = None) -> None:
       args: arguments for argparse.
     """
     # Argument parser
-    parents = [line_parents(['vlsr'])]
+    parents = [line_parents('vlsr')]
     pipe = [aploaders.load_spectral_cube, _print_info]
     parser = argparse.ArgumentParser(
         add_help=True,
