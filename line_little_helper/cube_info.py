@@ -47,7 +47,7 @@ def extract_cube_info(cube: SpectralCube,
     if 'RMS' in cube.header:
         info.append(f"Cube rms: {cube.header['RMS']}")
     elif calc_rms:
-        rms = get_cube_rms(cube, log=lambda x: f'{x}').to(u.mJy/u.beam)
+        rms = cbutils.get_cube_rms(cube, log=lambda x: f'{x}').to(u.mJy/u.beam)
         info.append(f'Cube rms: {rms}')
     try:
         smallest, largest = cube.beams.extrema_beams()
