@@ -29,11 +29,12 @@ SpectralCube = TypeVar('SpectralCube')
 
 def _print_info(args):
     """Print information from cube in args."""
-    info = extract_cube_info(args.cube, vlsr=args.vlsr)
+    info = extract_cube_info(args.cube, vlsr=args.vlsr, calc_rms=args.get_rms)
     print(info)
 
 def extract_cube_info(cube: SpectralCube,
-                      vlsr: Optional[u.Quantity] = None) -> str:
+                      vlsr: Optional[u.Quantity] = None,
+                      calc_rms: bool = False) -> str:
     """List cube basic information to print."""
     # Store everything in a list
     info = []
@@ -45,19 +46,22 @@ def extract_cube_info(cube: SpectralCube,
     # Beams and rms
     if 'RMS' in cube.header:
         info.append(f"Cube rms: {cube.header['RMS']}")
+    elif calc_rms:
+        rms = get_cube_rms(cube, log=lambda x: f'{x}').to(u.mJy/u.beam)
+        info.append(f'Cube rms: {rms}')
     try:
         smallest, largest = cube.beams.extrema_beams()
         common = cube.beams.common_beam()
-        smallest = (f'{smallest.minor.to(u.arcsec).value:.5f} x '
-                    f'{smallest.major.to(u.arcsec):.5f} '
+        smallest = (f'{smallest.major.to(u.arcsec).value:.5f} x '
+                    f'{smallest.minor.to(u.arcsec):.5f} '
                     f'PA={smallest.pa.to(u.deg):.1f} '
                     f'({smallest.to(u.arcsec**2)})')
-        largest = (f'{largest.minor.to(u.arcsec).value:.5f} x '
-                   f'{largest.major.to(u.arcsec):.5f} '
+        largest = (f'{largest.major.to(u.arcsec).value:.5f} x '
+                   f'{largest.minor.to(u.arcsec):.5f} '
                    f'PA={largest.pa.to(u.deg):.1f} '
                    f'({largest.to(u.arcsec**2)})')
-        common = (f'{common.minor.to(u.arcsec).value:.5f} x '
-                  f'{common.major.to(u.arcsec):.5f}'
+        common = (f'{common.major.to(u.arcsec).value:.5f} x '
+                  f'{common.minor.to(u.arcsec):.5f} '
                   f'PA={common.pa.to(u.deg):.1f} '
                   f'({common.to(u.arcsec**2)})')
         info.append('Multi-beam cube')
@@ -79,7 +83,6 @@ def extract_cube_info(cube: SpectralCube,
     freqwidth = np.median(np.abs(axis[1:] - axis[:-1])).to(u.kHz)
     axis = axis.to(u.km/u.s, equivalencies=u.doppler_radio(restfreq))
     velwidth = np.median(np.abs(axis[1:] - axis[:-1]))
-    info.append(f'Spectral axis length: {axis.size}')
     info.append(('Median channel width: '
                  f'{freqwidth.value:.3f} {freqwidth.unit} '
                  f'({velwidth.value:.2f} {velwidth.unit})'))
@@ -106,6 +109,8 @@ def cube_info(args: Optional[Sequence[str]] = None) -> None:
         formatter_class=HelpFormatter,
         conflict_handler='resolve',
     )
+    parser.add_argument('--get_rms', action='store_true',
+                        help='Calculate cube rms')
     parser.add_argument('cubename', nargs=1, action=actions.CheckFile,
                         help='The input cube file name')
     parser.set_defaults(cube=None)
