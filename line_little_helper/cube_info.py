@@ -48,18 +48,18 @@ def extract_cube_info(cube: SpectralCube,
     try:
         smallest, largest = cube.beams.extrema_beams()
         common = cube.beams.common_beam()
-        smallest = (f'{smallest.minor.to(u.arcsec).value} x '
-                    f'{smallest.major.to(u.arcsec)}'
-                    f'PA={smallest.pa.to(u.deg)} '
+        smallest = (f'{smallest.minor.to(u.arcsec).value:.5f} x '
+                    f'{smallest.major.to(u.arcsec):.5f} '
+                    f'PA={smallest.pa.to(u.deg):.1f} '
                     f'({smallest.to(u.arcsec**2)})')
-        largest = (f'{largest.minor.to(u.arcsec).value} x '
-                   f'{largest.major.to(u.arcsec)}'
-                   f'PA={largest.pa.to(u.deg)} '
+        largest = (f'{largest.minor.to(u.arcsec).value:.5f} x '
+                   f'{largest.major.to(u.arcsec):.5f} '
+                   f'PA={largest.pa.to(u.deg):.1f} '
                    f'({largest.to(u.arcsec**2)})')
-        common = (f'{common.minor.to(u.arcsec).value} x '
-                   f'{common.major.to(u.arcsec)}'
-                   f'PA={common.pa.to(u.deg)} '
-                   f'({common.to(u.arcsec**2)})')
+        common = (f'{common.minor.to(u.arcsec).value:.5f} x '
+                  f'{common.major.to(u.arcsec):.5f}'
+                  f'PA={common.pa.to(u.deg):.1f} '
+                  f'({common.to(u.arcsec**2)})')
         info.append('Multi-beam cube')
         info.append(f'Smallest beam: {smallest}')
         info.append(f'Largest beam: {largest}')
