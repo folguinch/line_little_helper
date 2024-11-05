@@ -16,6 +16,7 @@ from typing import Optional, Sequence, TypeVar
 import argparse
 import sys
 
+from radio_beam.utils import BeamError
 from toolkit.argparse_tools import actions
 import astropy.units as u
 import numpy as np
@@ -51,7 +52,6 @@ def extract_cube_info(cube: SpectralCube,
         info.append(f'Cube rms: {rms}')
     try:
         smallest, largest = cube.beams.extrema_beams()
-        common = cube.beams.common_beam()
         smallest = (f'{smallest.major.to(u.arcsec).value:.5f} x '
                     f'{smallest.minor.to(u.arcsec):.5f} '
                     f'PA={smallest.pa.to(u.deg):.1f} '
@@ -60,14 +60,18 @@ def extract_cube_info(cube: SpectralCube,
                    f'{largest.minor.to(u.arcsec):.5f} '
                    f'PA={largest.pa.to(u.deg):.1f} '
                    f'({largest.to(u.arcsec**2)})')
-        common = (f'{common.major.to(u.arcsec).value:.5f} x '
-                  f'{common.minor.to(u.arcsec):.5f} '
-                  f'PA={common.pa.to(u.deg):.1f} '
-                  f'({common.to(u.arcsec**2)})')
         info.append('Multi-beam cube')
         info.append(f'Smallest beam: {smallest}')
         info.append(f'Largest beam: {largest}')
-        info.append(f'Common beam: {common}')
+        try:
+            common = cube.beams.common_beam()
+            common = (f'{common.major.to(u.arcsec).value:.5f} x '
+                      f'{common.minor.to(u.arcsec):.5f} '
+                      f'PA={common.pa.to(u.deg):.1f} '
+                      f'({common.to(u.arcsec**2)})')
+            info.append(f'Common beam: {common}')
+        except BeamError:
+            info.append('Could not find common beam')
     except AttributeError:
         info.append('Single-beam cube')
         info.append(f'Beam size: {cube.beam}')
