@@ -75,6 +75,10 @@ def extract_cube_info(cube: SpectralCube,
     except AttributeError:
         info.append('Single-beam cube')
         info.append(f'Beam size: {cube.beam}')
+        info.append((f'Beam size: {cube.beam.major.to(u.arcsec).value:.5f} x '
+                     f'{cube.beam.minor.to(u.arcsec):.5f} '
+                     f'PA={cube.beam.pa.to(u.deg):.1f} '
+                     f'({cube.beam.to(u.arcsec**2)})'))
 
     # Spectral information
     restfreq = cbutils.get_restfreq(cube)
