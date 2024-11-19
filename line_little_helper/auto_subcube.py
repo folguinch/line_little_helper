@@ -70,7 +70,7 @@ def auto_subcube(args: Optional[Sequence[str]] = None) -> None:
             set_fluxlimit, get_subcube, _process_data]
     args_parents = [extractor.parent_parser(),
                     line_parents('flux'),
-                    parents.logger('debug_symmetric_moments.log')]
+                    parents.logger('debug_auto_subcube.log')]
     parser = argparse.ArgumentParser(
         add_help=True,
         formatter_class=HelpFormatter,
@@ -78,8 +78,8 @@ def auto_subcube(args: Optional[Sequence[str]] = None) -> None:
         conflict_handler='resolve')
     parser.add_argument('output', nargs=1, action=actions.NormalizePath,
                         help='The output basename')
-    parser.add_argument('moments', nargs='*', type=int,
-                        help='Moments to calculate')
+    #parser.add_argument('moments', nargs='*', type=int,
+    #                    help='Moments to calculate')
     parser.set_defaults(subcube=None, put_rms=True)
     if args is None:
         args = sys.argv[1:]
