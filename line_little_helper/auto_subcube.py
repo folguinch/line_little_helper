@@ -32,15 +32,15 @@ def _process_data(args: argparse.Namespace):
     # Initial mask
     args.log.info('-' * 80)
     args.log.info('Processing sub-cube:')
-    args.log.info('Flux limit: %s', args.flux_limit)
+    args.log.info('Flux limit: %s', args.flux_limit[0])
     args.log.info('Sub-cube rms: %f %s', args.subcube.meta['RMS'],
                   args.subcube.unit)
-    mask = np.any(args.subcube.unmasked_data[:] > args.flux_limit, axis=0)
+    mask = np.any(args.subcube.unmasked_data[:] > args.flux_limit[0], axis=0)
     args.log.info('Pixels over flux limit: %i', np.sum(mask))
 
     # Find submasks
-    mask, sub_masks = split_mask_structures(mask, min_area=args.min_area,
-                                            padding=args.padding)
+    mask, sub_masks = split_mask_structures(mask, min_area=args.min_area[0],
+                                            padding=args.padding[0])
     if len(sub_masks) == 0:
         args.log.info('No structures over %s were identified', args.flux_limit)
         sys.exit()
@@ -76,6 +76,10 @@ def auto_subcube(args: Optional[Sequence[str]] = None) -> None:
         formatter_class=HelpFormatter,
         parents=args_parents,
         conflict_handler='resolve')
+    parser.add_argument('--min_area', nargs=1, default=[12], type=float,
+                        help='Minimum number of pixels per structure')
+    parser.add_argument('--padding', nargs=1, default=[0.25], type=float,
+                        help='Size increment in terms of axis fraction')
     parser.add_argument('output', nargs=1, action=actions.NormalizePath,
                         help='The output basename')
     #parser.add_argument('moments', nargs='*', type=int,
