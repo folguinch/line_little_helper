@@ -113,7 +113,7 @@ def cube_to_marray(cube: Cube, unit: Optional[u.Unit] = None) -> npt.ArrayLike:
 def max_vel_ind(data: npt.ArrayLike,
                 headers: List[fits.Header],
                 vel: u.Quantity,
-                output: Path) -> np.ArrayLike:
+                output: Path) -> npt.ArrayLike:
     """Calculate a line peak index and peak velocity maps.
 
     Args:
