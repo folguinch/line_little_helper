@@ -31,16 +31,15 @@ import textwrap
 
 from astropy.io import fits
 from toolkit.argparse_tools import actions
-from toolkit.astro_tools.cube_utils import (get_restfreq, get_cube_rms,
-                                            to_common_beam)
+from toolkit.astro_tools.cube_utils import get_cube_rms, to_common_beam
 import astropy.units as u
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
 import numpy as np
+import numpy.typing as npt
 import scipy.ndimage as ndimg
 
 from line_little_helper.argparse_parents import line_parents
-from line_little_helper.processing_tools import to_rest_freq
 from line_little_helper.argparse_processing import load_molecule
 
 Cube = TypeVar('Cube')
@@ -54,8 +53,8 @@ def get_header(cube: Cube, bunit: u.Unit = None) -> fits.Header:
     """Extract 2-D header from cube header.
 
     Args:
-      cube: spectral cube.
-      bunit: flux unit.
+      cube: Spectral cube.
+      bunit: Flux unit.
 
     Return:
       A FITS header object.
@@ -75,26 +74,28 @@ def get_header(cube: Cube, bunit: u.Unit = None) -> fits.Header:
 
     return header
 
-def save_mask(mask: np.array, header: fits.Header, filename: Path,
+def save_mask(mask: npt.ArrayLike,
+              header: fits.Header,
+              filename: Path,
               dtype: Optional = int) -> None:
     """Save masks.
 
     Args:
-      mask: mask array.
+      mask: Mask array.
       header: FITS header.
-      filename: file name.
-      dtype: optional; data type.
+      filename: File name.
+      dtype: Optional. Data type.
     """
     hdu = fits.PrimaryHDU(mask.astype(dtype))
     hdu.header = header
     hdu.writeto(filename, overwrite=True)
 
-def cube_to_marray(cube: Cube, unit: Optional[u.Unit] = None) -> np.ma.array:
+def cube_to_marray(cube: Cube, unit: Optional[u.Unit] = None) -> npt.ArrayLike:
     """Convert an `SpectralCube` to `np.ma.array`.
 
     Args:
-      cube: spectral cube.
-      unit: optional; units of the output data.
+      cube: Spectral cube.
+      unit: Optional. Units of the output data.
 
     Returns:
       A numpy masked array with the data of the cube.
@@ -109,23 +110,26 @@ def cube_to_marray(cube: Cube, unit: Optional[u.Unit] = None) -> np.ma.array:
 
     return data
 
-def max_vel_ind(data: np.array, headers: List[fits.Header],
-                vel: u.Quantity, output: Path) -> np.array:
+def max_vel_ind(data: npt.ArrayLike,
+                headers: List[fits.Header],
+                vel: u.Quantity,
+                output: Path) -> np.ArrayLike:
     """Calculate a line peak index and peak velocity maps.
 
     Args:
-      data: an array with the data.
-      headers: two headers, one for the index map and one for the velocity map.
-      vel: velocity axis.
-      output: output base name
+      data: An array with the data.
+      headers: Two headers, one for the index map and one for the velocity map.
+      vel: Velocity axis.
+      output: Output base name.
     """
+    if len(headers) != 2:
+        raise ValueError('2 headers needed')
     mask = np.all(data.mask, axis=0)
     maxind = np.nanargmax(data, axis=0)
     maxvel = vel[maxind]
     maxvel[mask] = np.nan
 
     # Save
-    out = str(output) + '_%s.fits'
     hdu = fits.PrimaryHDU(maxind)
     hdu.header = headers[0]
     hdu.writeto(f'{output}_spec_peak_index.fits', overwrite=True,
@@ -145,7 +149,7 @@ def full_split_moments(cube: Cube,
                        vlsr: u.Quantity,
                        incremental_step: Optional[int] = 2,
                        roll_step: Optional[int] = 2,
-                       log: Optional[Logger] = None,) -> None:
+                       log: Optional[Logger] = None) -> None:
     """Calculate moment 0 at mirrored windows arround line center.
 
     The spectral axis is divided in 2 bands (lower band `lb` and upper band
@@ -159,16 +163,16 @@ def full_split_moments(cube: Cube,
       respectively. The amount of rolling is given by `roll_step`.
 
     Args:
-      cube: spectral cube with spectral axis in systemic velocity units.
-      split_width: size of the window around the line center to ignore (in
+      cube: Spectral cube with spectral axis in systemic velocity units.
+      split_width: Size of the window around the line center to ignore (in
         channels).
-      split_win: size of the window where the moment 0 are calculated.
-      outdir: path to save the output images.
-      basename: base name for the images.
+      split_win: Size of the window where the moment 0 are calculated.
+      outdir: Path to save the output images.
+      basename: Base name for the images.
       vlsr: LSR velocity.
-      incremental_step: optional; amount of increment for the incremental step.
-      roll_step: optional; number of channels to roll the split windows.
-      log: optional; logger.
+      incremental_step: Optional. Amount of increment for the incremental step.
+      roll_step: Optional. Number of channels to roll the split windows.
+      log: Optional. Logger.
     """
     # Index of the minimum velocity
     vel = cube.spectral_axis - vlsr
@@ -288,12 +292,12 @@ def full_incremental_moments(cube: Cube,
     for the dilation function are given in `steps`.
 
     Args:
-      cube: spectral cube with spectral axis in velocity.
-      outdir: output directory.
-      transition: transition name.
-      steps: optional; list of numbers of iterations for dilation.
-      log: optional; logger.
-      save_masks: optional; save masks at each step.
+      cube: Spectral cube with spectral axis in velocity.
+      outdir: Output directory.
+      transition: Transition name.
+      steps: Optional. List of numbers of iterations for dilation.
+      log: Optional. Logger.
+      save_masks: Optional. Save masks at each step.
     """
     # Velocity axis
     if log is not None:
@@ -435,7 +439,7 @@ def _proc(args: argparse.Namespace) -> None:
                                      transition.generate_name(), log=args.log,
                                      save_masks=args.savemasks)
 
-def main(args: Optional[Sequence[str]] = None) -> None:
+def moving_moments(args: Optional[Sequence[str]] = None) -> None:
     """Moment 1 maps from different windows.
 
     Args:
@@ -506,5 +510,5 @@ def main(args: Optional[Sequence[str]] = None) -> None:
             fn(args)
         args.cube = aploaders.load_spectral_cube
 
-if __name__=='__main__':
-    main(sys.argv[1:])
+if __name__ == '__main__':
+    moving_moments(sys.argv[1:])

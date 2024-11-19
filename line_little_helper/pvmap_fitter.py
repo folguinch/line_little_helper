@@ -6,7 +6,6 @@ import argparse
 import sys
 
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.modeling import models, fitting
 from toolkit import array_utils
 from toolkit.argparse_tools import actions, parents

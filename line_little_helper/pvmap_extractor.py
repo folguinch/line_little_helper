@@ -566,31 +566,25 @@ def _pv_maps_from_region(cube: 'SpectralCube',
                          recenter: bool = False,
                          rms: Optional[u.Quantity] = None,
                          output: Optional[Path] = None,
-                         file_fmt: Optional[str] = None,
                          log: Callable = print,
                          **kwargs) -> List[Path]:
     """Iterate over paths to get pv maps.
 
     Args:
-      cube: data cube.
-      paths: `crtf` region files.
-      width: slit width.
-      invert: optional; invert the velocity/position axes.
-      recenter: optional; recenter the offset axis?
-      rms: optional; pv map rms.
-      output: optional; output filename.
-      file_fmt: optional; filename format.
-      log: optional; logging function.
-      kwargs: ignored keyword parameters.
+      cube: Data cube.
+      paths: The `crtf` region files.
+      width: Slit width.
+      invert: Optional. Invert the velocity/position axes.
+      recenter: Optional. Recenter the offset axis?
+      rms: Optional. PV map rms.
+      output: Optional. Output filename.
+      log: Optional. Logging function.
+      kwargs: Optional. Ignored keyword parameters.
     """
     # Iterate paths
     filenames = []
-    for i, path in enumerate(paths):
+    for path in paths:
         log(f'Path = {path}')
-        #suffix_fmt = '.path{ind}'
-        #filename = _generate_filename(suffix_fmt, output=output,
-        #                              file_fmt=file_fmt,
-        #                              log=log, ind=i)
         if 'section' in kwargs:
             section = kwargs['section']
             filename = output.parent / f'{path.stem}_{section}.fits'

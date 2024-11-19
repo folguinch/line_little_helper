@@ -50,7 +50,8 @@ def get_freqrange(args: argparse.Namespace) -> None:
             print(msg)
 
 def get_channel_range(args: argparse.Namespace,
-                      allow_all: bool = False) -> None:
+                      #allow_all: bool = False
+                      ) -> None:
     """Convert spectral ranges to channel range."""
     # Filter args
     kwargs = {}
@@ -68,7 +69,7 @@ def get_channel_range(args: argparse.Namespace,
 
     # Get range
     args.chan_range = cube_utils.limits_to_chan_range(args.cube,
-                                                      allow_all=allow_all,
+                                                      #allow_all=allow_all,
                                                       **kwargs)
 
 def get_subcube(args: argparse.Namespace) -> None:
@@ -90,19 +91,8 @@ def get_subcube(args: argparse.Namespace) -> None:
 
     # Get subcube
     args.subcube = cube_utils.get_subcube(args.cube, **kwargs)
-#                                          freq_range=args.freq_range,
-#                                          vel_range=args.vel_range,
-#                                          chan_range=args.chan_range,
-#                                          chan_halfwidth=args.win_halfwidth[0],
-#                                          blc_trc=args.blc_trc,
-#                                          xy_ranges=args.xy_ranges,
-#                                          vlsr=args.vlsr,
-#                                          linefreq=args.linefreq,
-#                                          put_rms=args.put_rms,
-#                                          common_beam=common_beam,
-#                                          log=args.log.info)
 
-def set_fluxlimit(args: argparse.Namespace, get_rms: bool = False) -> None:
+def set_fluxlimit(args: argparse.Namespace, get_rms: bool = True) -> None:
     """Set the `flux_limit` attribute of the parser.
 
     If `get_rms` is `True` and `args.flux_limit` or `args.rms` are `None`, then
@@ -112,12 +102,10 @@ def set_fluxlimit(args: argparse.Namespace, get_rms: bool = False) -> None:
         return
     elif args.rms is not None:
         args.flux_limit = args.rms * args.nsigma
-    elif 'cube' in vars(args) and args.cube is not None:
-        if args.sampled_rms:
-            sampled = True
-        else:
-            sampled = False
-        args.rms = cube_utils.get_cube_rms(args.cube, sampled=sampled,
+    elif 'cube' in vars(args) and args.cube is not None and get_rms:
+        args.rms = cube_utils.get_cube_rms(args.cube, sampled=args.sampled_rms,
                                            log=args.log.info)
         args.log.info(f'Cube rms = {args.rms.value} {args.rms.unit}')
         args.flux_limit = args.rms * args.nsigma
+    else:
+        args.log.warning('Cannot set flux limit')

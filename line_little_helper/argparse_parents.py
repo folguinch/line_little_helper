@@ -1,5 +1,5 @@
 """Commonly use `arparse` parents."""
-from typing import Sequence, Union
+from typing import Union
 import argparse
 
 from toolkit.argparse_tools import actions
@@ -12,8 +12,8 @@ def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
     It creates the `cubename` and the default `cube` attributes.
     If `nargs` is larger than 1 or in `[*, +]`, then a `cubenames` attibute
     is generated and the `cubename` attribute is set to `None`.
-    If nargs is 0 then no cubename argument is generated, i.e. only `use_dask`
-    and `common_beam` arguments are generated.
+    If nargs is 0 then no cubename argument is generated, i.e. only `use_dask`,
+    `common_beam` and `mask` arguments are generated.
     """
     parser = argparse.ArgumentParser(add_help=False)
 
@@ -33,8 +33,6 @@ def cube_parent(nargs: Union[int, str] = 1) -> argparse.ArgumentParser:
                         help='Use dask for cube')
     parser.add_argument('--common_beam', action='store_true',
                         help='Convolve with common beam before results')
-    #parser.add_argument('--shrink', action='store_true',
-    #                    help='Reduce cube size to fit the FOV or mask')
     parser.add_argument('--mask', action=actions.CheckFile,
                         help='Cube mask')
 

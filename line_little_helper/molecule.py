@@ -99,7 +99,7 @@ class Transition:
             eup = eup * u.Unit(info['eup_unit'])
         logaij = info['logaij']
 
-        return cls(species, qns, restfreq, obsfreq=obsfreq, eup=eup, 
+        return cls(species, qns, restfreq, obsfreq=obsfreq, eup=eup,
                    logaij=logaij, vlsr=vlsr)
 
     def to_json_dict(self, unset_obsfreq: bool = True) -> Dict:
@@ -119,7 +119,7 @@ class Transition:
             info['eup_unit'] = f'{self.eup.unit}'
         else:
             info['eup'] = None
-        
+
         return info
 
     @u.quantity_input
@@ -202,8 +202,8 @@ class Molecule:
         """Obtain information about molecule from splat.
 
         Args:
-          name: species name following
-            [astroquery](https://astroquery.readthedocs.io/en/v0.1-0/splatalogue.html).
+          name: species name following [astroquery]
+            (https://astroquery.readthedocs.io/en/v0.1-0/splatalogue.html).
           freq_range: frequency range to look for transitions.
           vlsr: optional; LSR velocity to obtain observed frequency.
           filter_out: optional; filter out transitions with given QNs.
@@ -278,7 +278,7 @@ class Molecule:
                 if qns is not None and qns != transition.qns:
                     continue
                 filtered_transitions.append(transition)
-        
+
         # Check not empty
         if len(filtered_transitions) == 0:
             raise NoTransitionError(self.name)
@@ -385,7 +385,7 @@ def get_molecule(molecule: str,
                  cube: 'spectral_cube.SpectralCube',
                  qns: Optional[str] = None,
                  onlyj: bool = False,
-                 line_lists: Sequence[str] = ['CDMS', 'JPL'],
+                 line_lists: Sequence[str] = ('CDMS', 'JPL'),
                  vlsr: Optional[u.Quantity[u.km/u.s]] = None,
                  save_molecule: Optional['pathlib.Path'] = None,
                  restore_molecule: Optional['pathlib.Path'] = None,
@@ -437,9 +437,9 @@ def get_molecule(molecule: str,
                 aux = Molecule.from_query(f' {molecule} ', rest_freq_range,
                                           vlsr=vlsr, filter_out=filter_out,
                                           line_lists=line_lists, qns=qns)
-            except InconsistentTableError:
+            except InconsistentTableError as exc:
                 log('Splatalogue not working')
-                raise NoTransitionError(molecule)
+                raise NoTransitionError(molecule) from exc
             aux.reduce_qns()
             mol.merge_with(aux, filename=restore_molecule)
             mol = aux

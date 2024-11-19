@@ -8,7 +8,6 @@ from toolkit.argparse_tools import actions
 import astropy.units as u
 import toolkit.argparse_tools.loaders as aploaders
 import toolkit.argparse_tools.parents as apparents
-import toolkit.astro_tools.cube_utils as cubeutils
 
 from line_little_helper.molecule import NoTransitionError
 from line_little_helper.moving_moments import HelpFormatter
@@ -28,8 +27,6 @@ def parent_parser() -> argparse.ArgumentParser:
     parser.add_argument('--linefreq', nargs=2, action=actions.ReadQuantity,
                         default=None,
                         help='Line rest freq')
-    #parser.add_argument('cubename', nargs=1, action=actions.CheckFile,
-    #                    help='The input cube')
 
     return parser
 
@@ -54,11 +51,15 @@ def _convert_cube_spaxis(args: argparse.Namespace) -> None:
     """Convert the spectral axis to the requested type."""
     unit = args.subcube.spectral_axis.unit
     if args.spectral_axis == 'frequency' and not unit.is_equivalent(u.Hz):
-        args.subcube = args.subcube.with_spectral_unit(u.Hz,
-                                                       velocity_convention='radio')
+        args.subcube = args.subcube.with_spectral_unit(
+            u.Hz,
+            velocity_convention='radio',
+        )
     elif args.spectral_axis == 'velocity' and not unit.is_equivalent(u.m/u.s):
-        args.subcube = args.subcube.with_spectral_unit(u.m/u.s,
-                                                       velocity_convention='radio')
+        args.subcube = args.subcube.with_spectral_unit(
+            u.m/u.s,
+            velocity_convention='radio',
+        )
     else:
         pass
 

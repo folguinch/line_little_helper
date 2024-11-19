@@ -186,7 +186,7 @@ def _proc(args: argparse.Namespace):
         chan_width = chan_width[med_chan]
         args.log.info('Channel width: %f %s', chan_width.value, chan_width.unit)
 
-        # Make a mask from fwhm 
+        # Make a mask from fwhm
         suffix = transition.generate_name()
         if args.nlinewidth:
             args.log.info('Dilating mask by %i x linewidth', args.nlinewidth)
@@ -229,7 +229,7 @@ def _proc(args: argparse.Namespace):
                 aux[:, invalid.astype(bool)] = False
                 aux = ndimg.binary_dilation(aux, structure=structure,
                                             iterations=niter)
-                nfwhm_mask = (nfwhm_mask | aux)
+                nfwhm_mask = nfwhm_mask | aux
             nfwhm_mask[:, invalid] = True
             args.log.info('Valid data after FWHM dilation: %i',
                           np.sum(nfwhm_mask))
@@ -262,9 +262,6 @@ def _proc(args: argparse.Namespace):
 
         # Calculate moments
         if args.moments is not None:
-            #fwhm_mask[mask_bad] = False
-            #args.log.info('FWHM mask valid data: %i', np.sum(fwhm_mask))
-            #fwhm_mask[:][np.all(~threshold_mask, axis=0)] = 
             if nfwhm_mask is not None:
                 moment_cube = masked_cube.with_mask(nfwhm_mask)
             else:
@@ -275,8 +272,6 @@ def _proc(args: argparse.Namespace):
             ind = np.arange(vel_axis.size)[masked_chans]
             chmin, chmax = np.min(ind), np.max(ind)
             moment_cube = moment_cube[chmin:chmax+1]
-            #moment_cube = cube_utils.to_common_beam(moment_cube,
-            #                                        log=args.log.info)
             for moment in args.moments:
                 filename = f'{args.cubename[0].stem}_{suffix}_'
                 if args.nlinewidth:
@@ -290,23 +285,11 @@ def _proc(args: argparse.Namespace):
                                       linefreq=args.linefreq,
                                       lower_limit=args.flux_limit[0],
                                       rms=args.rms,
-                                      #auto_rms=True,
                                       nsigma=args.nsigma[0],
                                       filename=filename,
                                       log=args.log.info)
 
         if args.fit_halfwidth[0] is not None:
-            ## Build mask
-            #struc = np.zeros((3,)*3, dtype=bool)
-            #struc[:, 1, 1] = True
-            #m, n = ind_map.shape
-            #I, J = np.ogrid[:m,:n]
-            #prog_mask = np.zeros(args.cube.shape, dtype=bool)
-            #prog_mask[ind_map, I, J] = True
-            #prog_mask[args.cube < args.flux_limit] = False
-            #prog_mask = ndimg.binary_dilation(prog_mask, structure=struc,
-            #                                  iterations=args.fit_halfwidth[0])
-
             # Fit cube
             filename = f'{args.cubename[0].stem}_{suffix}_halfwidth_fit.fits'
             filename = args.outdir[0] / filename

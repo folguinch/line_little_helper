@@ -117,7 +117,6 @@ class Spectrum(LoggedObject):
         if self.spectral_axis.unit.is_equivalent(u.Hz):
             return self.spectral_axis
         else:
-            equiv = u.doppler_radio(self.restfreq)
             return self.spectral_axis.to(u.MHz,
                                          equivalencies=self.velocity_equiv)
 
@@ -385,7 +384,7 @@ class Spectrum(LoggedObject):
         """
         # Find peaks
         peaks, _ = signal.find_peaks(self.intensity)
-        
+
         # Widths
         kwargs.setdefault('rel_height', 1)
         widths = signal.peak_widths(self.intensity, peaks, **kwargs)
@@ -413,7 +412,7 @@ class Spectrum(LoggedObject):
 
         # First pass
         # Labels and objects
-        labs, nlabs = ndimage.label(mask)
+        labs, _ = ndimage.label(mask)
         objs = ndimage.find_objects(labs)
         # Filter slices
         for obj in objs:
@@ -429,7 +428,7 @@ class Spectrum(LoggedObject):
             mask = ndimage.binary_dilation(mask, iterations=dilate)
 
         # Final objects
-        labs, nlabs = ndimage.label(mask)
+        labs, _ = ndimage.label(mask)
         objs = ndimage.find_objects(labs)
 
         return objs
@@ -531,7 +530,7 @@ class Spectrum(LoggedObject):
             mask = (vel_axis >= -velocity_range) & (vel_axis <= velocity_range)
             slc = slice(min(ind[mask]), max(ind[mask]) + 1)
         elif channel_range is not None:
-            axis = self.spectral_axis
+            #axis = self.spectral_axis
             if self._frame == 'observed':
                 if transition.obsfreq is None:
                     transition.set_obsfreq(self.vlsr)
@@ -676,10 +675,9 @@ class Spectrum(LoggedObject):
             ax.annotate(transition.qns, xy, xytext=xy, verticalalignment='top',
                         horizontalalignment='right')
 
-    def plot_model(self, ax: 'Axis', result_fn: Callable):
-        """
-        """
-        ax.plot(x, y)
+    #def plot_model(self, ax: 'Axis', result_fn: Callable):
+    #    """Plot model."""
+    #    ax.plot(x, y)
 
 class Spectra(list):
     """Class to store Spectrum objects."""
@@ -786,6 +784,7 @@ class Spectra(list):
         return vals
 
 class CassisModelSpectra(Spectra):
+    """CASSIS model spectra manager."""
 
     @classmethod
     def read(cls, filename: Path):
@@ -1210,7 +1209,7 @@ def cube_fitter(cube: SpectralCube,
                                       radius=radius, area_pix=area_pix)
 
         # Save
-        if np.any(np.isnan(spec.intensity)):
+        if np.any(np.isnan(spectrum.intensity)):
             #log(f'Removing spectrum x={col} y={row}')
             mask[row, col] = False
             continue
