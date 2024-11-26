@@ -43,7 +43,7 @@ def _process_data(args: argparse.Namespace):
                                             padding=args.padding[0])
     if len(sub_masks) == 0:
         args.log.info('No structures over %s were identified', args.flux_limit)
-        sys.exit()
+        return
     args.log.info('%i sub regions identified', len(sub_masks))
 
     # Generate header
@@ -65,7 +65,21 @@ def _process_data(args: argparse.Namespace):
         subcube.write(cubename, overwrite=True)
 
 def auto_subcube(args: Optional[Sequence[str]] = None) -> None:
+    """Extract sub-cubes from valid emission area."""
     # Argument parser
+    description = textwrap.dedent("""\
+        Extract sub-cubes from valid emission of a given representative
+        transition.
+
+        An initial subcube of the representative transition is calculated from
+        the input parameters. From the line emission over a certain threshold a
+        rectangular mask is created encompasing the valid pixels. This mask is
+        used to crop the initial cube spatially. 
+
+        A padding parameter can be given to increase the size of the region as a
+        factor of the size of the rectangular mask axes. For example, if the
+        mask box has 4 by 6 pixels and a padding of 0.5 the final mask will be a
+        box of size 8 by 12 (if not at the borders of the cube).""")
     pipe = [aploaders.load_spectral_cube, extractor.check_line_freq,
             set_fluxlimit, get_subcube, _process_data]
     args_parents = [extractor.parent_parser(),
@@ -73,6 +87,7 @@ def auto_subcube(args: Optional[Sequence[str]] = None) -> None:
                     parents.logger('debug_auto_subcube.log')]
     parser = argparse.ArgumentParser(
         add_help=True,
+        description=description,
         formatter_class=HelpFormatter,
         parents=args_parents,
         conflict_handler='resolve')
