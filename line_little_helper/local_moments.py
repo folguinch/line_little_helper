@@ -5,8 +5,13 @@ emission over a fraction of the peak.
 """
 from typing import Sequence, Optional
 import argparse
+import sys
 
+from astropy.fits import fits
+from toolkit.argparse_tools import actions
+import numpy as np
 import toolkit.argparse_tools.loaders as aploaders
+import toolkit.argparse_tools.parents as apparents
 import toolkit.astro_tools.cube_utils as cubeutils
 
 from line_little_helper.argparse_parents import line_parents, cube_parent
@@ -28,6 +33,7 @@ def _get_moment(args: argparse.Namespace) -> Sequence[str]:
     header['BUNIT'] = f'{peak_map.unit:FITS}'
     outname = f'{args.output[0]}.peakmap.fits'
     hdu = fits.PrimaryHDU(data=peak_map.value, header=header)
+    hdu.writeto(outname, overwrite=True)
 
     # Moments over FWHM
     peakmask = np.greater(args.subcube.unmasked_data[:].value,
@@ -46,7 +52,6 @@ def _get_moment(args: argparse.Namespace) -> Sequence[str]:
         # Save
         outname = f'{args.output[0]}.moment{mom}.fits'
         moment.writeto(outname, overwrite=True)
-        filenames.append(outname)
 
 def local_moments(args: Optional[Sequence[str]] = None) -> None:
     """Calculate local moments from command line input."""

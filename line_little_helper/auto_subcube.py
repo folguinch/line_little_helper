@@ -13,6 +13,7 @@ not at the borders of the cube).
 from typing import Optional, Sequence
 import argparse
 import sys
+import textwrap
 
 from astropy.io import fits
 from toolkit.argparse_tools import actions
