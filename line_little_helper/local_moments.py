@@ -7,7 +7,7 @@ from typing import Sequence, Optional
 import argparse
 import sys
 
-from astropy.fits import fits
+from astropy.io import fits
 from toolkit.argparse_tools import actions
 import numpy as np
 import toolkit.argparse_tools.loaders as aploaders
