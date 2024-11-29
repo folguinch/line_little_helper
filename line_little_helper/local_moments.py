@@ -58,7 +58,7 @@ def local_moments(args: Optional[Sequence[str]] = None) -> None:
     pipe = [aploaders.load_spectral_cube, extractor.check_line_freq,
             set_fluxlimit, get_subcube, _save_subcube, _get_moment]
     args_parents = [apparents.logger('debug_local_moments.log'),
-                    extractor.extractor.parent_parser(),
+                    extractor.parent_parser(),
                     line_parents('flux')]
     parser = argparse.ArgumentParser(
         add_help=True,
