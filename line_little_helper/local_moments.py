@@ -86,4 +86,4 @@ def local_moments(args: Optional[Sequence[str]] = None) -> None:
         step(args)
 
 if __name__ == '__main__':
-    local_moments(sys.arg[1:])
+    local_moments(sys.argv[1:])
