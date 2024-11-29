@@ -50,7 +50,7 @@ def _get_moment(args: argparse.Namespace) -> Sequence[str]:
                                       log=args.log.info)
 
         # Save
-        outname = f'{args.output[0]}.moment{mom}.fits'
+        outname = f'{args.output[0]}.local_moment{mom}.fits'
         moment.writeto(outname, overwrite=True)
 
 def local_moments(args: Optional[Sequence[str]] = None) -> None:
