@@ -28,7 +28,7 @@ def _save_subcube(args: argparse.Namespace) -> None:
 def _get_moment(args: argparse.Namespace) -> Sequence[str]:
     """Calculate the moments and save."""
     # Peak map
-    peak_map = np.nanmax(args.subcube) * args.subcube.unit
+    peak_map = np.nanmax(args.subcube, axis=0) * args.subcube.unit
     header = args.subcube.wcs.sub(2).to_header()
     header['BUNIT'] = f'{peak_map.unit:FITS}'
     outname = f'{args.output[0]}.peakmap.fits'
