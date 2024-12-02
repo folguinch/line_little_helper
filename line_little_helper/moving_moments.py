@@ -421,8 +421,8 @@ def _proc(args: argparse.Namespace) -> None:
                                roll_step=roll_step, log=args.log)
         else:
             # Create cube mask
-            args.log.info('Filtering out data < %i rms', args.nsigma)
-            mask = subcube > rms * args.nsigma
+            args.log.info('Filtering out data < %i rms', args.nsigma[0])
+            mask = subcube > rms * args.nsigma[0]
             if not mask.any():
                 args.log.info('No data over threshold, skipping')
                 continue
