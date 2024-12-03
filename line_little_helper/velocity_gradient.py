@@ -5,10 +5,12 @@ import argparse
 import sys
 
 from astropy.wcs import WCS
+from radio_beam import Beam
 from toolkit.argparse_tools import actions, parents
 from toolkit.argparse_tools.functions import (source_properties,
                                               pixels_to_positions)
 from toolkit.astro_tools.images import stats_at_position, intensity_gradient
+import astropy.units as u
 import numpy as np
 
 from line_little_helper.moving_moments import HelpFormatter
@@ -99,7 +101,7 @@ def velocity_gradient(args: Optional[Sequence[str]] = None) -> None:
     # Argument parser
     src_props = ['radius']
     args_parents = [parents.logger('debug_velocity_gradient.log'),
-                    parents.source_position(required=False),
+                    parents.source_position(required=True),
                     parents.source_properties(src_props)]
     parser = argparse.ArgumentParser(
         add_help=True,
@@ -130,12 +132,17 @@ def velocity_gradient(args: Optional[Sequence[str]] = None) -> None:
         return None
 
     # Stats around source
+    beam = np.sqrt(Beam.from_fits_header(args.moment.header).sr / np.pi)
+    radius = source_props['radius'] + beam.to(u.arcsec)
+    args.log.info('Stats over radius: %s', radius)
     drc_stats = stats_at_position(direction, args.coordinate,
                                   source_props['radius'],
                                   stats=(np.nanmean, np.nanstd, np.nanmedian))
     args.log.info('Direction mean: %s', drc_stats[0])
-    args.log.info('Direction std. dev.: %s', drc_stats[0])
-    args.log.info('Direction median: %s', drc_stats[0])
+    args.log.info('Direction std. dev.: %s', drc_stats[1])
+    args.log.info('Direction median: %s', drc_stats[2])
+
+    return drc_stats
 
 if __name__ == '__main__':
     velocity_gradient(sys.argv[1:])
