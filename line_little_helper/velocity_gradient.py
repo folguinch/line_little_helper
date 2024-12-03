@@ -135,7 +135,7 @@ def velocity_gradient(args: Optional[Sequence[str]] = None) -> None:
     beam = np.sqrt(Beam.from_fits_header(args.moment.header).sr / np.pi)
     radius = source_props['radius'] + beam.to(u.arcsec)
     args.log.info('Stats over radius: %s', radius)
-    drc_stats = stats_at_position(direction, args.coordinate,
+    drc_stats = stats_at_position(direction, args.coordinate[0],
                                   source_props['radius'],
                                   stats=(np.nanmean, np.nanstd, np.nanmedian))
     args.log.info('Direction mean: %s', drc_stats[0])
