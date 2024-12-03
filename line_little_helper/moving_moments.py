@@ -136,7 +136,7 @@ def max_vel_ind(data: npt.ArrayLike,
                 output_verify='fix')
     hdu = fits.PrimaryHDU(maxvel.value)
     hdu.header = headers[1]
-    hdu.writeto(f'{output}_spec_peak_vel.its', overwrite=True,
+    hdu.writeto(f'{output}_spec_peak_vel.fits', overwrite=True,
                 output_verify='fix')
 
     return maxind
