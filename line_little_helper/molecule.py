@@ -142,7 +142,7 @@ class Transition:
         """
         name = []
         if 'species' in include:
-            name.append(f'{self.species}'.replace('=', ''))
+            name.append(f'{self.species}'.replace('=', '').replace(' ', '_'))
         if 'qns' in include:
             qns = normalize_qns(self.qns)
             name.append(qns)
