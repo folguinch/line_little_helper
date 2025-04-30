@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "line-little-helper"
-version = "0.1.1"
+version = "0.2.0"
 description = "Tools for working with molecular lines"
 authors = ["Fernando Olguin <f.olguin.ch@gmail.com>"]
 license = "MIT"
@@ -9,9 +9,10 @@ packages = [{include = "line_little_helper"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-#toolkit = {git = "https://github.com/folguinch/toolkit.git"}
-toolkit = {path = "../toolkit", develop = true}
-tile-plotter = {path = "../tile-plotter", develop = true}
+toolkit = {git = "https://github.com/folguinch/toolkit.git"}
+tile-plotter = {git = "https://github.com/folguinch/tile_plotter"}
+#toolkit = {path = "../toolkit", develop = true}
+#tile-plotter = {path = "../tile-plotter", develop = true}
 numpy = "^1.26.4"
 astropy = "^6.0.0"
 matplotlib = "^3.8.3"
