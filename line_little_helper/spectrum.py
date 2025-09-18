@@ -820,8 +820,8 @@ class CassisModelSpectra(Spectra):
 class IndexedSpectra(dict):
     """Class to store Spectra objects indexed by key."""
 
-    def __init__(self, log: Optional[Logger] = None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, values: Sequence, log: Optional[Logger] = None):
+        super().__init__(values)
         if log is not None:
             self.log = log
         else:
