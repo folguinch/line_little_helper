@@ -807,7 +807,7 @@ class CassisModelSpectra(Spectra):
 
         return cls(specs)
 
-class IndexedSpectra(dict):
+class IndexedSpectra(dict, LoggedObject):
     """Class to store Spectra objects indexed by key."""
 
     def __repr__(self):
@@ -825,7 +825,9 @@ class IndexedSpectra(dict):
                    index: Union[str, Sequence] = 'filenames',
                    spectral_axis_unit: u.Unit = u.GHz,
                    vlsr: Optional[u.Quantity] = None,
-                   radius: Optional[u.Quantity] = None) -> dict:
+                   radius: Optional[u.Quantity] = None,
+                   rms: Optional[u.Quantity] = None,
+                   restframe: str = 'observed') -> dict:
         """Store spectra in a dictionary indexed by `index`.
 
         If `filenames` are from previously saved spectra, all other keywords
@@ -843,6 +845,8 @@ class IndexedSpectra(dict):
           spectral_axis_unit: optional; units of the spectral axis.
           vlsr: optional; LSR velocity.
           radius: optional; average pixels inside this radius.
+          rms: Optional. The rms of the spectra.
+          restframe: Optional. Spectral frame (observed or rest).
         """
         # Determine the extension of the data
         filetype = filenames[0].suffix.lower()
@@ -852,6 +856,7 @@ class IndexedSpectra(dict):
         # Dictionary index
         vals = None
         if index == 'coords':
+            self.log.info('Indexing by coordinates')
             # Keys
             keys = coords
 
@@ -865,8 +870,10 @@ class IndexedSpectra(dict):
                                                    spectral_axis_unit, vlsr,
                                                    radius=radius))
         elif index == 'filenames':
+            self.log.info('Indexing by filenames')
             keys = filenames
         else:
+            self.log.info('Indexing by ', index)
             keys = index
 
         # Load spectra for other cases
@@ -874,12 +881,14 @@ class IndexedSpectra(dict):
             vals = []
             for filename in filenames:
                 if filetype == '.dat':
+                    self.log.info('Loading spectrum from file')
                     # Load spectrum
                     spec = Spectrum.from_file(
                         filename,
                         spectral_axis_unit=spectral_axis_unit,
                     )
                 else:
+                    self.log.info('Loading spectrum from cube')
                     aux = SpectralCube.read(filename)
 
                     # Iter over coordinates
@@ -891,7 +900,9 @@ class IndexedSpectra(dict):
                             coord,
                             spectral_axis_unit=spectral_axis_unit,
                             vlsr=vlsr,
+                            rms=rms,
                             radius=radius,
+                            restframe=restframe,
                         )
                         specs.append(spec)
 

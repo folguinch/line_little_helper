@@ -19,7 +19,7 @@ from astropy.table import QTable, vstack
 from toolkit.argparse_tools import functions, actions
 from toolkit.maths import quick_rms
 import astropy.units as u
-import toolkit.argparse_tools.parents as apparents
+import toolkit.argparse_tools importimport arents
 
 from line_little_helper.argparse_parents import query_freqrange, line_parents
 from line_little_helper.spectrum import (IndexedSpectra,
@@ -30,6 +30,8 @@ def spectra_loader(filenames: Sequence[Path],
                    positions: Optional[Sequence[Tuple[int]]] = None,
                    vlsr: Optional[u.Quantity] = None,
                    radius: Optional[u.Quantity] = None,
+                   rms: Optional[u.Quantity] = None,
+                   restframe: str = 'observed',
                    log: Callable = print) -> dict:
     """Load spectra from file names.
 
@@ -38,11 +40,13 @@ def spectra_loader(filenames: Sequence[Path],
       positions: optional; positions to extract the data from.
       vlsr: optional; LSR velocity.
       radius: optional; source radius for averaging.
+      rms: Optional. RMS of the spectra.
+      restframe: Optional. Spectral frame (observed or rest).
       log: optional; logging function.
     """
     log('Extracting spectra')
     specs = IndexedSpectra.from_files(filenames, coords=positions, vlsr=vlsr,
-                                      radius=radius)
+                                      radius=radius, rms=rms, restframe=restframe)
     log(specs)
 
     return specs
@@ -243,9 +247,9 @@ def spectrum_helper(args: list):
     args_parents = [
         freq_range_parent,
         line_parents('vlsr', 'flux'),
-        apparents.logger('debug_spectrum_extractor.log'),
-        apparents.source_position(required=False),
-        apparents.verify_files(
+        parents.logger('debug_spectrum_extractor.log'),
+        parents.source_position(required=False),
+        parents.verify_files(
             'filenames',
             '--mask_from',
             '--mask',
