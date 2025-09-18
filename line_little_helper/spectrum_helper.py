@@ -148,8 +148,13 @@ def extractor(filenames: Sequence[Path],
         log(f'Position:\n{position}')
 
         # Specs
-        specs = spectra_loader(filenames, positions=position, vlsr=vlsr,
-                               radius=radius, log=log)
+        specs = spectra_loader(filenames,
+                               positions=position,
+                               vlsr=vlsr,
+                               radius=radius,
+                               rms=rms,
+                               restframe='rest' if rest else 'observed',
+                               log=log)
         # Save specs
         if outdir is not None:
             log(f'Saving to: {outdir}')
