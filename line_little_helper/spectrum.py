@@ -9,7 +9,7 @@ from radio_beam import Beam, Beams
 from scipy import ndimage, signal
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
-from toolkit.logger import LoggedObject
+from toolkit.logger import LoggedObject, get_logger
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,9 +53,13 @@ class Spectrum(LoggedObject):
                  restframe: str = 'observed',
                  vlsr: Optional[u.Quantity] = None,
                  rms: Optional[u.Quantity] = None,
-                 beam: Optional[Union[Beam, Beams]] = None) -> None:
+                 beam: Optional[Union[Beam, Beams]] = None,
+                 log: Optional[Logger] = None) -> None:
         """Initialize a spectrum object."""
-        super().__init__(__name__)
+        if log is not None:
+            self.log = log
+        else:
+            super().__init__(__name__)
         self.spectral_axis = spectral_axis
         self.intensity = intensity
         self.restfreq = restfreq
@@ -130,7 +134,8 @@ class Spectrum(LoggedObject):
                   sampled_rms: bool = True,
                   radius: Optional[u.Quantity] = None,
                   area_pix: Optional[float] = None,
-                  restframe: str = 'observed'):
+                  restframe: str = 'observed',
+                  log: Optional[Logger] = None):
         """Generate a Spectrum from a cube.
 
         Args:
@@ -146,6 +151,10 @@ class Spectrum(LoggedObject):
         """
         if restframe == 'rest' and vlsr is None:
             raise ValueError('Cannot change to rest frame: vlsr is None')
+        if log is not None:
+            logfn = log.info
+        else:
+            logfn = cls.log.info
         spec = cube_utils.spectrum_at_position(
             cube,
             coord,
@@ -153,7 +162,7 @@ class Spectrum(LoggedObject):
             vlsr=vlsr if restframe == 'rest' else None,
             radius=radius,
             area_pix=area_pix,
-            log=cls.log.info,
+            log=logfn,
         )
         try:
             beam = cube.beam
@@ -807,8 +816,15 @@ class CassisModelSpectra(Spectra):
 
         return cls(specs)
 
-class IndexedSpectra(dict, LoggedObject):
+class IndexedSpectra(dict):
     """Class to store Spectra objects indexed by key."""
+
+    def __init__(self, log: Optional[Logger] = None, **kwargs):
+        super().__init__(**kwargs)
+        if log is not None:
+            self.log = log
+        else:
+            self.log = get_logger(__name__, filename='plotter.log')
 
     def __repr__(self):
         strval = []
@@ -827,7 +843,8 @@ class IndexedSpectra(dict, LoggedObject):
                    vlsr: Optional[u.Quantity] = None,
                    radius: Optional[u.Quantity] = None,
                    rms: Optional[u.Quantity] = None,
-                   restframe: str = 'observed') -> dict:
+                   restframe: str = 'observed',
+                   log: Optional[Logger] = None) -> dict:
         """Store spectra in a dictionary indexed by `index`.
 
         If `filenames` are from previously saved spectra, all other keywords
@@ -856,7 +873,8 @@ class IndexedSpectra(dict, LoggedObject):
         # Dictionary index
         vals = None
         if index == 'coords':
-            cls.log.info('Indexing by coordinates')
+            if log:
+                log.info('Indexing by coordinates')
             # Keys
             keys = coords
 
@@ -870,10 +888,12 @@ class IndexedSpectra(dict, LoggedObject):
                                                    spectral_axis_unit, vlsr,
                                                    radius=radius))
         elif index == 'filenames':
-            cls.log.info('Indexing by filenames')
+            if log:
+                log.info('Indexing by filenames')
             keys = filenames
         else:
-            self.log.info('Indexing by ', index)
+            if log:
+                self.log.info('Indexing by ', index)
             keys = index
 
         # Load spectra for other cases
@@ -881,14 +901,16 @@ class IndexedSpectra(dict, LoggedObject):
             vals = []
             for filename in filenames:
                 if filetype == '.dat':
-                    cls.log.info('Loading spectrum from file')
+                    if log:
+                        log.info('Loading spectrum from file')
                     # Load spectrum
                     spec = Spectrum.from_file(
                         filename,
                         spectral_axis_unit=spectral_axis_unit,
                     )
                 else:
-                    cls.log.info('Loading spectrum from cube')
+                    if log:
+                        log.info('Loading spectrum from cube')
                     aux = SpectralCube.read(filename)
 
                     # Iter over coordinates
@@ -903,12 +925,13 @@ class IndexedSpectra(dict, LoggedObject):
                             rms=rms,
                             radius=radius,
                             restframe=restframe,
+                            log = log,
                         )
                         specs.append(spec)
 
                 vals.append(specs)
 
-        return cls(zip(keys, vals))
+        return cls(zip(keys, vals), log=log)
 
     @property
     def nspecs(self) -> List[int]:
