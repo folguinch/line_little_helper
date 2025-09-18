@@ -18,6 +18,7 @@ from astropy.io import fits
 from astropy.table import QTable, vstack
 from toolkit.argparse_tools import functions, actions, parents
 from toolkit.maths import quick_rms
+from toolkit.logger import get_stdout_logger, Logger
 import astropy.units as u
 
 from line_little_helper.argparse_parents import query_freqrange, line_parents
@@ -31,7 +32,8 @@ def spectra_loader(filenames: Sequence[Path],
                    radius: Optional[u.Quantity] = None,
                    rms: Optional[u.Quantity] = None,
                    restframe: str = 'observed',
-                   log: Callable = print) -> dict:
+                   log: Optional[Logger] = get_stdout_logger('spec_loader')
+                   ) -> dict:
     """Load spectra from file names.
 
     Args:
@@ -41,12 +43,13 @@ def spectra_loader(filenames: Sequence[Path],
       radius: optional; source radius for averaging.
       rms: Optional. RMS of the spectra.
       restframe: Optional. Spectral frame (observed or rest).
-      log: optional; logging function.
+      log: Optional. Logger object.
     """
-    log('Extracting spectra')
+    log.info('Extracting spectra')
     specs = IndexedSpectra.from_files(filenames, coords=positions, vlsr=vlsr,
-                                      radius=radius, rms=rms, restframe=restframe)
-    log(specs)
+                                      radius=radius, rms=rms,
+                                      restframe=restframe, log=log)
+    log.info(specs)
 
     return specs
 
@@ -102,7 +105,7 @@ def _extractor(args: argparse.ArgumentParser) -> None:
                            mask_from=args.mask_from[0],
                            outdir=args.outdir[0],
                            savemask=args.savemask[0],
-                           log=args.log.info)
+                           log=args.log)
 
 def extractor(filenames: Sequence[Path],
               position: Optional = None,
@@ -117,7 +120,8 @@ def extractor(filenames: Sequence[Path],
               mask_from: Optional[Path] = None,
               outdir: Optional[Path] = None,
               savemask: Optional[Path] = None,
-              log: Callable = print) -> Union[IndexedSpectra, list]:
+              log: Optional[Logger] = get_stdout_logger('extractor')
+              ) -> Union[IndexedSpectra, list]:
     """Extract spectra.
 
     If `position` is given, the spectra is extracted at that position in all
@@ -145,7 +149,7 @@ def extractor(filenames: Sequence[Path],
     """
     if position is not None:
         # Positions
-        log(f'Position:\n{position}')
+        log.info(f'Position:\n{position}')
 
         # Specs
         specs = spectra_loader(filenames,
@@ -157,19 +161,19 @@ def extractor(filenames: Sequence[Path],
                                log=log)
         # Save specs
         if outdir is not None:
-            log(f'Saving to: {outdir}')
+            log.info(f'Saving to: {outdir}')
             specs.write_to(directory=outdir, fmt='dat')
     elif filenames[0].suffix.lower() == '.dat':
         specs = spectra_loader(filenames, log=log)
     else:
         # Check if there is a reference image for mask
         if mask_from is not None:
-            log(f'Opening: {mask_from}')
+            log.info(f'Opening: {mask_from}')
             img = fits.open(mask_from)[0]
             img_rms = quick_rms(img.data)
-            log(f'Reference image rms: {img_rms}')
+            log.info(f'Reference image rms: {img_rms}')
             mask = img.data > nsigma * img_rms
-            log(f'Extracting all spectrum in mask ({nsigma}sigma)')
+            log.info(f'Extracting all spectrum in mask ({nsigma}sigma)')
             if box is not None:
                 xlow, ylow, xhigh, yhigh = box
                 mask[:ylow] = False
@@ -178,8 +182,8 @@ def extractor(filenames: Sequence[Path],
                 mask[:, xhigh:] = False
             if savemask is not None:
                 savemask = outdir / savemask
-                log(f'Mask filename: {savemask}')
-                log('Saving mask')
+                log.info(f'Mask filename: {savemask}')
+                log.info('Saving mask')
                 header = img.header
                 hdu = fits.PrimaryHDU(mask.astype(int), header=header)
                 hdu.update_header()
@@ -189,7 +193,7 @@ def extractor(filenames: Sequence[Path],
             mask = mask.data.astype(bool)
         else:
             mask = None
-            log('Extracting all spectrum over flux limit')
+            log.info('Extracting all spectrum over flux limit')
         frame = 'rest' if rest else 'observed'
         on_the_fly_spectra_loader(filenames,
                                   rms=rms,
@@ -201,7 +205,7 @@ def extractor(filenames: Sequence[Path],
                                   maskname=savemask,
                                   restframe=frame,
                                   radius=radius,
-                                  log=log)
+                                  log=log.info)
         specs = []
 
     return specs

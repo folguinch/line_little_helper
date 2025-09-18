@@ -9,7 +9,7 @@ from radio_beam import Beam, Beams
 from scipy import ndimage, signal
 from spectral_cube import SpectralCube
 from toolkit.astro_tools import cube_utils
-from toolkit.logger import LoggedObject, get_logger
+from toolkit.logger import LoggedObject, get_logger, Logger
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,7 +19,6 @@ from .processing_tools import observed_to_rest
 from .molecule import Molecule
 
 Coordinate = TypeVar('Coordinate')
-Logger = TypeVar('Logger')
 
 def _value_from_header(text: str):
     """Separate value and unit from spectrum header."""
@@ -926,7 +925,7 @@ class IndexedSpectra(dict):
                             rms=rms,
                             radius=radius,
                             restframe=restframe,
-                            log = log,
+                            log=log,
                         )
                         specs.append(spec)
 
