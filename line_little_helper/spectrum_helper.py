@@ -21,8 +21,7 @@ from toolkit.maths import quick_rms
 import astropy.units as u
 import toolkit.argparse_tools.parents as apparents
 
-from line_little_helper.scripts.argparse_parents import (query_freqrange,
-                                                         line_parents)
+from line_little_helper.argparse_parents import query_freqrange, line_parents
 from line_little_helper.spectrum import (IndexedSpectra,
                                          on_the_fly_spectra_loader)
 
