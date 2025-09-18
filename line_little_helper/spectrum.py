@@ -856,7 +856,7 @@ class IndexedSpectra(dict, LoggedObject):
         # Dictionary index
         vals = None
         if index == 'coords':
-            self.log.info('Indexing by coordinates')
+            cls.log.info('Indexing by coordinates')
             # Keys
             keys = coords
 
@@ -870,7 +870,7 @@ class IndexedSpectra(dict, LoggedObject):
                                                    spectral_axis_unit, vlsr,
                                                    radius=radius))
         elif index == 'filenames':
-            self.log.info('Indexing by filenames')
+            cls.log.info('Indexing by filenames')
             keys = filenames
         else:
             self.log.info('Indexing by ', index)
@@ -881,14 +881,14 @@ class IndexedSpectra(dict, LoggedObject):
             vals = []
             for filename in filenames:
                 if filetype == '.dat':
-                    self.log.info('Loading spectrum from file')
+                    cls.log.info('Loading spectrum from file')
                     # Load spectrum
                     spec = Spectrum.from_file(
                         filename,
                         spectral_axis_unit=spectral_axis_unit,
                     )
                 else:
-                    self.log.info('Loading spectrum from cube')
+                    cls.log.info('Loading spectrum from cube')
                     aux = SpectralCube.read(filename)
 
                     # Iter over coordinates

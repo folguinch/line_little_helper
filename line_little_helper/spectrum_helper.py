@@ -16,10 +16,9 @@ import sys
 
 from astropy.io import fits
 from astropy.table import QTable, vstack
-from toolkit.argparse_tools import functions, actions
+from toolkit.argparse_tools import functions, actions, parents
 from toolkit.maths import quick_rms
 import astropy.units as u
-import toolkit.argparse_tools importimport arents
 
 from line_little_helper.argparse_parents import query_freqrange, line_parents
 from line_little_helper.spectrum import (IndexedSpectra,
