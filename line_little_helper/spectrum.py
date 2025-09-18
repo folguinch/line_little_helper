@@ -19,6 +19,7 @@ from .processing_tools import observed_to_rest
 from .molecule import Molecule
 
 Coordinate = TypeVar('Coordinate')
+Logger = TypeVar('Logger')
 
 def _value_from_header(text: str):
     """Separate value and unit from spectrum header."""
