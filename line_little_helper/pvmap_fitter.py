@@ -16,7 +16,10 @@ import numpy as np
 
 def fit_linear(pvmap: 'astropy.io.fits',
                rms: Optional[u.Quantity] = None,
-               nsigma: float = 3) -> Tuple[fitting.LinearLSQFitter, u.Quantity]:
+               nsigma: float = 3,
+               xrange: Optional[Tuple[u.Quantity]] = None,
+               yrange: Optional[Tuple[u.Quantity]] = None,
+               ) -> Tuple[fitting.LinearLSQFitter, u.Quantity]:
     """Fit a linear function to the data.
 
     If rms is given then filter out data below `nsigma*rms`.
@@ -25,9 +28,11 @@ def fit_linear(pvmap: 'astropy.io.fits',
     intensity weighted average.
 
     Args:
-      pvmap: position-velocity map.
-      rms: optional; rms of the data.
-      nsigma: optional; sigma level for valid data.
+      pvmap: Position-velocity map.
+      rms: Optional. The rms of the data.
+      nsigma: Optional. Sigma level for valid data.
+      xrange: Optional. Range of valid x-axis values.
+      yrange: Optional. Range of valid y-axis values.
     Returns:
       The fitted model.
       The coordinates of the points and errors.
@@ -38,11 +43,25 @@ def fit_linear(pvmap: 'astropy.io.fits',
     y = y.to(u.km / u.s)
     yrep = np.tile(y[:, np.newaxis], (1, x.size)).value
 
+    # Y-Axis range mask
+    mask_yrange = np.zeros(yrep.shape, dtype=bool)
+    if yrange is not None:
+        ylow = np.min(yrange.to(y.unit).value)
+        yup = np.max(yrange.to(y.unit).value)
+        mask_yrange[yrep < ylow] = True
+        mask_yrange[yrep > yup] = True
+
     # Data as quantity
     data = pvmap.data * u.Unit(pvmap.header['BUNIT'])
     if rms is not None:
-        yrep = np.ma.masked_where(data < rms * nsigma, yrep)
-        data = np.ma.masked_where(data < rms * nsigma, data.value)
+        yrep = np.ma.masked_where((data < rms * nsigma) | mask_yrange,
+                                  yrep)
+        data = np.ma.masked_where((data < rms * nsigma) | mask_yrange,
+                                  data.value)
+        average = np.ma.average
+    elif yrange is not None:
+        yrep = np.ma.array(yrep, mask=mask_yrange)
+        data = np.ma.array(data.value, mask=mask_yrange)
         average = np.ma.average
     else:
         data = data.value
@@ -57,6 +76,15 @@ def fit_linear(pvmap: 'astropy.io.fits',
     x = x[~yavg.mask]
     ystd = ystd[~yavg.mask] * y.unit
     yavg = yavg[~yavg.mask] * y.unit
+
+    # Filter if xrange is given before fit
+    if xrange is not None:
+        xlow = np.min(xrange.to(x.unit))
+        xup = np.max(xrange.to(x.unit))
+        mask_xrange = (x > xlow) & (x < xup)
+        x = x[mask_xrange]
+        ystd = ystd[mask_xrange]
+        yavg = yavg[mask_xrange]
 
     # Fit function
     line_init = models.Linear1D()
@@ -145,7 +173,8 @@ def _fitter(args: argparse.Namespace):
 
         # Fit by functions
         if args.function[0] == 'linear':
-            model, *data = fit_linear(pv, rms=args.rms, nsigma=10)
+            model, *data = fit_linear(pv, rms=args.rms, nsigma=args.nsigma,
+                                      xrange=args.xrange, yrange=args.yrange)
             args.log.info('Modeling result: %r', model)
 
             # Build table
@@ -198,6 +227,12 @@ def pvmap_fitter(args: Optional[Sequence] = None):
                         help='Function or model to fit')
     parser.add_argument('--rms', action=actions.ReadQuantity, default=None,
                         help='The rms of the data')
+    parser.add_argument('--nsigma', type=float, default=10,
+                        help='The number of sigma levels')
+    parser.add_argument('--xrange', nargs=3, action=actions.ReadQuantity, default=None,
+                        help='Range for x-axis points')
+    parser.add_argument('--yrange', nargs=3, action=actions.ReadQuantity, default=None,
+                        help='Range for y-axis points')
     parser.add_argument('--bunit', nargs=1, default=['Jy/beam'],
                         help='Intensity unit')
     parser.add_argument('--plotname', action=actions.NormalizePath,
