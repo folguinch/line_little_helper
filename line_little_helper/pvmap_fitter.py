@@ -19,6 +19,7 @@ def fit_linear(pvmap: 'astropy.io.fits',
                nsigma: float = 3,
                xrange: Optional[Tuple[u.Quantity]] = None,
                yrange: Optional[Tuple[u.Quantity]] = None,
+               distance: Optional[u.Quantity] = None,
                ) -> Tuple[fitting.LinearLSQFitter, u.Quantity]:
     """Fit a linear function to the data.
 
@@ -85,6 +86,11 @@ def fit_linear(pvmap: 'astropy.io.fits',
         x = x[mask_xrange]
         ystd = ystd[mask_xrange]
         yavg = yavg[mask_xrange]
+
+    if distance is not None:
+        x = x.to(u.arcsec) * distance.to(u.pc)
+        x = x.value * u.au
+        x = x.to(u.pc)
 
     # Fit function
     line_init = models.Linear1D()
@@ -174,7 +180,8 @@ def _fitter(args: argparse.Namespace):
         # Fit by functions
         if args.function[0] == 'linear':
             model, *data = fit_linear(pv, rms=args.rms, nsigma=args.nsigma,
-                                      xrange=args.xrange, yrange=args.yrange)
+                                      xrange=args.xrange, yrange=args.yrange,
+                                      distance=args.distance)
             args.log.info('Modeling result: %r', model)
 
             # Build table
@@ -200,6 +207,9 @@ def _fitter(args: argparse.Namespace):
             model_results.write_text('\n'.join(lines))
 
             # Plot
+            if args.distance is not None:
+                args.log.info('Distance used, not plotting')
+                continue
             plot_pvmap(plot, i, pv, data=data, model=model,
                        bunit=f'{args.bunit[0]}', rms=args.rms)
         elif args.function[0] == 'plot':
@@ -225,6 +235,8 @@ def pvmap_fitter(args: Optional[Sequence] = None):
     )
     parser.add_argument('--function', nargs=1, default=['linear'],
                         help='Function or model to fit')
+    parser.add_argument('--distance', action=actions.ReadQuantity, default=None,
+                        help='Source distance')
     parser.add_argument('--rms', action=actions.ReadQuantity, default=None,
                         help='The rms of the data')
     parser.add_argument('--nsigma', type=float, default=10,
